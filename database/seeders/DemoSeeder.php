@@ -27,9 +27,9 @@ class DemoSeeder extends Seeder
         // ---- Giáo viên demo: Cô Lan ----
         $teacher = User::create([
             'name' => 'Cô Lan',
-            'email' => 'colan@email.com',
+            'email' => 'cotrang@gmail.com',
             'phone' => '0900000821',
-            'password' => Hash::make('password'),
+            'password' => Hash::make('123456'),
             'role' => 'owner',
             'account_prefix' => 'co-lan',
             'status' => 'active',
