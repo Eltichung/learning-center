@@ -30,9 +30,10 @@ Route::get('/students/{id}', fn ($id) => view('teacher.student', ['active' => 's
     ->name('teacher.student');
 
 
-Route::view('/tra-cuu', 'parent.search')->name('parent.search');
+Route::view('/tra-cuu', 'parent.search', ['navActive' => 'p-search', 'stageTitle' => 'Trang tra cứu phụ huynh'])
+    ->name('parent.search');
 
-Route::get('/p/{slug}', fn ($slug) => view('parent.info', ['slug' => $slug]))
+Route::get('/p/{slug}', fn ($slug) => view('parent.info', ['slug' => $slug, 'navActive' => 'p-info', 'stageTitle' => 'Thông tin học sinh']))
     ->name('parent.info');
-Route::get('/p/{slug}/lich-su', fn ($slug) => view('parent.history', ['slug' => $slug]))
+Route::get('/p/{slug}/lich-su', fn ($slug) => view('parent.history', ['slug' => $slug, 'navActive' => 'p-history', 'stageTitle' => 'Lịch sử học (theo tuần)']))
     ->name('parent.history');
