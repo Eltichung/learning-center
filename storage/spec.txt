@@ -1,0 +1,221 @@
+SPEC SẢN PHẨM — Web Quản lý & Tra cứu Lớp học thêm
+Tên tạm: LớpThêm (đổi tên thương mại sau) Phiên bản tài liệu: v1.1 · Ngày: 08/06/2026 Stack: Laravel (backend + API) Giao diện: Giáo viên dùng desktop · Phụ huynh dùng mobile Mục tiêu: SaaS đa người dùng (multi-tenant), sẵn sàng thương mại hóa
+
+Thay đổi v1.1: (1) Khu giáo viên thiết kế cho desktop; (2) Link tra cứu (slug) do giáo viên tự điền, kiểm tra unique trong phạm vi tài khoản; (3) Học phí tính theo số buổi (không theo giờ).
+
+
+1. Tổng quan & vấn đề giải quyết
+Giáo viên dạy thêm tại nhà hiện quản lý lớp, điểm danh và học phí thủ công (sổ giấy, Excel, Zalo). Việc này dẫn tới: quên thu tiền, phụ huynh không nắm được lịch học/lịch nghỉ/lịch bù, tranh cãi về số buổi và số tiền.
+
+Sản phẩm là một web app giúp:
+
+Giáo viên (mỗi tài khoản = 1 giáo viên/cơ sở dạy thêm) quản lý lớp, học sinh, điểm danh và học phí — làm việc trên desktop.
+Phụ huynh tra cứu thông tin con qua mã học sinh hoặc đường link mà không cần đăng nhập — xem trên điện thoại.
+
+Trọng tâm: đơn giản, minh bạch học phí, dễ tra cứu.
+1.1 Đối tượng người dùng
+Vai trò
+Mô tả
+Truy cập
+Giáo viên (Tenant Owner)
+Chủ tài khoản, quản lý mọi thứ trong phạm vi của mình
+Đăng nhập — giao diện desktop
+Trợ giảng (tuỳ chọn, giai đoạn sau)
+Được giáo viên cấp quyền điểm danh
+Đăng nhập, quyền giới hạn (desktop)
+Phụ huynh / Học sinh
+Chỉ xem thông tin của 1 học sinh
+Không đăng nhập — qua mã/link, giao diện mobile
+Super Admin (vận hành SaaS)
+Quản lý toàn hệ thống, gói cước, tenant
+Trang admin riêng
+
+
+2. Phạm vi tính năng
+2.1 Khu vực Giáo viên — Desktop (có đăng nhập)
+Quản lý lớp học
+
+Tạo/sửa/xoá lớp. Mỗi lớp có: tên lớp, loại lớp (Gia sư 1-1 / Học thêm theo nhóm), khối lớp (lớp 1 → 12), môn học, lịch học cố định (thứ trong tuần + giờ bắt đầu/kết thúc), địa điểm/ghi chú.
+Ghi chú trạng thái lớp: đang hoạt động / tạm dừng / kết thúc.
+
+Quản lý học sinh
+
+Thêm học sinh vào một hoặc nhiều lớp.
+Thông tin: họ tên, ngày sinh (tuỳ chọn), trường, SĐT phụ huynh, ghi chú.
+Học phí theo buổi (đơn giá/buổi) riêng cho từng học sinh (cho phép khác nhau giữa các học sinh, kể cả trong cùng lớp).
+Mỗi học sinh có mã tra cứu + link tra cứu (slug):
+Slug do giáo viên tự điền (ví dụ: an-lop9, minh-toan).
+Hệ thống kiểm tra trùng trong phạm vi tài khoản giáo viên (unique theo teacher_id). Hai giáo viên khác nhau có thể trùng slug nhưng link vẫn phân biệt được nhờ tiền tố tài khoản.
+Gợi ý slug tự động + nút "kiểm tra còn trống".
+
+Điểm danh (theo buổi)
+
+Theo buổi học: chọn lớp → ngày → đánh dấu từng học sinh: Có mặt / Vắng có phép / Vắng không phép / Học bù.
+Tính tiền theo số buổi: mỗi buổi học sinh "Có mặt" hoặc "Học bù" được tính 1 buổi = đơn giá/buổi của học sinh. Không tính theo giờ.
+(Tuỳ chọn) hỗ trợ buổi tính hệ số khác (vd buổi đôi = 2) qua trường "số buổi quy đổi", mặc định = 1.
+Hỗ trợ điểm danh nhanh cả lớp (mặc định tất cả có mặt, chỉ sửa người vắng).
+
+Lịch nghỉ & học bù
+
+Đánh dấu buổi nghỉ (giáo viên nghỉ hoặc lớp nghỉ) trong tháng — không tính tiền.
+Tạo buổi học bù vào thứ/ngày khác, gắn với buổi đã nghỉ.
+Tổng hợp tự động: tháng này nghỉ buổi nào, bù vào thứ mấy.
+
+Học phí
+
+Tự động cộng dồn tiền chưa đóng = tổng số buổi đã tính × đơn giá/buổi − đã đóng.
+Ghi nhận lần đóng tiền (ngày, số tiền, phương thức: tiền mặt/chuyển khoản, ghi chú).
+Lịch sử đóng tiền đầy đủ + công nợ còn lại theo từng học sinh.
+Báo cáo nhanh: doanh thu theo tháng, số buổi đã dạy, danh sách học sinh còn nợ.
+
+Chia sẻ cho phụ huynh
+
+Sao chép mã học sinh / link tra cứu để gửi qua Zalo/SMS.
+(Giai đoạn sau) Tạo QR code cho mỗi học sinh.
+2.2 Khu vực Phụ huynh — Mobile (không đăng nhập)
+Truy cập bằng mã học sinh (nhập ở trang search) hoặc link trực tiếp. Trang hiển thị:
+
+Tên học sinh + lớp đang theo học.
+Lịch học thêm: học vào những buổi/thứ nào, giờ nào.
+Lịch nghỉ tháng này: đã nghỉ buổi nào.
+Lịch học bù: bù vào thứ/ngày nào.
+Học phí: số tiền chưa đóng hiện tại (+ số buổi đã học trong kỳ).
+Lịch sử đóng tiền: các lần đã đóng (ngày, số tiền).
+(Tuỳ chọn) lịch sử điểm danh gần đây.
+
+Trang phụ huynh chỉ đọc, không có thông tin học sinh khác, dùng slug + tuỳ chọn yêu cầu xác thực nhẹ (4 số cuối SĐT phụ huynh) để tăng riêng tư.
+2.3 Khu vực Super Admin (vận hành SaaS)
+Quản lý danh sách tenant (giáo viên), trạng thái gói cước, gia hạn/khoá.
+Thống kê tổng: số tenant, số học sinh, doanh thu gói cước.
+Quản lý gói cước, mã khuyến mãi.
+
+
+3. Mô hình dữ liệu (Data Model)
+Đa người dùng theo mô hình multi-tenant single-database (mỗi bảng nghiệp vụ có teacher_id/tenant_id để phân tách; bắt buộc lọc theo tenant ở tầng query — dùng Laravel Global Scope).
+Bảng chính
+users (giáo viên / trợ giảng / super admin) id, name, email, phone, password, role (owner|assistant|super_admin), tenant_id, account_prefix, status, created_at
+
+account_prefix: tiền tố tài khoản dùng dựng URL phụ huynh (vd co-lan), giúp slug chỉ cần unique trong tài khoản.
+
+subscriptions (gói cước của giáo viên) id, tenant_id, plan_id, status (trial|active|past_due|canceled), started_at, current_period_end, ...
+
+classes (lớp học) id, teacher_id, name, type (tutor_1on1|group), grade (1..12), subject, status, note, created_at
+
+class_schedules (lịch cố định của lớp) id, class_id, weekday (0..6), start_time, end_time
+
+students (học sinh) id, teacher_id, full_name, dob, school, parent_phone, note, lookup_code, lookup_slug, status
+
+Ràng buộc unique theo tài khoản: UNIQUE(teacher_id, lookup_slug) và UNIQUE(teacher_id, lookup_code). Slug do giáo viên nhập.
+
+enrollments (học sinh ↔ lớp, gồm đơn giá/buổi) id, student_id, class_id, price_per_session, joined_at, left_at, status
+
+Đơn giá theo buổi đặt ở enrollment để mỗi học sinh có giá riêng theo từng lớp.
+
+sessions (buổi học thực tế) id, class_id, date, start_time, end_time, type (regular|makeup|off), makeup_for_session_id (nullable), note
+
+type=off là buổi nghỉ; makeup là buổi bù trỏ về buổi nghỉ qua makeup_for_session_id.
+
+attendances (điểm danh từng học sinh / buổi) id, session_id, student_id, status (present|absent_excused|absent|makeup), session_units (mặc định 1), amount, created_at
+
+amount = session_units × price_per_session snapshot tại thời điểm điểm danh. Buổi vắng không tính tiền (amount = 0).
+
+payments (đóng tiền) id, student_id, teacher_id, amount, paid_at, method (cash|transfer), note, created_at
+
+Công nợ = Σ attendances.amount − Σ payments.amount, tính theo từng học sinh (truy vấn, không lưu cứng).
+Quan hệ tóm tắt
+teacher (user) 1—n classes, students, payments
+class 1—n class_schedules, sessions, và n—n students qua enrollments
+session 1—n attendances
+student 1—n enrollments, attendances, payments
+
+
+4. API (REST, JSON) — phác thảo
+Có xác thực (Laravel Sanctum) cho khu giáo viên; khu phụ huynh là endpoint public theo slug.
+
+Auth POST /api/auth/register · POST /api/auth/login · POST /api/auth/logout · GET /api/me
+
+Lớp & lịch GET/POST /api/classes · GET/PUT/DELETE /api/classes/{id} · POST /api/classes/{id}/schedules
+
+Học sinh & ghi danh GET/POST /api/students · GET/PUT/DELETE /api/students/{id} GET /api/students/check-slug?slug= (kiểm tra slug còn trống trong tài khoản) POST /api/classes/{id}/enroll (student_id, price_per_session)
+
+Buổi học & điểm danh POST /api/classes/{id}/sessions (tạo buổi, gồm off/makeup) POST /api/sessions/{id}/attendances (điểm danh hàng loạt; mỗi học sinh có status + session_units) GET /api/sessions?class_id=&month=
+
+Học phí GET /api/students/{id}/balance (công nợ + số buổi + chi tiết) POST /api/students/{id}/payments · GET /api/students/{id}/payments
+
+Báo cáo GET /api/reports/revenue?month= · GET /api/reports/debtors
+
+Public — Phụ huynh (không cần token) GET /api/lookup/{prefix}/{slug} hoặc POST /api/lookup (body: code [, last4phone]) → trả: thông tin học sinh, lịch học, lịch nghỉ/bù tháng, công nợ + số buổi, lịch sử đóng tiền.
+
+Áp dụng rate-limit; URL dạng /{account_prefix}/{slug} để slug chỉ cần unique trong tài khoản.
+
+
+5. Frontend
+Khu giáo viên — Desktop: bố cục nhiều cột tận dụng màn hình rộng. Sidebar điều hướng (Lớp / Học sinh / Điểm danh / Học phí / Báo cáo). Bảng dữ liệu, lọc, thao tác hàng loạt. Màn hình điểm danh dạng lưới cả lớp để tích nhanh. Stack gợi ý: Inertia.js + Vue/React + Tailwind hoặc Livewire + Alpine + Tailwind.
+Khu phụ huynh — Mobile: trang đơn giản, tải nhanh, hiển thị rõ "Chưa đóng: X đ" nổi bật; có nút copy/chia sẻ. Tối ưu cho màn hình điện thoại.
+Hỗ trợ tiếng Việt, định dạng tiền VNĐ, ngày dd/mm/yyyy.
+
+
+6. Kiến trúc & hạ tầng
+Backend: Laravel 11+, PHP 8.3+, MySQL/PostgreSQL, Redis (cache + queue).
+Multi-tenant: single DB + cột tenant_id + Global Scope; nâng cấp DB-per-tenant nếu cần ở quy mô lớn.
+Queue/Job: gửi thông báo, tổng hợp báo cáo.
+Lưu trữ: object storage cho file/QR sau này.
+Triển khai: VPS/Cloud (Laravel Forge/Ploi), HTTPS bắt buộc, sao lưu DB hằng ngày.
+
+
+7. Bảo mật & quyền riêng tư
+Mật khẩu băm (bcrypt/argon2), xác thực Sanctum, CSRF cho web.
+Phân tách tenant tuyệt đối: mọi truy vấn lọc theo tenant_id; viết test chống rò rỉ dữ liệu chéo.
+Link phụ huynh: URL /{account_prefix}/{slug}, rate-limit, tuỳ chọn xác thực 4 số cuối SĐT, có thể thu hồi/đổi slug.
+Vì slug do giáo viên đặt (có thể dễ đoán), khuyến nghị bật xác thực 4 số cuối SĐT để bảo vệ riêng tư.
+Tuân thủ bảo vệ dữ liệu cá nhân (đặc biệt dữ liệu trẻ em — Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân tại VN): chỉ thu thập dữ liệu cần thiết, có chính sách riêng tư, cho phép xoá dữ liệu.
+Nhật ký thao tác (audit log) cho hành động nhạy cảm (xoá, đổi tiền).
+
+
+8. Hướng thương mại hóa
+Vì mô hình kinh doanh chưa chốt, dưới đây là khuyến nghị.
+8.1 Mô hình đề xuất: Freemium → SaaS thuê bao theo giáo viên
+Gói
+Giới hạn
+Giá tham khảo
+Free
+1 lớp, tối đa ~10 học sinh, tính năng cơ bản
+0đ
+Pro
+Không giới hạn lớp/học sinh, báo cáo, QR, link tuỳ chỉnh
+~99–199k/tháng
+Trung tâm (sau)
+Nhiều giáo viên/trợ giảng, phân quyền, thương hiệu riêng
+thoả thuận
+
+Lý do: giáo viên thử miễn phí, dữ liệu tích luỹ → chuyển đổi lên Pro tự nhiên. Thanh toán nội địa qua VNPay/MoMo/chuyển khoản + đối soát thủ công giai đoạn đầu.
+8.2 Yếu tố cần để bán được
+Onboarding nhanh (tạo lớp + học sinh đầu tiên trong vài phút).
+Trang phụ huynh "đẹp & rõ tiền" — điểm tạo niềm tin và lan truyền (mỗi phụ huynh là một kênh marketing).
+Xuất báo cáo (PDF/ảnh) để giáo viên gửi phụ huynh.
+Hỗ trợ & chính sách hoàn tiền rõ ràng.
+8.3 Pháp lý/vận hành
+Điều khoản dịch vụ, chính sách bảo mật, hợp đồng SaaS.
+Hoá đơn điện tử cho khách trả phí.
+Sao lưu & cam kết uptime.
+
+
+9. Lộ trình triển khai (gợi ý)
+Giai đoạn 1 — MVP (4–6 tuần) Auth giáo viên (desktop) · CRUD lớp/học sinh/lịch · slug tự đặt + check unique theo tài khoản · điểm danh + tính tiền theo buổi · đóng tiền + công nợ · trang tra cứu phụ huynh (mobile) qua mã/link.
+
+Giai đoạn 2 — Hoàn thiện vận hành (3–4 tuần) Lịch nghỉ/học bù · báo cáo doanh thu & công nợ · QR code · xuất PDF · multi-tenant gói cước + thanh toán.
+
+Giai đoạn 3 — Mở rộng Trợ giảng & phân quyền · thông báo Zalo/SMS nhắc đóng tiền · gói Trung tâm · đa chi nhánh.
+
+
+10. Câu hỏi cần chốt trước khi code
+Có cho phép đơn giá/buổi mặc định theo lớp rồi ghi đè theo học sinh không? (đề xuất: có)
+Buổi đặc biệt (buổi đôi) có dùng hệ số quy đổi số buổi không? (spec đã chừa sẵn trường session_units, mặc định 1)
+Trang phụ huynh có bật xác thực 4 số cuối SĐT không? (đề xuất: bật, vì slug do giáo viên đặt)
+Chốt cổng thanh toán cho gói cước (VNPay/MoMo) và giá bán.
+Tên thương hiệu & domain.
+
+
+
+Tài liệu này là bản spec nền tảng. Sau khi bạn chốt các câu hỏi mục 10, có thể chuyển thành tài liệu kỹ thuật chi tiết (ERD đầy đủ, OpenAPI, wireframe màn hình).
+

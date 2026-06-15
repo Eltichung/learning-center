@@ -1,23 +1,37 @@
-@php($active = $active ?? '')
+@php($rn = request()->route()?->getName())
+@php($active = match (true) {
+    $rn === 'teacher.dashboard' => 'dashboard',
+    in_array($rn, ['teacher.classes', 'teacher.class', 'teacher.classes.store']) => 'classes',
+    in_array($rn, ['teacher.students', 'teacher.student', 'teacher.students.store']) => 'students',
+    $rn === 'teacher.attendance' => 'attendance',
+    $rn === 'teacher.fees' => 'fees',
+    $rn === 'teacher.reports' => 'reports',
+    $rn === 'parent.search' => 'p-search',
+    $rn === 'parent.info' => 'p-info',
+    $rn === 'parent.history' => 'p-history',
+    default => ($active ?? ''),
+})
 <aside class="tside">
-  <div class="brand"><span class="mark">L</span> LớpThêm</div>
-  <div class="subtitle">Prototype giao diện — bấm để xem từng màn.</div>
+  <div class="brand"><span class="mark">L</span> Lớp Tăng Lực</div>
 
-{{--  @php($me = auth()->user())--}}
-{{--  @php($initials = $me ? \Illuminate\Support\Str::upper(collect(explode(' ', trim($me->name)))->map(fn ($w) => mb_substr($w, 0, 1))->take(2)->implode('')) : 'CL')--}}
-{{--  <div class="u">--}}
-{{--    <div class="avatar">{{ $initials }}</div>--}}
-{{--    <div><div class="nm">{{ $me->name ?? 'Cô Lan' }}</div><div class="sb">{{ $me ? 'Giáo viên' : 'Gói Pro' }}</div></div>--}}
-{{--  </div>--}}
+  @auth
+    @php($me = auth()->user())
+    @php($initials = \Illuminate\Support\Str::upper(collect(explode(' ', trim($me->name)))->map(fn ($w) => mb_substr($w, 0, 1))->take(2)->implode('')))
+    @php($planName = optional(optional($me->subscription)->plan)->name)
+    <div class="u">
+      <div class="avatar">{{ $initials }}</div>
+      <div>
+        <div class="nm">{{ $me->name }}</div>
+        <div class="sb">{{ $planName ? 'Gói '.$planName : 'Gói Free' }}</div>
+      </div>
+    </div>
+  @endauth
 
   <div class="group">👩‍🏫 Giáo viên · Desktop</div>
   <nav class="tnav">
-    <a href="{{ route('teacher.login') }}"      class="{{ $active==='login'      ? 'on':'' }}"><span class="ic">🔑</span> Đăng nhập</a>
     <a href="{{ route('teacher.dashboard') }}"  class="{{ $active==='dashboard'  ? 'on':'' }}"><span class="ic">🏠</span> Tổng quan (Hôm nay)</a>
     <a href="{{ route('teacher.classes') }}"    class="{{ $active==='classes'    ? 'on':'' }}"><span class="ic">📚</span> Danh sách lớp</a>
-    <a href="{{ route('teacher.class', 1) }}"   class="{{ $active==='class'      ? 'on':'' }}"><span class="ic">📘</span> Chi tiết lớp</a>
     <a href="{{ route('teacher.students') }}"   class="{{ $active==='students'   ? 'on':'' }}"><span class="ic">🎓</span> Danh sách học sinh</a>
-    <a href="{{ route('teacher.student', 1) }}" class="{{ $active==='student'    ? 'on':'' }}"><span class="ic">👤</span> Hồ sơ học sinh</a>
     <a href="{{ route('teacher.attendance') }}" class="{{ $active==='attendance' ? 'on':'' }}"><span class="ic">✅</span> Điểm danh</a>
     <a href="{{ route('teacher.fees') }}"       class="{{ $active==='fees'       ? 'on':'' }}"><span class="ic">💰</span> Học phí &amp; công nợ</a>
     <a href="{{ route('teacher.reports') }}"    class="{{ $active==='reports'    ? 'on':'' }}"><span class="ic">📊</span> Báo cáo</a>

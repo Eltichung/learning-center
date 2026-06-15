@@ -10,11 +10,8 @@
     </div>
     <div class="stage-body">
       <div class="phone-stage">
-        <div class="phone">
-          <div class="notch"></div>
-          <div class="pscreen">
-            @yield('content')
-          </div>
+        <div class="pscreen">
+          @yield('content')
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="ptop" style="padding-bottom:16px">
-  <a class="small" href="{{ route('parent.info', $slug ?? 'an-toan9') }}">← Nguyễn Bảo An</a>
+  <a class="small" href="{{ route('parent.info', $slug) }}">← {{ $student->full_name }}</a>
   <h2>Lịch sử học</h2>
 </div>
 <div class="pbody">
@@ -33,6 +33,11 @@
 </div>
 
 @push('scripts')
+<script>
+  window.LT_WEEKS = @json($weeks);
+  window.LT_PRICE_K = {{ (int) ($price / 1000) }};
+  window.LT_WEEK_INDEX = {{ $weekIndex }};
+</script>
 <script src="{{ asset('js/parent-week.js') }}"></script>
 <script>renderHistory();</script>
 @endpush

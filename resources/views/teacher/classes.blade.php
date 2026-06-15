@@ -2,18 +2,56 @@
 @section('title','Lớp học — LớpThêm')
 
 @section('content')
-<div class="pagehead"><div><h1>Lớp học</h1><p>6 lớp đang hoạt động</p></div><a class="btn primary" href="#">+ Tạo lớp mới</a></div>
+<div class="pagehead"><div><h1>Lớp học</h1><p>{{ $activeCount }} lớp đang hoạt động</p></div><button class="btn primary" type="button" onclick="newClass()">+ Tạo lớp mới</button></div>
+
+<form class="filterbar" method="GET" action="{{ route('teacher.classes') }}">
+  <select name="grade" onchange="this.form.submit()">
+    <option value="">Tất cả khối</option>
+    @for ($g = 1; $g <= 12; $g++)<option value="{{ $g }}" @selected($grade === $g)>Lớp {{ $g }}</option>@endfor
+  </select>
+  <input class="search-box" name="q" value="{{ $q }}" placeholder="Tên lớp...">
+  <button class="btn primary sm" type="submit">Lọc</button>
+  @if ($grade || $q !== '')<a class="btn ghost sm" href="{{ route('teacher.classes') }}">Xoá lọc</a>@endif
+</form>
+
 <div class="panel"><div class="pb">
+  <div class="tablewrap">
   <table>
-    <thead><tr><th>Tên lớp</th><th>Loại</th><th>Khối</th><th>Lịch học</th><th>Sĩ số</th><th>Trạng thái</th></tr></thead>
+    <thead><tr><th>Tên lớp</th><th>Loại</th><th>Khối</th><th>Lịch học</th><th>Khai giảng</th><th>Sĩ số</th><th>Trạng thái</th><th></th></tr></thead>
     <tbody>
-      <tr onclick="location.href='{{ route('teacher.class',1) }}'" style="cursor:pointer"><td><b>Toán 9 — Nhóm A</b></td><td><span class="chip n">Học thêm</span></td><td>Lớp 9</td><td>T2, T4, T6 · 17:30</td><td>8</td><td><span class="chip g">Hoạt động</span></td></tr>
-      <tr onclick="location.href='{{ route('teacher.class',2) }}'" style="cursor:pointer"><td><b>Lý 12 — Nhóm B</b></td><td><span class="chip n">Học thêm</span></td><td>Lớp 12</td><td>T2, T5 · 19:15</td><td>6</td><td><span class="chip g">Hoạt động</span></td></tr>
-      <tr onclick="location.href='{{ route('teacher.class',3) }}'" style="cursor:pointer"><td><b>Gia sư 1-1 — Bé An</b></td><td><span class="chip b">Gia sư</span></td><td>Lớp 9</td><td>T2, T7 · 14:00</td><td>1</td><td><span class="chip g">Hoạt động</span></td></tr>
-      <tr onclick="location.href='{{ route('teacher.class',4) }}'" style="cursor:pointer"><td><b>Văn 8 — Nhóm C</b></td><td><span class="chip n">Học thêm</span></td><td>Lớp 8</td><td>T3, T6 · 18:00</td><td>10</td><td><span class="chip g">Hoạt động</span></td></tr>
-      <tr onclick="location.href='{{ route('teacher.class',5) }}'" style="cursor:pointer"><td><b>Anh 6 — Nhóm D</b></td><td><span class="chip n">Học thêm</span></td><td>Lớp 6</td><td>T4, T7 · 16:00</td><td>9</td><td><span class="chip g">Hoạt động</span></td></tr>
-      <tr onclick="location.href='{{ route('teacher.class',6) }}'" style="cursor:pointer"><td><b>Gia sư 1-1 — Bé Minh</b></td><td><span class="chip b">Gia sư</span></td><td>Lớp 11</td><td>CN · 09:00</td><td>1</td><td><span class="chip a">Tạm dừng</span></td></tr>
+      @forelse ($classes as $c)
+        @php($cdata = [
+          'id' => $c->id, 'name' => $c->name, 'type' => $c->type, 'grade' => $c->grade,
+          'subject' => $c->subject, 'status' => $c->status,
+          'start_date' => optional($c->start_date)->toDateString(),
+          'weekdays' => $c->schedules->pluck('weekday')->map(fn ($w) => (int) $w)->values(),
+          'start_time' => optional($c->schedules->first())->start_time ? \Illuminate\Support\Carbon::parse($c->schedules->first()->start_time)->format('H:i') : '17:30',
+          'end_time' => optional($c->schedules->first())->end_time ? \Illuminate\Support\Carbon::parse($c->schedules->first()->end_time)->format('H:i') : '19:00',
+        ])
+        <tr>
+          <td><b>{{ $c->name }}</b></td>
+          <td><span class="chip {{ $c->typeChip() }}">{{ $c->typeLabel() }}</span></td>
+          <td>{{ $c->gradeLabel() }}</td>
+          <td>{{ $c->scheduleLabel() }}</td>
+          <td>{{ $c->start_date ? $c->start_date->format('d/m/Y') : '—' }}</td>
+          <td>{{ $c->class_students_count }}</td>
+          <td>
+            <span class="chip {{ $c->statusChip() }}">{{ $c->statusLabel() }}</span>
+            @if ($c->status === 'paused' && $c->ended_at)<div class="r" style="font-size:11px">KT: {{ $c->ended_at->format('d/m/Y') }}</div>@endif
+          </td>
+          <td style="text-align:right;white-space:nowrap">
+            <a class="btn ghost sm" href="{{ route('teacher.class', $c->id) }}">Chi tiết</a>
+            <a class="btn ghost sm" href="{{ route('teacher.attendance', ['class_id' => $c->id]) }}">Điểm danh</a>
+            <button class="btn ghost sm" type="button" onclick='editClass(@json($cdata))'>Sửa</button>
+          </td>
+        </tr>
+      @empty
+        <tr><td colspan="8" class="r" style="padding:18px 16px">Chưa có lớp nào.</td></tr>
+      @endforelse
     </tbody>
   </table>
+  </div>
 </div></div>
+
+@include('partials.class-modal')
 @endsection
