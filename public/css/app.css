@@ -13,6 +13,22 @@ body{margin:0;background:var(--bg);color:var(--ink);
   -webkit-font-smoothing:antialiased}
 a{color:inherit}
 
+/* ---------- Icon action + tooltip ---------- */
+.row-acts{display:inline-flex;align-items:center;gap:4px;margin-left:auto;padding-left:14px}
+.icon-act{position:relative;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;border:1px solid transparent;color:var(--muted);text-decoration:none;font-size:14px;line-height:1;cursor:pointer}
+.icon-act svg{display:block;width:16px;height:16px}
+.icon-act:hover{background:var(--brand-soft);color:var(--brand-ink);border-color:var(--line)}
+.icon-act::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#14161c;color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap;padding:4px 8px;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .15s ease;z-index:60}
+.icon-act::before{content:"";position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#14161c;opacity:0;pointer-events:none;transition:opacity .15s ease;z-index:60}
+.icon-act:hover::after,.icon-act:hover::before{opacity:1}
+
+/* ---------- Toast ---------- */
+.lt-toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.lt-toast{background:#14161c;color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transform:translateY(10px);transition:opacity .25s ease,transform .25s ease}
+.lt-toast.show{opacity:1;transform:translateY(0)}
+.lt-toast.success{background:var(--green)}
+.lt-toast.error{background:var(--red)}
+
 /* ---------- Buttons ---------- */
 .btn{border:0;border-radius:9px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
 .btn.primary{background:var(--brand);color:#fff}
@@ -114,9 +130,7 @@ tr:last-child td{border-bottom:0}
 .stage-bar .tag.mob{background:var(--blue-soft);color:var(--blue)}
 .stage-body{padding:24px;overflow:auto;flex:1}
 .phone-stage{display:flex;justify-content:center;gap:30px;flex-wrap:wrap}
-.phone{width:360px;background:#fff;border:10px solid #14161c;border-radius:38px;overflow:hidden;box-shadow:var(--shadow);position:relative}
-.phone .notch{height:26px;background:#14161c;border-radius:0 0 16px 16px;width:140px;margin:0 auto}
-.pscreen{height:680px;overflow:auto;background:var(--bg)}
+.pscreen{width:390px;max-width:100%;min-height:calc(100vh - 120px);overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
 
 /* ---------- Parent (mobile) ---------- */
 .parent-page{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);box-shadow:0 0 0 1px var(--line)}

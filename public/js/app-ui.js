@@ -15,6 +15,27 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.show').forEach(m => m.classList.remove('show'));
 });
 
+/* ----- Toast thông báo ----- */
+function toast(message, type){
+  let wrap = document.getElementById('lt-toast-wrap');
+  if (!wrap){
+    wrap = document.createElement('div');
+    wrap.id = 'lt-toast-wrap';
+    wrap.className = 'lt-toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement('div');
+  t.className = 'lt-toast' + (type ? ' ' + type : '');
+  t.textContent = message;
+  wrap.appendChild(t);
+  requestAnimationFrame(function(){ t.classList.add('show'); });
+  setTimeout(function(){
+    t.classList.remove('show');
+    setTimeout(function(){ t.remove(); }, 300);
+  }, 2200);
+}
+window.toast = toast;
+
 /* ----- Confirm popup ----- */
 function confirmAction(message, onYes){
   let bd = document.getElementById('lt-confirm');
