@@ -1,5 +1,6 @@
 *.log
 .DS_Store
+/learning-center
 .env
 .env.backup
 .env.production

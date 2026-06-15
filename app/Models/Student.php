@@ -10,7 +10,7 @@ class Student extends Model
 {
     protected $fillable = [
         'teacher_id', 'full_name', 'dob', 'school',
-        'parent_phone', 'student_code', 'status',
+        'parent_phone', 'parent_contact', 'student_code', 'status',
     ];
 
     protected $casts = ['dob' => 'date'];
@@ -26,5 +26,18 @@ class Student extends Model
         $charged = $this->studentSessions()->sum('amount');
         $paid    = $this->payments()->sum('amount');
         return (int) ($charged - $paid);
+    }
+
+    /** Viết tắt: "Nguyễn Bảo An" -> "NA" (chữ đầu của từ đầu + từ cuối) */
+    public function initials(): string
+    {
+        $parts = preg_split('/\s+/', trim($this->full_name)) ?: [];
+        if (count($parts) === 0) {
+            return '?';
+        }
+        $first = mb_substr($parts[0], 0, 1);
+        $last  = count($parts) > 1 ? mb_substr(end($parts), 0, 1) : '';
+
+        return mb_strtoupper($first . $last);
     }
 }

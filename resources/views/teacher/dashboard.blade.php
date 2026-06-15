@@ -1,17 +1,20 @@
 @extends('layouts.teacher')
 @section('title','Tổng quan — LớpThêm')
+@use('App\Support\Money')
 
 @section('content')
+@php($wd = [1=>'Thứ Hai',2=>'Thứ Ba',3=>'Thứ Tư',4=>'Thứ Năm',5=>'Thứ Sáu',6=>'Thứ Bảy',7=>'Chủ Nhật'][now()->dayOfWeekIso])
 <div class="pagehead">
-  <div><h1>Xin chào, Cô Lan 👋</h1><p>Thứ Hai, 08/06/2026 — Hôm nay có 3 buổi học</p></div>
+  <div><h1>Xin chào, {{ auth()->user()->name }} 👋</h1>
+    <p>{{ $wd }}, {{ now()->format('d/m/Y') }} — Hôm nay có {{ $todayClasses->count() }} buổi học</p></div>
   <a class="btn primary" href="{{ route('teacher.attendance') }}">+ Điểm danh nhanh</a>
 </div>
 
 <div class="cards">
-  <div class="card"><div class="lbl">Lớp đang dạy</div><div class="val">6</div><div class="sub">42 học sinh</div></div>
-  <div class="card"><div class="lbl">Buổi hôm nay</div><div class="val">3</div><div class="sub">2 chưa điểm danh</div></div>
-  <div class="card"><div class="lbl">Doanh thu tháng 6</div><div class="val green">18.4tr</div><div class="sub">↑ 12% so tháng trước</div></div>
-  <div class="card"><div class="lbl">Đang nợ học phí</div><div class="val red">7.2tr</div><div class="sub">9 học sinh</div></div>
+  <div class="card"><div class="lbl">Lớp đang dạy</div><div class="val">{{ $classesActive }}</div><div class="sub">{{ $studentsCount }} học sinh</div></div>
+  <div class="card"><div class="lbl">Buổi hôm nay</div><div class="val">{{ $todayClasses->count() }}</div><div class="sub">{{ $notDoneToday }} chưa điểm danh</div></div>
+  <div class="card"><div class="lbl">Doanh thu tháng {{ now()->month }}</div><div class="val green">{{ Money::short($revenueMonth) }}</div><div class="sub">Tổng tiền đã tính theo buổi</div></div>
+  <div class="card"><div class="lbl">Đang nợ học phí</div><div class="val red">{{ Money::short($debtTotal) }}</div><div class="sub">{{ $debtorCount }} học sinh</div></div>
 </div>
 
 <div class="panel">
@@ -20,9 +23,22 @@
     <table>
       <thead><tr><th>Giờ</th><th>Lớp</th><th>Sĩ số</th><th>Trạng thái</th><th></th></tr></thead>
       <tbody>
-        <tr><td><b>17:30</b><div class="r">– 19:00</div></td><td>Toán 9 — Nhóm A</td><td>8 học sinh</td><td><span class="chip a">Chưa điểm danh</span></td><td style="text-align:right"><a class="btn primary sm" href="{{ route('teacher.attendance') }}">Điểm danh</a></td></tr>
-        <tr><td><b>19:15</b><div class="r">– 20:45</div></td><td>Lý 12 — Nhóm B</td><td>6 học sinh</td><td><span class="chip a">Chưa điểm danh</span></td><td style="text-align:right"><a class="btn primary sm" href="{{ route('teacher.attendance') }}">Điểm danh</a></td></tr>
-        <tr><td><b>14:00</b><div class="r">– 15:30</div></td><td>Gia sư 1-1 — Bé An</td><td>1 học sinh</td><td><span class="chip g">Đã điểm danh</span></td><td style="text-align:right"><a class="btn ghost sm" href="#">Xem</a></td></tr>
+        @forelse ($todayClasses as $row)
+          <tr>
+            <td><b>{{ \Illuminate\Support\Carbon::parse($row->start)->format('H:i') }}</b><div class="r">– {{ \Illuminate\Support\Carbon::parse($row->end)->format('H:i') }}</div></td>
+            <td>{{ $row->class->name }}</td>
+            <td>{{ $row->count }} học sinh</td>
+            <td>
+              @if ($row->done)<span class="chip g">Đã điểm danh</span>
+              @else<span class="chip a">Chưa điểm danh</span>@endif
+            </td>
+            <td style="text-align:right">
+              <a class="btn {{ $row->done ? 'ghost' : 'primary' }} sm" href="{{ route('teacher.attendance', ['class_id' => $row->class->id]) }}">{{ $row->done ? 'Xem' : 'Điểm danh' }}</a>
+            </td>
+          </tr>
+        @empty
+          <tr><td colspan="5" class="r" style="padding:18px 16px">Hôm nay không có buổi học nào theo lịch.</td></tr>
+        @endforelse
       </tbody>
     </table>
   </div>

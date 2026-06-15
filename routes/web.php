@@ -1,20 +1,21 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\LookupController;
+use App\Http\Controllers\TeacherController;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes — LớpThêm
 |--------------------------------------------------------------------------
-| - Khu giáo viên (admin): yêu cầu đăng nhập (middleware 'auth').
-| - Khu phụ huynh: công khai, truy cập bằng mã/slug, không cần đăng nhập.
+| - Khu giáo viên (admin): yêu cầu đăng nhập (middleware 'auth'), render DB.
+| - Khu phụ huynh: công khai, tra cứu theo mã học sinh, render DB.
 */
 
-// Trang chủ -> vào thẳng admin (chưa đăng nhập sẽ bị 'auth' đẩy về /login)
 Route::get('/', fn () => redirect()->route('teacher.dashboard'));
 
-/* ---------------- Xác thực (chỉ cho khách chưa đăng nhập) ---------------- */
+/* ---------------- Xác thực (khách chưa đăng nhập) ---------------- */
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('teacher.login');
     Route::post('/login', [AuthController::class, 'login']);
@@ -28,24 +29,34 @@ Route::post('/logout', [AuthController::class, 'logout'])
 
 /* ---------------- Khu giáo viên (admin) — yêu cầu đăng nhập ---------------- */
 Route::middleware('auth')->group(function () {
-    Route::view('/dashboard', 'teacher.dashboard', ['active' => 'dashboard'])->name('teacher.dashboard');
-    Route::view('/classes',   'teacher.classes',   ['active' => 'classes'])->name('teacher.classes');
-    Route::view('/students',  'teacher.students',  ['active' => 'students'])->name('teacher.students');
-    Route::view('/attendance', 'teacher.attendance', ['active' => 'attendance'])->name('teacher.attendance');
-    Route::view('/fees',      'teacher.fees',      ['active' => 'fees'])->name('teacher.fees');
-    Route::view('/reports',   'teacher.reports',   ['active' => 'reports'])->name('teacher.reports');
+    Route::get('/dashboard', [TeacherController::class, 'dashboard'])->name('teacher.dashboard');
 
-    Route::get('/classes/{id}', fn ($id) => view('teacher.class-detail', ['active' => 'classes', 'id' => $id]))
-        ->name('teacher.class');
-    Route::get('/students/{id}', fn ($id) => view('teacher.student', ['active' => 'students', 'id' => $id]))
-        ->name('teacher.student');
+    Route::get('/classes', [TeacherController::class, 'classes'])->name('teacher.classes');
+    Route::post('/classes', [TeacherController::class, 'storeClass'])->name('teacher.classes.store');
+    Route::put('/classes/{id}', [TeacherController::class, 'updateClass'])->name('teacher.classes.update');
+    Route::get('/classes/{id}', [TeacherController::class, 'classShow'])->name('teacher.class');
+    Route::post('/classes/{id}/students', [TeacherController::class, 'addStudentToClass'])->name('teacher.class.addStudent');
+
+    Route::get('/students', [TeacherController::class, 'students'])->name('teacher.students');
+    Route::post('/students', [TeacherController::class, 'storeStudent'])->name('teacher.students.store');
+    Route::put('/students/{id}', [TeacherController::class, 'updateStudent'])->name('teacher.students.update');
+    Route::get('/students/{id}', [TeacherController::class, 'studentShow'])->name('teacher.student');
+
+    Route::get('/attendance', [TeacherController::class, 'attendance'])->name('teacher.attendance');
+    Route::post('/attendance/{session}', [TeacherController::class, 'submitAttendance'])->name('teacher.attendance.submit');
+
+    Route::post('/payments', [TeacherController::class, 'storePayment'])->name('teacher.payments.store');
+
+    Route::get('/fees', [TeacherController::class, 'fees'])->name('teacher.fees');
+    Route::get('/reports', [TeacherController::class, 'reports'])->name('teacher.reports');
+
+    // AJAX
+    Route::get('/api/students/search', [TeacherController::class, 'searchStudents'])->name('api.students.search');
+    Route::get('/api/students/{id}/monthly', [TeacherController::class, 'studentMonthly'])->name('api.student.monthly');
 });
 
 /* ---------------- Khu phụ huynh (công khai) ---------------- */
-Route::view('/tra-cuu', 'parent.search', ['navActive' => 'p-search', 'stageTitle' => 'Trang tra cứu phụ huynh'])
-    ->name('parent.search');
-
-Route::get('/p/{slug}', fn ($slug) => view('parent.info', ['slug' => $slug, 'navActive' => 'p-info', 'stageTitle' => 'Thông tin học sinh']))
-    ->name('parent.info');
-Route::get('/p/{slug}/lich-su', fn ($slug) => view('parent.history', ['slug' => $slug, 'navActive' => 'p-history', 'stageTitle' => 'Lịch sử học (theo tuần)']))
-    ->name('parent.history');
+Route::get('/tra-cuu', [LookupController::class, 'search'])->name('parent.search');
+Route::post('/tra-cuu', [LookupController::class, 'find']);
+Route::get('/p/{slug}', [LookupController::class, 'show'])->name('parent.info');
+Route::get('/p/{slug}/lich-su', [LookupController::class, 'history'])->name('parent.history');
