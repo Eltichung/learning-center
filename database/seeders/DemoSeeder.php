@@ -26,7 +26,7 @@ class DemoSeeder extends Seeder
         $pro = Plan::create(['name' => 'Pro', 'price' => 149000,
             'limits' => ['max_classes' => null, 'max_students' => null]]);
 
-        /* ============ Giáo viên demo: Cô Lan ============ */
+        /* ============ Giáo viên demo: Cô Trang ============ */
         $teacher = User::create([
             'name' => 'Cô Trang',
             'email' => 'ninhtrang@gmail.com',
@@ -212,6 +212,6 @@ class DemoSeeder extends Seeder
             }
         }
 
-        $this->command->info('Demo data đã tạo. Đăng nhập: colan@email.com / password');
+        $this->command->info('Demo data đã tạo. Đăng nhập: ninhtrang@gmail.com / trangvachung');
     }
 }

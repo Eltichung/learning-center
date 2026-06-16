@@ -15,7 +15,7 @@
 
     <div class="field">
       <label>Email</label>
-      <input type="email" name="email" value="{{ old('email', 'colan@email.com') }}" autofocus>
+      <input type="email" name="email" value="{{ old('email', 'ninhtrang@gmail.com') }}" autofocus>
     </div>
     <div class="field">
       <label>Mật khẩu</label>
