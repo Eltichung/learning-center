@@ -5,7 +5,8 @@
 @section('content')
 @php($wd = [1=>'Thứ Hai',2=>'Thứ Ba',3=>'Thứ Tư',4=>'Thứ Năm',5=>'Thứ Sáu',6=>'Thứ Bảy',7=>'Chủ Nhật'][now()->dayOfWeekIso])
 <div class="pagehead">
-  <div><h1>Xin chào, {{ auth()->user()->name }} 👋</h1>
+{{--  <div><h1>Xin chào, {{ auth()->user()->name }} 👋</h1>--}}
+    <div><h1>Xin chào, công chúa của anh 👋</h1>
     <p>{{ $wd }}, {{ now()->format('d/m/Y') }} — Hôm nay có {{ $todayClasses->count() }} buổi học</p></div>
   <a class="btn primary" href="{{ route('teacher.attendance') }}">+ Điểm danh nhanh</a>
 </div>
