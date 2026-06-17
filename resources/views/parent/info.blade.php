@@ -63,7 +63,7 @@
   window.LT_PRICE_K = {{ (int) ($price / 1000) }};
   window.LT_WEEK_INDEX = {{ $weekIndex }};
 </script>
-<script src="{{ asset('js/parent-week.js') }}"></script>
+<script src="{{ asset('js/parent-week.js') }}?v={{ filemtime(public_path('js/parent-week.js')) }}"></script>
 <script>renderThisWeek();</script>
 @endpush
 @endsection
