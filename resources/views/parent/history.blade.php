@@ -16,7 +16,8 @@
     <div class="weekgrid" id="histGrid"></div>
     <div class="weeklegend">
       <span><i class="dot" style="background:var(--green)"></i>Có mặt</span>
-      <span><i class="dot" style="background:var(--amber)"></i>Vắng phép</span>
+      <span><i class="dot" style="background:var(--amber)"></i>Vắng có phép</span>
+      <span><i class="dot" style="background:var(--red)"></i>Vắng không phép</span>
       <span><i class="dot" style="background:var(--blue)"></i>Học bù</span>
       <span><i class="dot" style="background:var(--red)"></i>Nghỉ</span>
       <span><i class="dot" style="background:var(--amber)"></i>Sắp học</span>

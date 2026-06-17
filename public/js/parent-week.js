@@ -45,7 +45,7 @@ function renderHistory(){
   document.getElementById('wnext').disabled = (wIdx >= WEEKS.length - 1);
 
   const subj = w.subj || 'Buổi học';
-  let det='', np=0, no=0, nb=0;
+  let det='', np=0, no=0, nbAbsent=0, nbExcused=0;
   w.days.forEach(function(d,i){
     const st = w.st[i]; if(!st) return;
     const s = STATUS[st];
@@ -60,15 +60,17 @@ function renderHistory(){
            '<span class="badge" style="background:'+color+'">'+s.lab+'</span></div>';
     if(st==='present'||st==='makeup') np++;
     else if(st==='off') no++;
-    else if(st==='absent'||st==='excused') nb++;
+    else if(st==='absent') nbAbsent++;   // vắng không phép — vẫn tính tiền
+    else if(st==='excused') nbExcused++; // vắng có phép — miễn
   });
   if(!det) det = '<div class="prow" style="color:var(--muted)"><div>Không có buổi nào trong tuần này</div></div>';
   document.getElementById('histDetail').innerHTML = det;
   document.getElementById('histSummary').innerHTML =
     '<div class="prow"><div>Buổi đã học (gồm bù)</div><b>'+np+'</b></div>'+
     '<div class="prow"><div>Buổi nghỉ</div><b>'+no+'</b></div>'+
-    '<div class="prow"><div>Vắng</div><b>'+nb+'</b></div>'+
-    '<div class="prow"><div>Tiền phát sinh tuần này</div><b>'+(np*PRICE_K).toLocaleString('vi-VN')+'.000đ</b></div>';
+    '<div class="prow"><div>Vắng không phép (tính tiền)</div><b>'+nbAbsent+'</b></div>'+
+    '<div class="prow"><div>Vắng có phép (miễn)</div><b>'+nbExcused+'</b></div>'+
+    '<div class="prow"><div>Tiền phát sinh tuần này</div><b>'+((np+nbAbsent)*PRICE_K).toLocaleString('vi-VN')+'.000đ</b></div>';
 }
 function weekStep(n){
   wIdx = Math.min(WEEKS.length - 1, Math.max(0, wIdx + n));

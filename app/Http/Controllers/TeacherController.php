@@ -272,7 +272,7 @@ class TeacherController extends Controller
                 $logs = $session->logs()->with('user')->latest('id')->get();
             }
         }
-        $total = $rows->whereIn('status', ['present', 'makeup'])->sum('price');
+        $total = $rows->whereIn('status', StudentSession::BILLABLE)->sum('price');
 
         return view('teacher.attendance', compact(
             'classList', 'class', 'sessions', 'session', 'rows', 'total',
@@ -297,10 +297,10 @@ class TeacherController extends Controller
 
         foreach ($prices as $studentId => $price) {
             $st = $statuses[$studentId] ?? 'present';
-            if (! in_array($st, ['present', 'excused', 'absent', 'makeup'], true)) {
+            if (! in_array($st, StudentSession::STATUSES, true)) {
                 $st = 'present';
             }
-            $amount = in_array($st, ['present', 'makeup'], true) ? (int) $price : 0;
+            $amount = in_array($st, StudentSession::BILLABLE, true) ? (int) $price : 0;
 
             StudentSession::updateOrCreate(
                 ['class_session_id' => $session->id, 'student_id' => $studentId],

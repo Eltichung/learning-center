@@ -83,8 +83,8 @@
   <div style="font-size:12px;color:var(--muted)">
     <b style="color:var(--green)">{{ $attSummary->present }}</b> có mặt ·
     <b style="color:var(--blue)">{{ $attSummary->makeup }}</b> học bù ·
-    <b style="color:var(--amber)">{{ $attSummary->excused }}</b> vắng phép ·
-    <b style="color:var(--red)">{{ $attSummary->absent }}</b> vắng
+    <b style="color:var(--amber)">{{ $attSummary->excused }}</b> vắng có phép ·
+    <b style="color:var(--red)">{{ $attSummary->absent }}</b> vắng không phép
   </div>
 </div><div class="pb">
   <div class="tablewrap">
@@ -92,7 +92,7 @@
     <thead><tr><th>Ngày</th><th>Lớp</th><th>Trạng thái</th><th>Thành tiền</th></tr></thead>
     <tbody>
       @forelse ($attendance as $a)
-        @php($st = ['present'=>['Có mặt','g'],'makeup'=>['Học bù','b'],'excused'=>['Vắng phép','a'],'absent'=>['Vắng','r']][$a->status] ?? ['—','n'])
+        @php($st = ['present'=>['Có mặt','g'],'makeup'=>['Học bù','b'],'excused'=>['Vắng có phép','a'],'absent'=>['Vắng không phép','r']][$a->status] ?? ['—','n'])
         <tr>
           <td>{{ $a->date ? \Illuminate\Support\Carbon::parse($a->date)->format('d/m/Y') : '—' }}</td>
           <td>{{ $a->class }}</td>

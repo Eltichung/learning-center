@@ -5,7 +5,8 @@ function attRecalc(){
     var price = parseInt(tr.dataset.price || '0', 10);
     var h = tr.querySelector('input[type=hidden]');
     var val = h ? h.value : 'present';
-    var pay = (val === 'present' || val === 'makeup') ? price : 0;
+    // Có mặt / học bù / vắng không phép đều tính tiền; chỉ vắng có phép (excused) miễn
+    var pay = (val === 'present' || val === 'makeup' || val === 'absent') ? price : 0;
     var cell = tr.querySelector('.thanhtien');
     if (cell){
       cell.textContent = pay.toLocaleString('vi-VN') + 'đ';

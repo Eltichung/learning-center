@@ -43,7 +43,7 @@
   </div>
 
   @if ($session && $session->type !== 'off')
-    <div class="note">💡 Mặc định tất cả <b>Có mặt</b>. Mỗi buổi có mặt/học bù tính <b>1 buổi</b> theo đơn giá học sinh. Sửa người vắng rồi Lưu.</div>
+    <div class="note">💡 Mặc định tất cả <b>Có mặt</b>. Có mặt / học bù / <b>vắng không phép</b> đều tính <b>1 buổi</b> theo đơn giá. Chỉ <b>vắng có phép</b> được miễn. Sửa người vắng rồi Lưu.</div>
 
     <div class="att-cols">
       <div>
@@ -63,8 +63,8 @@
                         <input type="hidden" name="status[{{ $row->student->id }}]" value="{{ $row->status }}">
                         <div class="seg" style="flex:0 0 auto">
                           <span data-val="present" class="p {{ $row->status==='present' ? 'on' : '' }}">Có mặt</span>
-                          <span data-val="excused" class="e {{ $row->status==='excused' ? 'on' : '' }}">Vắng phép</span>
-                          <span data-val="absent"  class="a {{ $row->status==='absent'  ? 'on' : '' }}">Vắng</span>
+                          <span data-val="excused" class="e {{ $row->status==='excused' ? 'on' : '' }}">Vắng có phép</span>
+                          <span data-val="absent"  class="a {{ $row->status==='absent'  ? 'on' : '' }}">Vắng không phép</span>
                         </div>
                       </div>
                     </td>
@@ -82,7 +82,7 @@
           {{-- Nút submit ngay dưới bảng điểm danh --}}
           <div style="display:flex;justify-content:space-between;align-items:center">
               <button type="submit" class="btn primary">{{ $session->attendance_submitted_at ? 'Cập nhật điểm danh' : 'Lưu điểm danh' }}</button>
-            <div style="font-size:13px;color:var(--muted)">Tổng buổi này: <b style="color:var(--ink)" id="att-total">{{ $rows->whereIn('status', ['present','makeup'])->count() }} buổi · {{ Money::vnd($total) }}</b></div>
+            <div style="font-size:13px;color:var(--muted)">Tổng buổi này: <b style="color:var(--ink)" id="att-total">{{ $rows->whereIn('status', \App\Models\StudentSession::BILLABLE)->count() }} buổi · {{ Money::vnd($total) }}</b></div>
           </div>
         </form>
       </div>
