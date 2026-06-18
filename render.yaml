@@ -1,5 +1,5 @@
 databases:
-  - name: learning-center-db
+  - name: learning-center-ninhtrang-db
     plan: free
     region: singapore
 
@@ -21,15 +21,15 @@ services:
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        fromDatabase: { name: learning-center-db, property: host }
+        fromDatabase: { name: learning-center-ninhtrang-db, property: host }
       - key: DB_PORT
-        fromDatabase: { name: learning-center-db, property: port }
+        fromDatabase: { name: learning-center-ninhtrang-db, property: port }
       - key: DB_DATABASE
-        fromDatabase: { name: learning-center-db, property: database }
+        fromDatabase: { name: learning-center-ninhtrang-db, property: database }
       - key: DB_USERNAME
-        fromDatabase: { name: learning-center-db, property: user }
+        fromDatabase: { name: learning-center-ninhtrang-db, property: user }
       - key: DB_PASSWORD
-        fromDatabase: { name: learning-center-db, property: password }
+        fromDatabase: { name: learning-center-ninhtrang-db, property: password }
       - key: AUTORUN_ENABLED
         value: "true"
       - key: AUTORUN_LARAVEL_MIGRATION
