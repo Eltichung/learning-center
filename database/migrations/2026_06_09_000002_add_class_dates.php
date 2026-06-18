@@ -14,7 +14,8 @@ return new class extends Migration {
         });
 
         // Backfill ngày bắt đầu cho lớp đã có = ngày tạo
-        DB::statement('UPDATE classes SET start_date = DATE(created_at) WHERE start_date IS NULL');
+        // CAST(... AS DATE) chạy được trên cả MySQL lẫn PostgreSQL (Postgres không có hàm DATE())
+        DB::statement('UPDATE classes SET start_date = CAST(created_at AS DATE) WHERE start_date IS NULL');
     }
 
     public function down(): void

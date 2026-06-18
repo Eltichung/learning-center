@@ -1,0 +1,34 @@
+# Dependencies (cài lại trong image qua composer install)
+/vendor
+/node_modules
+
+# Version control
+/.git
+.gitignore
+.gitattributes
+
+# Môi trường / bí mật — KHÔNG đưa vào image, dùng env của Render
+/.env
+.env.*
+!.env.example
+
+# Logs & cache
+/storage/logs/*
+*.log
+/.phpunit.cache
+.phpunit.result.cache
+
+# Tests
+/tests
+
+# IDE / editor
+/.idea
+/.vscode
+/.zed
+/.nova
+/.cursor
+/.fleet
+
+# OS
+.DS_Store
+Thumbs.db
