@@ -12,6 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Tin tưởng proxy của Render (HTTPS terminate ở proxy) để Laravel nhận đúng scheme
+        $middleware->trustProxies(at: '*');
         $middleware->redirectGuestsTo(fn () => route('teacher.login'));
         $middleware->redirectUsersTo('/dashboard');
     })
