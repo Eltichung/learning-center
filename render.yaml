@@ -5,7 +5,7 @@ databases:
 
 services:
   - type: web
-    name: learning-center
+    name: learning-center-ninhtrang
     runtime: docker
     plan: free
     region: singapore
@@ -17,7 +17,7 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: APP_URL
-        value: https://learning-center.onrender.com
+        value: https://learning-center-ninhtrang.onrender.com
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
