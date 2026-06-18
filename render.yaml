@@ -1,11 +1,11 @@
 databases:
-  - name: laravel-db
+  - name: learning-center-db
     plan: free
     region: singapore
 
 services:
   - type: web
-    name: my-laravel-app
+    name: learning-center
     runtime: docker
     plan: free
     region: singapore
@@ -15,21 +15,21 @@ services:
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
-        value: false
+        value: "false"
       - key: APP_URL
-        sync: false
+        value: https://learning-center.onrender.com
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        fromDatabase: { name: laravel-db, property: host }
+        fromDatabase: { name: learning-center-db, property: host }
       - key: DB_PORT
-        fromDatabase: { name: laravel-db, property: port }
+        fromDatabase: { name: learning-center-db, property: port }
       - key: DB_DATABASE
-        fromDatabase: { name: laravel-db, property: database }
+        fromDatabase: { name: learning-center-db, property: database }
       - key: DB_USERNAME
-        fromDatabase: { name: laravel-db, property: user }
+        fromDatabase: { name: learning-center-db, property: user }
       - key: DB_PASSWORD
-        fromDatabase: { name: laravel-db, property: password }
+        fromDatabase: { name: learning-center-db, property: password }
       - key: AUTORUN_ENABLED
         value: "true"
       - key: AUTORUN_LARAVEL_MIGRATION
