@@ -576,10 +576,14 @@ class TeacherController extends Controller
         $tid = $this->tid();
         $class = Classroom::where('teacher_id', $tid)->findOrFail($id);
 
-        // Lớp chỉ được phép đổi trạng thái: Hoạt động <-> Tạm dừng
+        // Lớp được phép đổi trạng thái và giờ học (giờ bắt đầu/kết thúc)
         $data = $request->validate([
             'status' => ['required', 'in:active,paused'],
+            'start_time' => ['nullable', 'date_format:H:i'],
+            'end_time' => ['nullable', 'date_format:H:i'],
         ]);
+
+        $oldStatus = $class->status;
 
         $update = ['status' => $data['status']];
         // Tạm dừng -> lưu ngày kết thúc; kích hoạt lại -> xoá ngày kết thúc
@@ -587,9 +591,23 @@ class TeacherController extends Controller
 
         $class->update($update);
 
-        $msg = $data['status'] === 'paused'
-            ? 'Đã tạm dừng lớp “' . $class->name . '” · kết thúc ' . now()->format('d/m/Y') . '.'
-            : 'Đã kích hoạt lại lớp “' . $class->name . '”.';
+        // Cập nhật giờ học cho toàn bộ lịch cố định của lớp (áp dụng cho các buổi tạo MỚI)
+        $times = array_filter([
+            'start_time' => $data['start_time'] ?? null,
+            'end_time' => $data['end_time'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+        if ($times) {
+            $class->schedules()->update($times);
+        }
+
+        // Thông báo theo thay đổi thực tế: ưu tiên báo trạng thái nếu nó đổi
+        if ($data['status'] === 'paused' && $oldStatus !== 'paused') {
+            $msg = 'Đã tạm dừng lớp “' . $class->name . '” · kết thúc ' . now()->format('d/m/Y') . '.';
+        } elseif ($data['status'] === 'active' && $oldStatus === 'paused') {
+            $msg = 'Đã kích hoạt lại lớp “' . $class->name . '”.';
+        } else {
+            $msg = 'Đã cập nhật lớp “' . $class->name . '”.';
+        }
 
         return redirect()->route('teacher.classes')->with('ok', $msg);
     }

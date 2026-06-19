@@ -78,9 +78,9 @@
     document.getElementById(prefix).value=h+':'+m;
   };
 
-  // Sửa lớp: chỉ đổi trạng thái -> các field khác hiển thị nhưng disabled
+  // Sửa lớp: cho đổi trạng thái + giờ bắt đầu/kết thúc; các field khác hiển thị nhưng disabled
   function setEditLock(lock){
-    ['cf-name','cf-type','cf-grade','cf-subject','cf-start-date','cf-start-h','cf-start-m','cf-end-h','cf-end-m'].forEach(function(id){
+    ['cf-name','cf-type','cf-grade','cf-subject','cf-start-date'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.disabled=lock;
     });
     document.querySelectorAll('#class-form input[name="weekdays[]"]').forEach(function(cb){ cb.disabled=lock; });
