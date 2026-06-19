@@ -576,9 +576,11 @@ class TeacherController extends Controller
         $tid = $this->tid();
         $class = Classroom::where('teacher_id', $tid)->findOrFail($id);
 
-        // Lớp được phép đổi trạng thái và giờ học (giờ bắt đầu/kết thúc)
+        // Lớp được phép đổi trạng thái, lịch học (thứ) và giờ học (bắt đầu/kết thúc)
         $data = $request->validate([
             'status' => ['required', 'in:active,paused'],
+            'weekdays' => ['required', 'array', 'min:1'],
+            'weekdays.*' => ['integer', 'between:1,7'],
             'start_time' => ['nullable', 'date_format:H:i'],
             'end_time' => ['nullable', 'date_format:H:i'],
         ]);
@@ -591,13 +593,17 @@ class TeacherController extends Controller
 
         $class->update($update);
 
-        // Cập nhật giờ học cho toàn bộ lịch cố định của lớp (áp dụng cho các buổi tạo MỚI)
-        $times = array_filter([
-            'start_time' => $data['start_time'] ?? null,
-            'end_time' => $data['end_time'] ?? null,
-        ], fn ($v) => $v !== null && $v !== '');
-        if ($times) {
-            $class->schedules()->update($times);
+        // Dựng lại lịch cố định theo các thứ + giờ mới (áp dụng cho các buổi tạo MỚI;
+        // các buổi đã tạo/đã điểm danh giữ nguyên). Xoá hết rồi tạo lại cho khớp lựa chọn.
+        $start = $data['start_time'] ?? '17:30';
+        $end = $data['end_time'] ?? '19:00';
+        $class->schedules()->delete();
+        foreach ($data['weekdays'] as $wd) {
+            $class->schedules()->create([
+                'weekday' => $wd,
+                'start_time' => $start,
+                'end_time' => $end,
+            ]);
         }
 
         // Thông báo theo thay đổi thực tế: ưu tiên báo trạng thái nếu nó đổi

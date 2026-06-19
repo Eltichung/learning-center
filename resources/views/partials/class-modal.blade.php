@@ -78,12 +78,11 @@
     document.getElementById(prefix).value=h+':'+m;
   };
 
-  // Sửa lớp: cho đổi trạng thái + giờ bắt đầu/kết thúc; các field khác hiển thị nhưng disabled
+  // Sửa lớp: cho đổi trạng thái + lịch học (thứ) + giờ bắt đầu/kết thúc; các field khác hiển thị nhưng disabled
   function setEditLock(lock){
     ['cf-name','cf-type','cf-grade','cf-subject','cf-start-date'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.disabled=lock;
     });
-    document.querySelectorAll('#class-form input[name="weekdays[]"]').forEach(function(cb){ cb.disabled=lock; });
   }
 
   window.newClass = function(){
@@ -114,7 +113,7 @@
     setTime('cf-start', d.start_time||'17:30');
     setTime('cf-end', d.end_time||'19:00');
     f.querySelectorAll('input[name="weekdays[]"]').forEach(function(cb){ cb.checked=(d.weekdays||[]).indexOf(parseInt(cb.value,10))>-1; });
-    setEditLock(true); // chỉ cho đổi trạng thái
+    setEditLock(true); // khóa tên/loại/khối/môn/ngày bắt đầu; cho sửa trạng thái + lịch học + giờ
     openModal('m-class');
   };
   document.addEventListener('DOMContentLoaded', function(){
@@ -123,7 +122,7 @@
     // Validate front-end: bắt buộc ít nhất 1 thứ
     var cf=document.getElementById('class-form');
     if(cf){ cf.addEventListener('submit', function(e){
-      if(document.getElementById('cf-method').value==='PUT') return; // sửa: chỉ đổi trạng thái
+      // Tạo lẫn sửa đều bắt buộc chọn ít nhất 1 thứ cho lịch học
       if(cf.querySelectorAll('input[name="weekdays[]"]:checked').length===0){
         e.preventDefault(); e.stopImmediatePropagation();
         alert('Vui lòng chọn ít nhất 1 thứ cho lịch học.');
