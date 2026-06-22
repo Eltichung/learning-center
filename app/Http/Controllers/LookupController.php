@@ -92,6 +92,10 @@ class LookupController extends Controller
             'class' => $c->name,
         ]))->sortBy('weekday')->values();
 
+        // 3 nhận xét mới nhất của giáo viên
+        $comments = $student->comments()
+            ->orderByDesc('comment_date')->orderByDesc('id')->limit(3)->get();
+
         return [
             'student' => $student,
             'className' => $primaryClass?->name,
@@ -101,6 +105,7 @@ class LookupController extends Controller
             'unpaidSessions' => $unpaidSessions,
             'schedules' => $schedules,
             'payments' => $student->payments,
+            'comments' => $comments,
         ];
     }
 

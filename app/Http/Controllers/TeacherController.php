@@ -9,6 +9,7 @@ use App\Models\ClassSession;
 use App\Models\ClassStudent;
 use App\Models\Payment;
 use App\Models\Student;
+use App\Models\StudentComment;
 use App\Models\StudentSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -211,10 +212,44 @@ class TeacherController extends Controller
             'absent' => $attendance->where('status', 'absent')->count(),
         ];
 
+        // Nhận xét của giáo viên, mới nhất trước
+        $comments = $student->comments()
+            ->orderByDesc('comment_date')->orderByDesc('id')->get();
+
         return view('teacher.student', compact(
             'student', 'enrollments', 'balance', 'unpaidSessions', 'grade', 'primaryPrice', 'prefix',
-            'attendance', 'attSummary'
+            'attendance', 'attSummary', 'comments'
         ));
+    }
+
+    /** Thêm nhận xét cho học sinh (lưu theo ngày). */
+    public function storeComment(Request $request, int $id)
+    {
+        $tid = $this->tid();
+        $student = Student::where('teacher_id', $tid)->findOrFail($id);
+
+        $data = $request->validate([
+            'comment_date' => ['required', 'date'],
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $student->comments()->create([
+            'teacher_id' => $tid,
+            'comment_date' => $data['comment_date'],
+            'body' => $data['body'],
+        ]);
+
+        return redirect()->route('teacher.student', $student->id)->with('ok', 'Đã lưu nhận xét.');
+    }
+
+    /** Xoá một nhận xét. */
+    public function deleteComment(int $id, int $commentId)
+    {
+        $tid = $this->tid();
+        $student = Student::where('teacher_id', $tid)->findOrFail($id);
+        $student->comments()->whereKey($commentId)->delete();
+
+        return redirect()->route('teacher.student', $student->id)->with('ok', 'Đã xoá nhận xét.');
     }
 
     /* ===================== Điểm danh ===================== */

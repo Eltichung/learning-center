@@ -19,6 +19,7 @@ class Student extends Model
     public function classStudents(): HasMany   { return $this->hasMany(ClassStudent::class); }
     public function studentSessions(): HasMany { return $this->hasMany(StudentSession::class); }
     public function payments(): HasMany        { return $this->hasMany(Payment::class); }
+    public function comments(): HasMany        { return $this->hasMany(StudentComment::class); }
 
     /** Công nợ = tổng tiền đã học - tổng đã đóng (tính động, không lưu cứng). */
     public function balanceDue(): int

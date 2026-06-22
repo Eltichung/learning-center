@@ -32,6 +32,19 @@
     @endforelse
   </div>
 
+  {{-- Nhận xét của giáo viên (3 mới nhất) --}}
+  @if ($comments->isNotEmpty())
+  <div class="pcard">
+    <h4>📝 Nhận xét của giáo viên</h4>
+    @foreach ($comments as $c)
+      <div class="prow" style="display:block">
+        <div class="r" style="margin-bottom:2px">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</div>
+        <div style="white-space:pre-line">{{ $c->body }}</div>
+      </div>
+    @endforeach
+  </div>
+  @endif
+
   {{-- Tuần này --}}
   <div class="pcard">
     <div class="pcard-head"><h4>🗓️ Tuần này</h4><a class="linklike" href="{{ route('parent.history', $slug) }}">Lịch sử →</a></div>
