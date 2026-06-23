@@ -44,20 +44,25 @@
                 <label><input type="checkbox" name="weekdays[]" value="{{ $w }}" id="wd-{{ $w }}" onchange="toggleDay({{ $w }})"> {{ $l }}</label>
               @endforeach
             </div>
-            <div class="sched-times" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+            <div class="sched-times" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px">
               @foreach ([1=>'Thứ Hai',2=>'Thứ Ba',3=>'Thứ Tư',4=>'Thứ Năm',5=>'Thứ Sáu',6=>'Thứ Bảy',7=>'Chủ Nhật'] as $w => $l)
-                <div class="sched-trow" id="row-{{ $w }}" style="display:none;align-items:center;gap:8px">
-                  <span style="width:64px;flex:none;font-size:13px;color:var(--muted)">{{ $l }}</span>
-                  <div class="timepick" style="flex:1">
-                    <select id="ts-h-{{ $w }}" onchange="syncDay('ts',{{ $w }})" aria-label="Giờ bắt đầu">@for ($h = 0; $h <= 23; $h++)<option value="{{ sprintf('%02d', $h) }}">{{ sprintf('%02d', $h) }}h</option>@endfor</select>
-                    <span>:</span>
-                    <select id="ts-m-{{ $w }}" onchange="syncDay('ts',{{ $w }})" aria-label="Phút bắt đầu">@for ($m = 0; $m < 60; $m += 5)<option value="{{ sprintf('%02d', $m) }}">{{ sprintf('%02d', $m) }}</option>@endfor</select>
+                <div class="sched-trow" id="row-{{ $w }}" style="display:none;flex-direction:column;gap:5px;width:150px;flex:none;border:1px solid var(--line);border-radius:9px;padding:8px 9px">
+                  <span style="font-size:12.5px;font-weight:600;color:var(--ink)">{{ $l }}</span>
+                  <div style="display:flex;align-items:center;gap:5px">
+                    <span style="font-size:11px;color:var(--muted);width:16px;flex:none">BĐ</span>
+                    <div class="timepick" style="flex:1 1 0;min-width:0">
+                      <select id="ts-h-{{ $w }}" onchange="syncDay('ts',{{ $w }})" aria-label="Giờ bắt đầu">@for ($h = 0; $h <= 23; $h++)<option value="{{ sprintf('%02d', $h) }}">{{ sprintf('%02d', $h) }}h</option>@endfor</select>
+                      <span>:</span>
+                      <select id="ts-m-{{ $w }}" onchange="syncDay('ts',{{ $w }})" aria-label="Phút bắt đầu">@for ($m = 0; $m < 60; $m += 5)<option value="{{ sprintf('%02d', $m) }}">{{ sprintf('%02d', $m) }}</option>@endfor</select>
+                    </div>
                   </div>
-                  <span style="color:var(--muted);flex:none">–</span>
-                  <div class="timepick" style="flex:1">
-                    <select id="te-h-{{ $w }}" onchange="syncDay('te',{{ $w }})" aria-label="Giờ kết thúc">@for ($h = 0; $h <= 23; $h++)<option value="{{ sprintf('%02d', $h) }}">{{ sprintf('%02d', $h) }}h</option>@endfor</select>
-                    <span>:</span>
-                    <select id="te-m-{{ $w }}" onchange="syncDay('te',{{ $w }})" aria-label="Phút kết thúc">@for ($m = 0; $m < 60; $m += 5)<option value="{{ sprintf('%02d', $m) }}">{{ sprintf('%02d', $m) }}</option>@endfor</select>
+                  <div style="display:flex;align-items:center;gap:5px">
+                    <span style="font-size:11px;color:var(--muted);width:16px;flex:none">KT</span>
+                    <div class="timepick" style="flex:1 1 0;min-width:0">
+                      <select id="te-h-{{ $w }}" onchange="syncDay('te',{{ $w }})" aria-label="Giờ kết thúc">@for ($h = 0; $h <= 23; $h++)<option value="{{ sprintf('%02d', $h) }}">{{ sprintf('%02d', $h) }}h</option>@endfor</select>
+                      <span>:</span>
+                      <select id="te-m-{{ $w }}" onchange="syncDay('te',{{ $w }})" aria-label="Phút kết thúc">@for ($m = 0; $m < 60; $m += 5)<option value="{{ sprintf('%02d', $m) }}">{{ sprintf('%02d', $m) }}</option>@endfor</select>
+                    </div>
                   </div>
                   <input type="hidden" name="time_start[{{ $w }}]" id="ts-{{ $w }}" value="17:30" disabled>
                   <input type="hidden" name="time_end[{{ $w }}]" id="te-{{ $w }}" value="19:00" disabled>
