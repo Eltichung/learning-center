@@ -24,9 +24,11 @@
           'id' => $c->id, 'name' => $c->name, 'type' => $c->type, 'grade' => $c->grade,
           'subject' => $c->subject, 'status' => $c->status,
           'start_date' => optional($c->start_date)->toDateString(),
-          'weekdays' => $c->schedules->pluck('weekday')->map(fn ($w) => (int) $w)->values(),
-          'start_time' => optional($c->schedules->first())->start_time ? \Illuminate\Support\Carbon::parse($c->schedules->first()->start_time)->format('H:i') : '17:30',
-          'end_time' => optional($c->schedules->first())->end_time ? \Illuminate\Support\Carbon::parse($c->schedules->first()->end_time)->format('H:i') : '19:00',
+          'schedules' => $c->schedules->sortBy('weekday')->map(fn ($s) => [
+            'weekday' => (int) $s->weekday,
+            'start' => $s->start_time ? \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') : '17:30',
+            'end' => $s->end_time ? \Illuminate\Support\Carbon::parse($s->end_time)->format('H:i') : '19:00',
+          ])->values(),
         ])
         <tr>
           <td><b>{{ $c->name }}</b></td>

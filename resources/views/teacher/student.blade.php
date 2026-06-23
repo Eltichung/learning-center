@@ -6,10 +6,23 @@
 <div class="pagehead">
   <div>
     <a class="backlink" href="{{ route('teacher.students') }}">← Học sinh</a>
-    <h1>{{ $student->full_name }}</h1>
+    <h1>{{ $student->full_name }}
+      @if ($student->status !== 'active')<span class="chip n" style="font-size:12px;vertical-align:middle">Ngừng hoạt động</span>@endif
+    </h1>
     <p>{{ $grade ? 'Lớp '.$grade : '—' }}{{ $student->school ? ' · '.$student->school : '' }}</p>
   </div>
-  <button class="btn primary" type="button" onclick='payFor({{ $student->id }}, @json($student->full_name), {{ $balance }})'>+ Ghi nhận đóng tiền</button>
+  <div style="display:flex;gap:8px;align-items:center">
+    <form method="POST" action="{{ route('teacher.students.toggleStatus', $student->id) }}"
+          onsubmit="return confirm('{{ $student->status === 'active' ? 'Ngừng hoạt động học sinh này? Sẽ không xuất hiện khi điểm danh.' : 'Kích hoạt lại học sinh này?' }}')">
+      @csrf @method('PUT')
+      @if ($student->status === 'active')
+        <button class="btn ghost" type="submit">⏸ Ngừng hoạt động</button>
+      @else
+        <button class="btn ghost" type="submit" style="color:var(--green)">▶ Kích hoạt lại</button>
+      @endif
+    </form>
+    <button class="btn primary" type="button" onclick='payFor({{ $student->id }}, @json($student->full_name), {{ $balance }})'>+ Ghi nhận đóng tiền</button>
+  </div>
 </div>
 
 <div class="twocol">
@@ -135,6 +148,24 @@
   </table>
   </div>
 </div></div>
+
+{{-- Nhật ký bật/tắt hoạt động --}}
+@if ($statusLogs->isNotEmpty())
+<div class="panel"><div class="ph"><h3>Lịch sử bật/tắt hoạt động</h3></div><div class="pb">
+  <table>
+    <thead><tr><th>Thời gian</th><th>Hành động</th><th>Người thực hiện</th></tr></thead>
+    <tbody>
+      @foreach ($statusLogs as $log)
+        <tr>
+          <td>{{ $log->created_at->format('d/m/Y H:i') }}</td>
+          <td>@if ($log->action === 'deactivate')<span class="chip n">Ngừng hoạt động</span>@else<span class="chip g">Kích hoạt lại</span>@endif</td>
+          <td>{{ optional($log->user)->name ?? '—' }}</td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+</div></div>
+@endif
 
 @include('partials.payment-modal')
 @endsection
