@@ -40,6 +40,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/students', [TeacherController::class, 'students'])->name('teacher.students');
     Route::post('/students', [TeacherController::class, 'storeStudent'])->name('teacher.students.store');
     Route::put('/students/{id}', [TeacherController::class, 'updateStudent'])->name('teacher.students.update');
+    Route::put('/students/{id}/status', [TeacherController::class, 'toggleStudentStatus'])->name('teacher.students.toggleStatus');
     Route::get('/students/{id}', [TeacherController::class, 'studentShow'])->name('teacher.student');
     Route::post('/students/{id}/comments', [TeacherController::class, 'storeComment'])->name('teacher.student.comments.store');
     Route::delete('/students/{id}/comments/{commentId}', [TeacherController::class, 'deleteComment'])->name('teacher.student.comments.delete');

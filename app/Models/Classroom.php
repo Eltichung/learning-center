@@ -80,16 +80,15 @@ class Classroom extends Model
         };
     }
 
-    /** "T2, T4, T6 · 17:30" từ các lịch cố định */
+    /** "T2 17:30, T4 18:00" — mỗi thứ kèm giờ riêng */
     public function scheduleLabel(): string
     {
         $items = $this->schedules->sortBy('weekday');
         if ($items->isEmpty()) {
             return '—';
         }
-        $days = $items->map(fn ($s) => self::weekdayLabel((int) $s->weekday))->implode(', ');
-        $time = \Illuminate\Support\Carbon::parse($items->first()->start_time)->format('H:i');
 
-        return $days . ' · ' . $time;
+        return $items->map(fn ($s) => self::weekdayLabel((int) $s->weekday)
+            . ' ' . \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i'))->implode(', ');
     }
 }

@@ -216,9 +216,12 @@ class TeacherController extends Controller
         $comments = $student->comments()
             ->orderByDesc('comment_date')->orderByDesc('id')->get();
 
+        // Nhật ký bật/tắt hoạt động, mới nhất trước
+        $statusLogs = $student->statusLogs()->with('user')->latest('id')->get();
+
         return view('teacher.student', compact(
             'student', 'enrollments', 'balance', 'unpaidSessions', 'grade', 'primaryPrice', 'prefix',
-            'attendance', 'attSummary', 'comments'
+            'attendance', 'attSummary', 'comments', 'statusLogs'
         ));
     }
 
@@ -299,7 +302,8 @@ class TeacherController extends Controller
 
             if ($session) {
                 $existing = StudentSession::where('class_session_id', $session->id)->pluck('status', 'student_id');
-                $rows = $class->students()->get()->map(fn ($s) => (object) [
+                // Chỉ hiển thị học sinh đang hoạt động (đã ngừng hoạt động thì không điểm danh)
+                $rows = $class->students()->where('students.status', 'active')->get()->map(fn ($s) => (object) [
                     'student' => $s,
                     'price' => (int) $s->pivot->price_per_session,
                     'status' => $existing[$s->id] ?? 'present',
@@ -323,7 +327,10 @@ class TeacherController extends Controller
             ->with('classroom')->findOrFail($sessionId);
 
         $statuses = (array) $request->input('status', []);
-        $prices = ClassStudent::where('class_id', $session->class_id)->pluck('price_per_session', 'student_id');
+        // Chỉ điểm danh học sinh đang hoạt động — bỏ qua học sinh đã ngừng hoạt động
+        $prices = ClassStudent::where('class_id', $session->class_id)
+            ->whereHas('student', fn ($q) => $q->where('status', 'active'))
+            ->pluck('price_per_session', 'student_id');
 
         $wasSubmitted = ! is_null($session->attendance_submitted_at);
         $presentCount = 0;
@@ -503,6 +510,28 @@ class TeacherController extends Controller
         return back()->with('ok', 'Đã cập nhật thông tin học sinh “' . $student->full_name . '”.');
     }
 
+    /** Bật/tắt trạng thái hoạt động của học sinh. Ngừng hoạt động => không điểm danh nữa. */
+    public function toggleStudentStatus(int $id)
+    {
+        $tid = $this->tid();
+        $student = Student::where('teacher_id', $tid)->findOrFail($id);
+
+        $student->status = $student->status === 'active' ? 'inactive' : 'active';
+        $student->save();
+
+        // Ghi nhật ký: ai bật/tắt, lúc nào
+        $student->statusLogs()->create([
+            'user_id' => $tid,
+            'action' => $student->status === 'active' ? 'activate' : 'deactivate',
+        ]);
+
+        $msg = $student->status === 'active'
+            ? 'Đã kích hoạt lại học sinh “' . $student->full_name . '”.'
+            : 'Đã ngừng hoạt động học sinh “' . $student->full_name . '” — sẽ không xuất hiện khi điểm danh.';
+
+        return back()->with('ok', $msg);
+    }
+
     /* ===================== Ghi nhận đóng tiền ===================== */
     public function storePayment(Request $request)
     {
@@ -566,8 +595,10 @@ class TeacherController extends Controller
             'start_date' => ['required', 'date'],
             'weekdays' => ['required', 'array', 'min:1'],
             'weekdays.*' => ['integer', 'between:1,7'],
-            'start_time' => ['nullable', 'date_format:H:i'],
-            'end_time' => ['nullable', 'date_format:H:i'],
+            'time_start' => ['array'],
+            'time_start.*' => ['nullable', 'date_format:H:i'],
+            'time_end' => ['array'],
+            'time_end.*' => ['nullable', 'date_format:H:i'],
             'students' => ['array'],
             'students.*' => ['integer'],
             'price_per_session' => ['nullable', 'integer', 'min:0'],
@@ -586,8 +617,8 @@ class TeacherController extends Controller
         foreach (($data['weekdays'] ?? []) as $wd) {
             $class->schedules()->create([
                 'weekday' => $wd,
-                'start_time' => $data['start_time'] ?? '17:30',
-                'end_time' => $data['end_time'] ?? '19:00',
+                'start_time' => $data['time_start'][$wd] ?? '17:30',
+                'end_time' => $data['time_end'][$wd] ?? '19:00',
             ]);
         }
 
@@ -616,8 +647,10 @@ class TeacherController extends Controller
             'status' => ['required', 'in:active,paused'],
             'weekdays' => ['required', 'array', 'min:1'],
             'weekdays.*' => ['integer', 'between:1,7'],
-            'start_time' => ['nullable', 'date_format:H:i'],
-            'end_time' => ['nullable', 'date_format:H:i'],
+            'time_start' => ['array'],
+            'time_start.*' => ['nullable', 'date_format:H:i'],
+            'time_end' => ['array'],
+            'time_end.*' => ['nullable', 'date_format:H:i'],
         ]);
 
         $oldStatus = $class->status;
@@ -628,16 +661,14 @@ class TeacherController extends Controller
 
         $class->update($update);
 
-        // Dựng lại lịch cố định theo các thứ + giờ mới (áp dụng cho các buổi tạo MỚI;
+        // Dựng lại lịch cố định theo các thứ + giờ riêng từng buổi (áp dụng cho các buổi tạo MỚI;
         // các buổi đã tạo/đã điểm danh giữ nguyên). Xoá hết rồi tạo lại cho khớp lựa chọn.
-        $start = $data['start_time'] ?? '17:30';
-        $end = $data['end_time'] ?? '19:00';
         $class->schedules()->delete();
         foreach ($data['weekdays'] as $wd) {
             $class->schedules()->create([
                 'weekday' => $wd,
-                'start_time' => $start,
-                'end_time' => $end,
+                'start_time' => $data['time_start'][$wd] ?? '17:30',
+                'end_time' => $data['time_end'][$wd] ?? '19:00',
             ]);
         }
 

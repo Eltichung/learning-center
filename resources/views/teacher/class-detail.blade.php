@@ -31,7 +31,17 @@
         <tbody>
           @forelse ($students as $row)
             <tr onclick="location.href='{{ route('teacher.student', $row->student->id) }}'" style="cursor:pointer">
-              <td><div class="stud"><div class="savatar">{{ $row->student->initials() }}</div>{{ $row->student->full_name }}</div></td>
+              <td><div class="stud" style="width:100%"><div class="savatar">{{ $row->student->initials() }}</div>
+                <div>{{ $row->student->full_name }}</div>
+                <span class="row-acts">
+                  <a class="icon-act" href="{{ route('teacher.student', $row->student->id) }}" data-tip="Chi tiết" onclick="event.stopPropagation()">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </a>
+                  <a class="icon-act" href="#" onclick='event.stopPropagation(); copyLookup(@json(route("parent.info", $row->student->student_code)), this); return false;' data-tip="Copy link tra cứu">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  </a>
+                </span>
+              </div></td>
               <td class="money">{{ Money::vnd($row->price) }}</td>
               <td>
                 @if ($row->balanceClass > 0)<span class="chip r">−{{ Money::vnd($row->balanceClass) }}</span>
@@ -125,6 +135,16 @@
 </div>
 
 <script>
+// Copy link trang tra cứu của phụ huynh
+function copyLookup(url, el){
+  var done = function(){ toast('✓ Đã copy link tra cứu', 'success'); };
+  var fail = function(){ window.prompt('Copy link tra cứu:', url); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done).catch(fail);
+  } else {
+    fail();
+  }
+}
 (function(){
   document.addEventListener('DOMContentLoaded', function(){
     var ssel=document.getElementById('add-ssel'), chips=document.getElementById('add-chips');

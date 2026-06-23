@@ -29,7 +29,7 @@
         <tr>
           <td>
             <div class="stud" style="width:100%"><div class="savatar">{{ $row->student->initials() }}</div>
-              <div><b>{{ $row->student->full_name }}</b>
+              <div><b>{{ $row->student->full_name }}</b>@if ($row->student->status !== 'active')<span class="chip n" style="margin-left:6px;font-size:11px">Ngừng HĐ</span>@endif
                 <div class="r">{{ $row->grade ? 'Lớp '.$row->grade : '—' }}{{ $row->student->school ? ' · '.$row->student->school : '' }}</div>
               </div>
               <span class="row-acts">
