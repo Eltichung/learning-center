@@ -14,7 +14,7 @@
     @foreach ($classList as $c)<option value="{{ $c->id }}" @selected($classId === $c->id)>{{ $c->name }}</option>@endforeach
   </select>
   <button class="btn primary sm" type="submit">Lọc</button>
-  @if ($classId || $monthStr !== now()->format('Y-m'))<a class="btn ghost sm" href="{{ route('teacher.reports') }}">Tháng này</a>@endif
+{{--  @if ($classId || $monthStr !== now()->format('Y-m'))<a class="btn ghost sm" href="{{ route('teacher.reports') }}">Tháng này</a>@endif--}}
 </form>
 
 <div class="cards" style="grid-template-columns:repeat(3,1fr)">

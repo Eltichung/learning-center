@@ -13,7 +13,7 @@
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <form method="POST" action="{{ route('teacher.students.toggleStatus', $student->id) }}"
-          onsubmit="return confirm('{{ $student->status === 'active' ? 'Ngừng hoạt động học sinh này? Sẽ không xuất hiện khi điểm danh.' : 'Kích hoạt lại học sinh này?' }}')">
+          data-confirm="{{ $student->status === 'active' ? 'Ngừng hoạt động học sinh này? Sẽ không xuất hiện khi điểm danh.' : 'Kích hoạt lại học sinh này?' }}">
       @csrf @method('PUT')
       @if ($student->status === 'active')
         <button class="btn ghost" type="submit">⏸ Ngừng hoạt động</button>
@@ -92,7 +92,7 @@
         <div class="r" style="margin-bottom:2px">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</div>
         <div style="white-space:pre-line">{{ $c->body }}</div>
       </div>
-      <form method="POST" action="{{ route('teacher.student.comments.delete', [$student->id, $c->id]) }}" onsubmit="return confirm('Xoá nhận xét này?')" style="flex:none">
+      <form method="POST" action="{{ route('teacher.student.comments.delete', [$student->id, $c->id]) }}" data-confirm="Xoá nhận xét này?" style="flex:none">
         @csrf @method('DELETE')
         <button class="btn ghost sm" type="submit" style="color:var(--red)">Xoá</button>
       </form>

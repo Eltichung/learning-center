@@ -13,6 +13,7 @@ use App\Models\StudentComment;
 use App\Models\StudentSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
@@ -74,19 +75,30 @@ class TeacherController extends Controller
         $tid = $this->tid();
         $q = trim((string) $request->get('q'));
         $grade = (int) $request->get('grade');
+        $type = $request->get('type');      // group | tutor_1on1
+        $status = $request->get('status');  // active | paused
 
         $query = Classroom::where('teacher_id', $tid)
-            ->with('schedules')->withCount('classStudents');
+            ->with('schedules')->withCount(['classStudents', 'sessions']);
         if ($q !== '') {
             $query->where('name', 'like', "%{$q}%");
         }
         if ($grade) {
             $query->where('grade', $grade);
         }
-        $classes = $query->orderBy('id')->get();
-        $activeCount = $classes->where('status', 'active')->count();
+        if (in_array($type, ['group', 'tutor_1on1'], true)) {
+            $query->where('type', $type);
+        }
 
-        return view('teacher.classes', compact('classes', 'activeCount', 'q', 'grade'));
+        // Đếm "đang hoạt động" theo bộ lọc khác (không tính lọc trạng thái) cho khỏi mâu thuẫn
+        $activeCount = (clone $query)->where('status', 'active')->count();
+
+        if (in_array($status, ['active', 'paused', 'ended'], true)) {
+            $query->where('status', $status);
+        }
+        $classes = $query->orderBy('id')->paginate(10)->withQueryString();
+
+        return view('teacher.classes', compact('classes', 'activeCount', 'q', 'grade', 'type', 'status'));
     }
 
     /* ===================== Chi tiết lớp ===================== */
@@ -170,6 +182,16 @@ class TeacherController extends Controller
         } elseif ($status === 'unpaid') {
             $students = $students->where('paid', false)->values();
         }
+
+        // Công nợ tính sau truy vấn nên phân trang thủ công trên collection (10 bản ghi/trang)
+        $total = $students->count();
+        $page = \Illuminate\Pagination\Paginator::resolveCurrentPage();
+        $perPage = 10;
+        $students = new \Illuminate\Pagination\LengthAwarePaginator(
+            $students->forPage($page, $perPage)->values(),
+            $total, $perPage, $page,
+            ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(), 'query' => request()->query()]
+        );
 
         $classList = Classroom::where('teacher_id', $tid)->orderBy('id')->get();
 
@@ -682,6 +704,51 @@ class TeacherController extends Controller
         }
 
         return redirect()->route('teacher.classes')->with('ok', $msg);
+    }
+
+    /* ===================== Nhân bản lớp ===================== */
+    public function duplicateClass(int $id)
+    {
+        $tid = $this->tid();
+        $class = Classroom::where('teacher_id', $tid)
+            ->with(['schedules', 'classStudents'])->findOrFail($id);
+
+        $new = DB::transaction(function () use ($class, $tid) {
+            $copy = Classroom::create([
+                'teacher_id' => $tid,
+                'name' => $class->name . ' (sao chép)',
+                'type' => $class->type,
+                'grade' => $class->grade,
+                'subject' => $class->subject,
+                'status' => 'active',
+                'start_date' => now()->toDateString(),
+                'default_price' => $class->default_price,
+            ]);
+
+            // Sao chép lịch cố định (giữ giờ riêng từng thứ)
+            foreach ($class->schedules as $s) {
+                $copy->schedules()->create([
+                    'weekday' => $s->weekday,
+                    'start_time' => $s->start_time,
+                    'end_time' => $s->end_time,
+                ]);
+            }
+
+            // Sao chép danh sách học sinh kèm đơn giá riêng từng em
+            foreach ($class->classStudents as $cs) {
+                $copy->classStudents()->create([
+                    'student_id' => $cs->student_id,
+                    'price_per_session' => $cs->price_per_session,
+                    'joined_at' => now()->toDateString(),
+                    'status' => 'active',
+                ]);
+            }
+
+            return $copy;
+        });
+
+        return redirect()->route('teacher.classes', ['edit' => $new->id])
+            ->with('ok', 'Đã nhân bản lớp “' . $class->name . '”. Hãy sửa lại tên/giờ rồi lưu.');
     }
 
     /* ===================== Thêm học sinh vào lớp ===================== */

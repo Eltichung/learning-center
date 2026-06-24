@@ -44,26 +44,13 @@
                 <label><input type="checkbox" name="weekdays[]" value="{{ $w }}" id="wd-{{ $w }}" onchange="toggleDay({{ $w }})"> {{ $l }}</label>
               @endforeach
             </div>
-            <div class="sched-times" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px">
+            <div class="sched-times" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
               @foreach ([1=>'Thứ Hai',2=>'Thứ Ba',3=>'Thứ Tư',4=>'Thứ Năm',5=>'Thứ Sáu',6=>'Thứ Bảy',7=>'Chủ Nhật'] as $w => $l)
-                <div class="sched-trow" id="row-{{ $w }}" style="display:none;flex-direction:column;gap:5px;width:150px;flex:none;border:1px solid var(--line);border-radius:9px;padding:8px 9px">
-                  <span style="font-size:12.5px;font-weight:600;color:var(--ink)">{{ $l }}</span>
-                  <div style="display:flex;align-items:center;gap:5px">
-                    <span style="font-size:11px;color:var(--muted);width:16px;flex:none">BĐ</span>
-                    <div class="timepick" style="flex:1 1 0;min-width:0">
-                      <select id="ts-h-{{ $w }}" onchange="syncDay('ts',{{ $w }})" aria-label="Giờ bắt đầu">@for ($h = 0; $h <= 23; $h++)<option value="{{ sprintf('%02d', $h) }}">{{ sprintf('%02d', $h) }}h</option>@endfor</select>
-                      <span>:</span>
-                      <select id="ts-m-{{ $w }}" onchange="syncDay('ts',{{ $w }})" aria-label="Phút bắt đầu">@for ($m = 0; $m < 60; $m += 5)<option value="{{ sprintf('%02d', $m) }}">{{ sprintf('%02d', $m) }}</option>@endfor</select>
-                    </div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:5px">
-                    <span style="font-size:11px;color:var(--muted);width:16px;flex:none">KT</span>
-                    <div class="timepick" style="flex:1 1 0;min-width:0">
-                      <select id="te-h-{{ $w }}" onchange="syncDay('te',{{ $w }})" aria-label="Giờ kết thúc">@for ($h = 0; $h <= 23; $h++)<option value="{{ sprintf('%02d', $h) }}">{{ sprintf('%02d', $h) }}h</option>@endfor</select>
-                      <span>:</span>
-                      <select id="te-m-{{ $w }}" onchange="syncDay('te',{{ $w }})" aria-label="Phút kết thúc">@for ($m = 0; $m < 60; $m += 5)<option value="{{ sprintf('%02d', $m) }}">{{ sprintf('%02d', $m) }}</option>@endfor</select>
-                    </div>
-                  </div>
+                <div class="sched-trow" id="row-{{ $w }}" style="display:none;align-items:center;gap:8px">
+                  <span style="width:60px;flex:none;font-size:12px;color:var(--muted);white-space:nowrap">{{ $l }}</span>
+                  <button type="button" class="timefld" id="tf-ts-{{ $w }}" onclick="openTimePop(this,'ts',{{ $w }})">17:30</button>
+                  <span style="color:var(--muted);flex:none">–</span>
+                  <button type="button" class="timefld" id="tf-te-{{ $w }}" onclick="openTimePop(this,'te',{{ $w }})">19:00</button>
                   <input type="hidden" name="time_start[{{ $w }}]" id="ts-{{ $w }}" value="17:30" disabled>
                   <input type="hidden" name="time_end[{{ $w }}]" id="te-{{ $w }}" value="19:00" disabled>
                 </div>
@@ -78,25 +65,66 @@
   </form>
 </div>
 
+{{-- Popover chọn giờ dùng chung (cột Giờ | Phút) --}}
+<div id="time-pop" class="time-pop"><div class="tp-cols"><div class="tp-col" id="tp-hours"></div><div class="tp-col" id="tp-mins"></div></div></div>
+
 <script>
 (function(){
   var STORE = @json(route('teacher.classes.store'));
   var BASE  = @json(url('classes'));
   function moneyDisplay(){ var mi=document.querySelector('#m-class .money-input'); var h=document.getElementById('cf-price'); if(mi&&h) mi.value=window.fmtMoney(h.value||'0'); }
 
-  // Gộp 2 select giờ:phút của 1 thứ -> hidden input "HH:MM"
-  window.syncDay = function(prefix, w){
-    var h=document.getElementById(prefix+'-h-'+w).value, m=document.getElementById(prefix+'-m-'+w).value;
-    document.getElementById(prefix+'-'+w).value = h+':'+m;
-  };
-  function setDayTime(prefix, w, val){
-    var p=String(val||'').split(':');
-    var h=(p[0]||'17').padStart(2,'0'), m=(p[1]||'30').padStart(2,'0');
-    var hs=document.getElementById(prefix+'-h-'+w), ms=document.getElementById(prefix+'-m-'+w);
-    if(hs) hs.value=h; if(ms) ms.value=m;
-    document.getElementById(prefix+'-'+w).value=h+':'+m;
+  /* ===== Popover chọn giờ ===== */
+  var tpActive = null;
+  function buildTimePop(ch, cm){
+    var hrs='<div class="tp-cap">Giờ</div>', mins='<div class="tp-cap">Phút</div>';
+    for(var h=0;h<24;h++){ var hh=('0'+h).slice(-2); hrs+='<div class="tp-item'+(hh===ch?' sel':'')+'" data-v="'+hh+'" onclick="pickTime(\'h\',\''+hh+'\')">'+hh+'h</div>'; }
+    for(var m=0;m<60;m+=5){ var mm=('0'+m).slice(-2); mins+='<div class="tp-item'+(mm===cm?' sel':'')+'" data-v="'+mm+'" onclick="pickTime(\'m\',\''+mm+'\')">'+mm+'</div>'; }
+    document.getElementById('tp-hours').innerHTML=hrs;
+    document.getElementById('tp-mins').innerHTML=mins;
   }
-  // Tích/bỏ thứ -> hiện/ẩn dòng giờ + bật/tắt hidden input để submit hay không
+  window.openTimePop = function(btn, prefix, w){
+    var pop = document.getElementById('time-pop');
+    if(tpActive && tpActive.prefix===prefix && tpActive.w===w && pop.style.display==='block'){ closeTimePop(); return; }
+    tpActive = {prefix:prefix, w:w, btn:btn};
+    var cur = (document.getElementById(prefix+'-'+w).value || '17:30').split(':');
+    buildTimePop(cur[0], cur[1]);
+    pop.style.display='block';
+    var r = btn.getBoundingClientRect(), pw = pop.offsetWidth || 134, ph = pop.offsetHeight || 200;
+    var top = r.bottom + 4;
+    if(top + ph > window.innerHeight - 8 && r.top - ph - 4 > 8) top = r.top - ph - 4;
+    pop.style.top = top + 'px';
+    pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8)) + 'px';
+    pop.querySelectorAll('.tp-item.sel').forEach(function(el){ el.scrollIntoView({block:'center'}); });
+  };
+  window.pickTime = function(kind, val){
+    if(!tpActive) return;
+    var f = document.getElementById(tpActive.prefix+'-'+tpActive.w);
+    var cur = (f.value || '17:30').split(':');
+    if(kind==='h') cur[0]=val; else cur[1]=val;
+    setDayTime(tpActive.prefix, tpActive.w, cur[0]+':'+cur[1]);
+    var col = document.getElementById(kind==='h'?'tp-hours':'tp-mins');
+    col.querySelectorAll('.tp-item').forEach(function(el){ el.classList.toggle('sel', el.dataset.v===val); });
+  };
+  function closeTimePop(){ var p=document.getElementById('time-pop'); if(p) p.style.display='none'; tpActive=null; }
+  window.closeTimePop = closeTimePop;
+  document.addEventListener('click', function(e){
+    if(e.target.closest('.time-pop') || e.target.closest('.timefld')) return;
+    closeTimePop();
+  });
+  window.addEventListener('scroll', function(e){
+    var t = e.target;
+    if(t && t.closest && t.closest('.time-pop')) return; // cuộn TRONG popover thì không đóng
+    closeTimePop();
+  }, true);
+  window.addEventListener('resize', closeTimePop);
+
+  /* ===== Lịch theo thứ ===== */
+  function setDayTime(prefix, w, val){
+    document.getElementById(prefix+'-'+w).value = val;
+    var btn=document.getElementById('tf-'+prefix+'-'+w);
+    if(btn) btn.textContent = val;
+  }
   window.toggleDay = function(w){
     var cb=document.getElementById('wd-'+w), row=document.getElementById('row-'+w);
     var on = cb && cb.checked;
@@ -126,7 +154,6 @@
     });
   }
 
-  // Sửa lớp: cho đổi trạng thái + lịch học (thứ/giờ); khoá tên/loại/khối/môn/ngày bắt đầu
   function setEditLock(lock){
     ['cf-name','cf-type','cf-grade','cf-subject','cf-start-date'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.disabled=lock;
@@ -135,6 +162,7 @@
 
   window.newClass = function(){
     var f=document.getElementById('class-form'); f.reset();
+    closeTimePop();
     f.action=STORE; document.getElementById('cf-method').value='POST';
     document.getElementById('cf-title').textContent='Tạo lớp mới';
     document.getElementById('cf-submit').textContent='Tạo lớp';
@@ -147,6 +175,7 @@
   };
   window.editClass = function(d){
     var f=document.getElementById('class-form');
+    closeTimePop();
     f.action=BASE+'/'+d.id; document.getElementById('cf-method').value='PUT';
     document.getElementById('cf-title').textContent='Sửa lớp';
     document.getElementById('cf-submit').textContent='Lưu thay đổi';
@@ -158,13 +187,12 @@
     document.getElementById('cf-status').value=(d.status==='paused'?'paused':'active');
     document.getElementById('cf-start-date').value=d.start_date||'';
     applyDays(d.schedules);
-    setEditLock(true);
+    setEditLock(d.locked !== false);
     openModal('m-class');
   };
   document.addEventListener('DOMContentLoaded', function(){
     moneyDisplay();
     resetDays();
-    // Validate front-end: bắt buộc ít nhất 1 thứ (cả tạo lẫn sửa)
     var cf=document.getElementById('class-form');
     if(cf){ cf.addEventListener('submit', function(e){
       if(cf.querySelectorAll('input[name="weekdays[]"]:checked').length===0){

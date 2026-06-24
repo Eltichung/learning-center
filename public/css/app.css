@@ -34,6 +34,22 @@ a{color:inherit}
 .btn.primary{background:var(--brand);color:#fff}
 .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
 .btn.sm{padding:6px 10px;font-size:12px}
+.btn.danger{background:var(--red);border:1px solid var(--red);color:#fff}
+.timefld{display:inline-flex;align-items:center;justify-content:center;min-width:64px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:13px;color:var(--ink);cursor:pointer;font-variant-numeric:tabular-nums}
+.timefld:hover{border-color:var(--brand)}
+.time-pop{display:none;position:fixed;z-index:90;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.16);overflow:hidden}
+.time-pop .tp-cols{display:flex}
+.time-pop .tp-col{width:66px;max-height:184px;overflow:auto;border-right:1px solid #f1f2f5}
+.time-pop .tp-col:last-child{border-right:0}
+.time-pop .tp-cap{font-size:11px;color:var(--muted);text-align:center;padding:7px 0;border-bottom:1px solid #f1f2f5;position:sticky;top:0;background:#fff}
+.time-pop .tp-item{padding:8px 0;text-align:center;font-size:13px;color:var(--ink);cursor:pointer}
+.time-pop .tp-item:hover{background:var(--bg)}
+.time-pop .tp-item.sel{background:var(--brand);color:#fff}
+.row-menu{display:none;position:fixed;z-index:1000;min-width:150px;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 22px rgba(0,0,0,.12);overflow:hidden}
+.row-menu .rmi{display:block;width:100%;text-align:left;padding:10px 13px;font-size:13px;color:var(--ink);background:#fff;border:0;border-bottom:1px solid #f1f2f5;cursor:pointer}
+.row-menu .rmi:last-child{border-bottom:0}
+.row-menu .rmi:hover{background:var(--bg)}
+.row-menu form{margin:0}
 
 /* ---------- Teacher (desktop) chrome ---------- */
 .tdash{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
@@ -230,7 +246,7 @@ tr:last-child td{border-bottom:0}
 .filterbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
 .filterbar select,.filterbar input{padding:8px 11px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:#fff}
 .filterbar .grow{flex:1;min-width:160px}
-.filterbar .search-box{width:150px;flex:0 0 auto}
+.filterbar .search-box{width:250px;flex:0 0 auto}
 
 /* Paid / unpaid icon */
 .paid-ico{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:12px;font-weight:800;color:#fff}

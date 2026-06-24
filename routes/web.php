@@ -34,6 +34,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/classes', [TeacherController::class, 'classes'])->name('teacher.classes');
     Route::post('/classes', [TeacherController::class, 'storeClass'])->name('teacher.classes.store');
     Route::put('/classes/{id}', [TeacherController::class, 'updateClass'])->name('teacher.classes.update');
+    Route::post('/classes/{id}/duplicate', [TeacherController::class, 'duplicateClass'])->name('teacher.classes.duplicate');
     Route::get('/classes/{id}', [TeacherController::class, 'classShow'])->name('teacher.class');
     Route::post('/classes/{id}/students', [TeacherController::class, 'addStudentToClass'])->name('teacher.class.addStudent');
 

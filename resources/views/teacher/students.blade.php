@@ -3,7 +3,7 @@
 @use('App\Support\Money')
 
 @section('content')
-<div class="pagehead"><div><h1>Học sinh</h1><p>{{ $students->count() }} học sinh</p></div><button class="btn primary" type="button" onclick="openModal('m-student')">+ Thêm học sinh</button></div>
+<div class="pagehead"><div><h1>Học sinh</h1><p>{{ $students->total() }} học sinh</p></div><button class="btn primary" type="button" onclick="openModal('m-student')">+ Thêm học sinh</button></div>
 
 <form class="filterbar" method="GET" action="{{ route('teacher.students') }}">
   <select name="class_id" onchange="this.form.submit()">
@@ -57,6 +57,7 @@
     </tbody>
   </table>
   </div>
+  @include('partials.pagination', ['paginator' => $students])
 </div></div>
 
 {{-- Popup thêm học sinh --}}

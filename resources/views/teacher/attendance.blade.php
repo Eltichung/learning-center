@@ -53,7 +53,7 @@
           <div class="panel"><div class="pb">
             <div class="tablewrap">
             <table class="attgrid" id="att-table">
-              <thead><tr><th style="width:360px">Học sinh · Điểm danh</th><th style="width:120px">Đơn giá</th><th>Thành tiền</th></tr></thead>
+              <thead><tr><th style="width:50%">Học sinh · Điểm danh</th><th style="width:120px">Đơn giá</th><th>Thành tiền</th></tr></thead>
               <tbody>
                 @forelse ($rows as $row)
                   <tr data-price="{{ $row->price }}">
