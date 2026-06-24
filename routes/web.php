@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LookupController;
 use App\Http\Controllers\TeacherController;
@@ -13,7 +14,13 @@ use Illuminate\Support\Facades\Route;
 | - Khu phụ huynh: công khai, tra cứu theo mã học sinh, render DB.
 */
 
-Route::get('/', fn () => redirect()->route('teacher.dashboard'));
+Route::get('/', function () {
+    if (auth()->check() && auth()->user()->role === 'super_admin') {
+        return redirect()->route('admin.dashboard');
+    }
+
+    return redirect()->route('teacher.dashboard');
+});
 
 /* ---------------- Xác thực (khách chưa đăng nhập) ---------------- */
 Route::middleware('guest')->group(function () {
@@ -57,6 +64,17 @@ Route::middleware('auth')->group(function () {
     // AJAX
     Route::get('/api/students/search', [TeacherController::class, 'searchStudents'])->name('api.students.search');
     Route::get('/api/students/{id}/monthly', [TeacherController::class, 'studentMonthly'])->name('api.student.monthly');
+});
+
+/* ---------------- Khu quản trị (super_admin) ---------------- */
+Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/view-as', [AdminController::class, 'setViewTeacher'])->name('viewAs');
+    Route::get('/teachers', [AdminController::class, 'teachers'])->name('teachers');
+    Route::get('/teachers/{id}', [AdminController::class, 'teacherShow'])->name('teacher');
+    Route::put('/teachers/{id}/status', [AdminController::class, 'toggleStatus'])->name('teacher.toggleStatus');
+    Route::put('/teachers/{id}/role', [AdminController::class, 'changeRole'])->name('teacher.role');
+    Route::put('/teachers/{id}/password', [AdminController::class, 'resetPassword'])->name('teacher.password');
 });
 
 /* ---------------- Khu phụ huynh (công khai) ---------------- */

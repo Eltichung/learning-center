@@ -29,9 +29,20 @@ class AuthController extends Controller
                 ->onlyInput('email');
         }
 
+        // Tài khoản bị khoá thì không cho vào
+        if (Auth::user()->status === 'locked') {
+            Auth::logout();
+            return redirect()->route('teacher.login')
+                ->withErrors(['email' => 'Tài khoản đã bị khoá. Liên hệ quản trị viên.'])
+                ->onlyInput('email');
+        }
+
         $request->session()->regenerate();
 
-        return redirect()->intended(route('teacher.dashboard'));
+        $home = Auth::user()->role === 'super_admin'
+            ? route('admin.dashboard') : route('teacher.dashboard');
+
+        return redirect()->intended($home);
     }
 
     public function showRegister()

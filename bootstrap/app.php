@@ -15,7 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Tin tưởng proxy của Render (HTTPS terminate ở proxy) để Laravel nhận đúng scheme
         $middleware->trustProxies(at: '*');
         $middleware->redirectGuestsTo(fn () => route('teacher.login'));
-        $middleware->redirectUsersTo('/dashboard');
+        $middleware->redirectUsersTo(fn () => auth()->user()?->role === 'super_admin'
+            ? route('admin.dashboard') : route('teacher.dashboard'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

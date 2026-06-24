@@ -22,10 +22,24 @@
       <div class="avatar">{{ $initials }}</div>
       <div>
         <div class="nm">{{ $me->name }}</div>
-        <div class="sb">{{ $planName ? 'Gói '.$planName : 'Gói Free' }}</div>
+        <div class="sb">{{ $me->role === 'super_admin' ? 'Quản trị hệ thống' : ($planName ? 'Gói '.$planName : 'Gói Free') }}</div>
       </div>
     </div>
   @endauth
+
+  @if (auth()->user()?->role === 'super_admin')
+    @php($allTeachers = \App\Models\User::where('role', 'owner')->orderBy('name')->get(['id', 'name']))
+    @php($viewingId = (int) (session('admin_teacher_id') ?: optional($allTeachers->first())->id))
+    <div class="group">👁️ Đang xem dữ liệu GV</div>
+    <select onchange="location.href='{{ route('admin.viewAs') }}?teacher='+this.value"
+            style="width:100%;margin:0 0 8px;padding:8px 10px;border-radius:8px;border:1px solid #2a2e38;background:#1e212a;color:#fff;font-size:13px">
+      @forelse ($allTeachers as $tt)
+        <option value="{{ $tt->id }}" @selected($viewingId === $tt->id)>{{ $tt->name }}</option>
+      @empty
+        <option value="">— Chưa có GV —</option>
+      @endforelse
+    </select>
+  @endif
 
   <div class="group">👩‍🏫 Giáo viên · Desktop</div>
   <nav class="tnav">
@@ -43,6 +57,14 @@
     <a href="{{ route('parent.info', 'an-toan9') }}"      class="{{ $active==='p-info'    ? 'on':'' }}"><span class="ic">📄</span> Thông tin học sinh</a>
     <a href="{{ route('parent.history', 'an-toan9') }}"   class="{{ $active==='p-history' ? 'on':'' }}"><span class="ic">🗓️</span> Lịch sử học (theo tuần)</a>
   </nav>
+
+  @if (auth()->user()?->role === 'super_admin')
+    <div class="group">🛡️ Quản trị</div>
+    <nav class="tnav">
+      <a href="{{ route('admin.dashboard') }}" class="{{ $rn === 'admin.dashboard' ? 'on' : '' }}"><span class="ic">📊</span> Tổng quan hệ thống</a>
+      <a href="{{ route('admin.teachers') }}" class="{{ \Illuminate\Support\Str::startsWith((string) $rn, 'admin.teacher') ? 'on' : '' }}"><span class="ic">👨‍🏫</span> Quản lý giáo viên</a>
+    </nav>
+  @endif
 
   @auth
   <form method="POST" action="{{ route('teacher.logout') }}" class="logout-form">

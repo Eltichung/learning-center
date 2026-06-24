@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Student;
 use App\Models\StudentComment;
 use App\Models\StudentSession;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +20,23 @@ use Illuminate\Validation\Rule;
 
 class TeacherController extends Controller
 {
+    /**
+     * Teacher ID đang thao tác.
+     * - Giáo viên: chính họ.
+     * - Admin: giáo viên đang được chọn xem (bộ lọc), mặc định GV đầu tiên.
+     */
     private function tid(): int
     {
+        $u = auth()->user();
+        if ($u && $u->role === 'super_admin') {
+            $sel = (int) session('admin_teacher_id');
+            if (! $sel || ! User::where('id', $sel)->where('role', 'owner')->exists()) {
+                $sel = (int) (User::where('role', 'owner')->orderBy('id')->value('id') ?? 0);
+            }
+
+            return $sel;
+        }
+
         return (int) auth()->id();
     }
 
