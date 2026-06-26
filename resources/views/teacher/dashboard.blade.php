@@ -17,14 +17,75 @@
   <div class="card"><div class="lbl">Doanh thu tháng {{ now()->month }}</div><div class="val green">{{ Money::short($revenueMonth) }}</div><div class="sub">Tổng tiền đã tính theo buổi</div></div>
   <div class="card"><div class="lbl">Đang nợ học phí</div><div class="val red">{{ Money::short($debtTotal) }}</div><div class="sub">{{ $debtorCount }} học sinh</div></div>
 </div>
+<div class="panel">
+    <div class="ph"><h3>Buổi học hôm nay</h3><a class="btn ghost sm" href="{{ route('teacher.classes') }}">Xem tất cả lớp</a></div>
+    <div class="pb">
+        <div class="scrolllist">
+        <table>
+            <thead><tr><th>Giờ</th><th>Lớp</th><th>Sĩ số</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+            @forelse ($todayClasses as $row)
+                <tr>
+                    <td><b>{{ \Illuminate\Support\Carbon::parse($row->start)->format('H:i') }}</b><div class="r">– {{ \Illuminate\Support\Carbon::parse($row->end)->format('H:i') }}</div></td>
+                    <td>{{ $row->class->name }}</td>
+                    <td>{{ $row->count }} học sinh</td>
+                    <td>
+                        @if ($row->done)<span class="chip g">Đã điểm danh</span>
+                        @else<span class="chip a">Chưa điểm danh</span>@endif
+                    </td>
+                    <td style="text-align:right">
+                        <a class="btn {{ $row->done ? 'ghost' : 'primary' }} sm" href="{{ route('teacher.attendance', ['class_id' => $row->class->id]) }}">{{ $row->done ? 'Xem' : 'Điểm danh' }}</a>
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="5" class="r" style="padding:18px 16px">Hôm nay không có buổi học nào theo lịch.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+@if ($missedAttendanceCount > 0 || $pendingMakeupCount > 0)
+<div class="warn-cols">
+
+@if ($missedAttendanceCount > 0)
+<div class="panel" style="border-color:#e7b3b3">
+  <div class="ph" style="background:#fdecec">
+    <h3>⚠️ Buổi đã qua chưa điểm danh <span style="color:var(--red)">({{ $missedAttendanceCount }})</span></h3>
+    <a class="btn ghost sm" href="{{ route('teacher.attendance') }}">Tới điểm danh</a>
+  </div>
+  <div class="pb">
+    <div class="note" style="margin:0 0 6px">Các buổi này <b>chưa tính tiền vào doanh thu/công nợ</b>. Vào điểm danh để chốt tiền.</div>
+    <div class="scrolllist">
+    <table>
+      <thead><tr><th>Ngày học</th><th>Lớp</th><th>Loại</th><th></th></tr></thead>
+      <tbody>
+        @foreach ($missedAttendance as $ms)
+          @php($wk = \Illuminate\Support\Carbon::parse($ms->date)->startOfWeek()->toDateString())
+          <tr>
+            <td><b>{{ \Illuminate\Support\Carbon::parse($ms->date)->format('d/m/Y') }}</b></td>
+            <td>{{ $ms->classroom->name }}</td>
+            <td>{{ $ms->type === 'makeup' ? 'Học bù' : 'Buổi thường' }}</td>
+            <td style="text-align:right">
+              <a class="btn primary sm" href="{{ route('teacher.attendance', ['class_id' => $ms->class_id, 'week' => $wk, 'session_id' => $ms->id]) }}">Điểm danh ngay</a>
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+@endif
 
 @if ($pendingMakeupCount > 0)
-<div class="panel" style="border-color:#f0c9a8;margin-bottom:22px">
+<div class="panel" style="border-color:#f0c9a8">
   <div class="ph" style="background:#fdf3ea">
     <h3>🔴 Buổi nghỉ chưa xếp lịch học bù <span style="color:var(--red)">({{ $pendingMakeupCount }})</span></h3>
     <a class="btn ghost sm" href="{{ route('teacher.attendance') }}">Tới điểm danh</a>
   </div>
   <div class="pb">
+    <div class="scrolllist">
     <table>
       <thead><tr><th>Ngày nghỉ</th><th>Lớp</th><th>Lý do</th><th></th></tr></thead>
       <tbody>
@@ -41,34 +102,11 @@
         @endforeach
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 @endif
 
-<div class="panel">
-  <div class="ph"><h3>Buổi học hôm nay</h3><a class="btn ghost sm" href="{{ route('teacher.classes') }}">Xem tất cả lớp</a></div>
-  <div class="pb">
-    <table>
-      <thead><tr><th>Giờ</th><th>Lớp</th><th>Sĩ số</th><th>Trạng thái</th><th></th></tr></thead>
-      <tbody>
-        @forelse ($todayClasses as $row)
-          <tr>
-            <td><b>{{ \Illuminate\Support\Carbon::parse($row->start)->format('H:i') }}</b><div class="r">– {{ \Illuminate\Support\Carbon::parse($row->end)->format('H:i') }}</div></td>
-            <td>{{ $row->class->name }}</td>
-            <td>{{ $row->count }} học sinh</td>
-            <td>
-              @if ($row->done)<span class="chip g">Đã điểm danh</span>
-              @else<span class="chip a">Chưa điểm danh</span>@endif
-            </td>
-            <td style="text-align:right">
-              <a class="btn {{ $row->done ? 'ghost' : 'primary' }} sm" href="{{ route('teacher.attendance', ['class_id' => $row->class->id]) }}">{{ $row->done ? 'Xem' : 'Điểm danh' }}</a>
-            </td>
-          </tr>
-        @empty
-          <tr><td colspan="5" class="r" style="padding:18px 16px">Hôm nay không có buổi học nào theo lịch.</td></tr>
-        @endforelse
-      </tbody>
-    </table>
-  </div>
 </div>
+@endif
 @endsection

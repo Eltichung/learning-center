@@ -72,10 +72,21 @@ class TeacherController extends Controller
             ->get();
         $pendingMakeupCount = $pendingMakeups->count();
 
+        // Buổi học đã qua ngày nhưng CHƯA điểm danh (chưa sinh tiền -> bỏ sót doanh thu)
+        $missedAttendance = ClassSession::whereIn('type', ['regular', 'makeup'])
+            ->whereDate('date', '<', $todayDate)
+            ->whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->whereDoesntHave('studentSessions')
+            ->with('classroom')
+            ->orderBy('date', 'desc')
+            ->get();
+        $missedAttendanceCount = $missedAttendance->count();
+
         return view('teacher.dashboard', compact(
             'classesActive', 'studentsCount', 'todayClasses',
             'revenueMonth', 'debtTotal', 'debtorCount', 'notDoneToday',
-            'pendingMakeups', 'pendingMakeupCount'
+            'pendingMakeups', 'pendingMakeupCount',
+            'missedAttendance', 'missedAttendanceCount'
         ));
     }
 

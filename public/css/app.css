@@ -97,6 +97,12 @@ tr:last-child td{border-bottom:0}
 /* Datagrid: vùng bảng cao tối đa ~60vh, cuộn trong, header dính */
 .tablewrap{max-height:60vh;overflow:auto}
 .tablewrap thead th{position:sticky;top:0;background:var(--panel);z-index:2}
+/* Danh sách cuộn ~10 dòng rồi scroll (33px header + 10×51px) */
+.scrolllist{max-height:543px;overflow:auto}
+.scrolllist thead th{position:sticky;top:0;background:var(--panel);z-index:2}
+/* 2 block cảnh báo nằm ngang; tự stack khi hẹp; 1 block thì chiếm full */
+.warn-cols{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:22px}
+.warn-cols > .panel{flex:1 1 360px;min-width:0;margin:0}
 
 .chip{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
 .chip.g{background:var(--green-soft);color:var(--green)}
