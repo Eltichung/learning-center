@@ -42,14 +42,17 @@ class TeacherController extends Controller
             ->get()
             ->map(function ($c) use ($todayDate) {
                 $sc = $c->schedules->first();
-                $done = ClassSession::where('class_id', $c->id)->whereDate('date', $todayDate)->exists();
+                // "Đã điểm danh" = đã submit (attendance_submitted_at), KHÔNG phải chỉ tồn tại bản ghi buổi
+                // (bản ghi buổi tự sinh khi mở trang điểm danh nên không phản ánh việc đã điểm danh).
+                $session = ClassSession::where('class_id', $c->id)->whereDate('date', $todayDate)->first();
 
                 return (object) [
                     'class' => $c,
                     'start' => $sc?->start_time,
                     'end' => $sc?->end_time,
                     'count' => $c->class_students_count,
-                    'done' => $done,
+                    'done' => (bool) ($session && $session->attendance_submitted_at),
+                    'off' => (bool) ($session && $session->type === 'off'),
                 ];
             });
 
@@ -61,7 +64,7 @@ class TeacherController extends Controller
         $balances = $this->balances($tid);
         $debtTotal = (int) $balances->filter(fn ($b) => $b > 0)->sum();
         $debtorCount = $balances->filter(fn ($b) => $b > 0)->count();
-        $notDoneToday = $todayClasses->where('done', false)->count();
+        $notDoneToday = $todayClasses->filter(fn ($r) => ! $r->done && ! $r->off)->count();
 
         // Buổi đã báo nghỉ nhưng chưa xếp lịch học bù
         $pendingMakeups = ClassSession::where('type', 'off')

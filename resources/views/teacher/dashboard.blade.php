@@ -30,11 +30,12 @@
                     <td>{{ $row->class->name }}</td>
                     <td>{{ $row->count }} học sinh</td>
                     <td>
-                        @if ($row->done)<span class="chip g">Đã điểm danh</span>
+                        @if ($row->off)<span class="chip r">Nghỉ</span>
+                        @elseif ($row->done)<span class="chip g">Đã điểm danh</span>
                         @else<span class="chip a">Chưa điểm danh</span>@endif
                     </td>
                     <td style="text-align:right">
-                        <a class="btn {{ $row->done ? 'ghost' : 'primary' }} sm" href="{{ route('teacher.attendance', ['class_id' => $row->class->id]) }}">{{ $row->done ? 'Xem' : 'Điểm danh' }}</a>
+                        <a class="btn {{ $row->done || $row->off ? 'ghost' : 'primary' }} sm" href="{{ route('teacher.attendance', ['class_id' => $row->class->id]) }}">{{ $row->done || $row->off ? 'Xem' : 'Điểm danh' }}</a>
                     </td>
                 </tr>
             @empty
