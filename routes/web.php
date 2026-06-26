@@ -48,6 +48,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/attendance', [TeacherController::class, 'attendance'])->name('teacher.attendance');
     Route::post('/attendance/{session}', [TeacherController::class, 'submitAttendance'])->name('teacher.attendance.submit');
+    Route::post('/attendance/{session}/off', [TeacherController::class, 'markSessionOff'])->name('teacher.attendance.off');
+    Route::post('/attendance/{session}/unoff', [TeacherController::class, 'unmarkSessionOff'])->name('teacher.attendance.unoff');
+    Route::post('/attendance/{session}/makeup', [TeacherController::class, 'addMakeup'])->name('teacher.attendance.makeup');
 
     Route::post('/payments', [TeacherController::class, 'storePayment'])->name('teacher.payments.store');
 

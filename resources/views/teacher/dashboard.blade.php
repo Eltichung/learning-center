@@ -18,6 +18,33 @@
   <div class="card"><div class="lbl">Đang nợ học phí</div><div class="val red">{{ Money::short($debtTotal) }}</div><div class="sub">{{ $debtorCount }} học sinh</div></div>
 </div>
 
+@if ($pendingMakeupCount > 0)
+<div class="panel" style="border-color:#f0c9a8;margin-bottom:22px">
+  <div class="ph" style="background:#fdf3ea">
+    <h3>🔴 Buổi nghỉ chưa xếp lịch học bù <span style="color:var(--red)">({{ $pendingMakeupCount }})</span></h3>
+    <a class="btn ghost sm" href="{{ route('teacher.attendance') }}">Tới điểm danh</a>
+  </div>
+  <div class="pb">
+    <table>
+      <thead><tr><th>Ngày nghỉ</th><th>Lớp</th><th>Lý do</th><th></th></tr></thead>
+      <tbody>
+        @foreach ($pendingMakeups as $off)
+          @php($wk = \Illuminate\Support\Carbon::parse($off->date)->startOfWeek()->toDateString())
+          <tr>
+            <td><b>{{ \Illuminate\Support\Carbon::parse($off->date)->format('d/m/Y') }}</b></td>
+            <td>{{ $off->classroom->name }}</td>
+            <td class="r">{{ $off->note ?: '—' }}</td>
+            <td style="text-align:right">
+              <a class="btn primary sm" href="{{ route('teacher.attendance', ['class_id' => $off->class_id, 'week' => $wk, 'session_id' => $off->id]) }}">Xếp lịch bù</a>
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+  </div>
+</div>
+@endif
+
 <div class="panel">
   <div class="ph"><h3>Buổi học hôm nay</h3><a class="btn ghost sm" href="{{ route('teacher.classes') }}">Xem tất cả lớp</a></div>
   <div class="pb">

@@ -63,9 +63,19 @@ class TeacherController extends Controller
         $debtorCount = $balances->filter(fn ($b) => $b > 0)->count();
         $notDoneToday = $todayClasses->where('done', false)->count();
 
+        // Buổi đã báo nghỉ nhưng chưa xếp lịch học bù
+        $pendingMakeups = ClassSession::where('type', 'off')
+            ->whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->whereDoesntHave('makeups')
+            ->with('classroom')
+            ->orderBy('date', 'desc')
+            ->get();
+        $pendingMakeupCount = $pendingMakeups->count();
+
         return view('teacher.dashboard', compact(
             'classesActive', 'studentsCount', 'todayClasses',
-            'revenueMonth', 'debtTotal', 'debtorCount', 'notDoneToday'
+            'revenueMonth', 'debtTotal', 'debtorCount', 'notDoneToday',
+            'pendingMakeups', 'pendingMakeupCount'
         ));
     }
 
@@ -317,6 +327,7 @@ class TeacherController extends Controller
 
             $sessions = ClassSession::where('class_id', $class->id)
                 ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+                ->withCount('makeups')
                 ->orderBy('date')->orderBy('start_time')->get();
 
             $sessionId = (int) ($request->get('session_id') ?: $sessions->first()?->id);
@@ -394,6 +405,141 @@ class TeacherController extends Controller
             'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
             'session_id' => $session->id,
         ])->with('ok', 'Đã lưu điểm danh lúc ' . now()->format('H:i d/m/Y') . ($wasSubmitted ? ' (cập nhật lại)' : '') . '.');
+    }
+
+    /** Báo cả lớp nghỉ một buổi: chuyển type=off (không tính tiền), tuỳ chọn tạo buổi học bù */
+    public function markSessionOff(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->findOrFail($sessionId);
+
+        $redirect = fn () => redirect()->route('teacher.attendance', [
+            'class_id' => $session->class_id,
+            'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
+            'session_id' => $session->id,
+        ]);
+
+        // Đã điểm danh thì không cho báo nghỉ — phải bỏ điểm danh trước (tránh sai lệch tiền đã chốt)
+        if ($session->attendance_submitted_at) {
+            return $redirect()->withErrors(['off' => 'Buổi này đã điểm danh nên không thể báo nghỉ.']);
+        }
+        if ($session->type === 'off') {
+            return $redirect()->withErrors(['off' => 'Buổi này đã là buổi nghỉ.']);
+        }
+
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:255'],
+            'makeup_date' => ['nullable', 'date'],
+        ]);
+
+        // Ngày học bù (nếu có) phải trống lịch để tránh trùng buổi đang có
+        $makeup = null;
+        if (! empty($data['makeup_date'])) {
+            $exists = ClassSession::where('class_id', $session->class_id)
+                ->whereDate('date', $data['makeup_date'])->exists();
+            if ($exists) {
+                return $redirect()->withErrors(['off' => 'Ngày học bù đã có buổi học khác — chọn ngày khác.']);
+            }
+        }
+
+        DB::transaction(function () use ($session, $data, &$makeup) {
+            // Phòng xa: dọn mọi bản ghi điểm danh lỡ tạo cho buổi này
+            StudentSession::where('class_session_id', $session->id)->delete();
+
+            $session->update([
+                'type' => 'off',
+                'note' => $data['reason'] ?? $session->note,
+                'attendance_submitted_at' => null,
+            ]);
+
+            if (! empty($data['makeup_date'])) {
+                $makeup = ClassSession::create([
+                    'class_id' => $session->class_id,
+                    'date' => $data['makeup_date'],
+                    'start_time' => $session->start_time,
+                    'end_time' => $session->end_time,
+                    'type' => 'makeup',
+                    'makeup_for_id' => $session->id,
+                ]);
+            }
+        });
+
+        $msg = 'Đã báo cả lớp nghỉ buổi ' . Carbon::parse($session->date)->format('d/m/Y') . ' (không tính tiền).';
+        if ($makeup) {
+            $msg .= ' Đã tạo buổi học bù ngày ' . Carbon::parse($makeup->date)->format('d/m/Y') . '.';
+        }
+
+        return $redirect()->with('ok', $msg);
+    }
+
+    /** Hoàn tác báo nghỉ: chuyển buổi off về regular, xoá buổi bù chưa điểm danh (nếu có) */
+    public function unmarkSessionOff(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->findOrFail($sessionId);
+
+        $redirect = fn () => redirect()->route('teacher.attendance', [
+            'class_id' => $session->class_id,
+            'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
+            'session_id' => $session->id,
+        ]);
+
+        if ($session->type !== 'off') {
+            return $redirect()->withErrors(['off' => 'Buổi này không phải buổi nghỉ.']);
+        }
+
+        DB::transaction(function () use ($session) {
+            // Xoá buổi học bù gắn với buổi nghỉ này nếu buổi bù chưa điểm danh
+            ClassSession::where('makeup_for_id', $session->id)
+                ->whereNull('attendance_submitted_at')
+                ->delete();
+
+            $session->update(['type' => 'regular']);
+        });
+
+        return $redirect()->with('ok', 'Đã hoàn tác — buổi ' . Carbon::parse($session->date)->format('d/m/Y') . ' trở lại buổi học bình thường.');
+    }
+
+    /** Thêm buổi học bù cho một buổi đã báo nghỉ (xếp lịch bù sau khi nghỉ) */
+    public function addMakeup(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->findOrFail($sessionId);
+
+        $redirect = fn () => redirect()->route('teacher.attendance', [
+            'class_id' => $session->class_id,
+            'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
+            'session_id' => $session->id,
+        ]);
+
+        if ($session->type !== 'off') {
+            return $redirect()->withErrors(['off' => 'Chỉ tạo buổi học bù cho buổi đã báo nghỉ.']);
+        }
+        if ($session->makeups()->exists()) {
+            return $redirect()->withErrors(['off' => 'Buổi nghỉ này đã có buổi học bù.']);
+        }
+
+        $data = $request->validate(['makeup_date' => ['required', 'date']]);
+
+        $exists = ClassSession::where('class_id', $session->class_id)
+            ->whereDate('date', $data['makeup_date'])->exists();
+        if ($exists) {
+            return $redirect()->withErrors(['off' => 'Ngày học bù đã có buổi học khác — chọn ngày khác.']);
+        }
+
+        $makeup = ClassSession::create([
+            'class_id' => $session->class_id,
+            'date' => $data['makeup_date'],
+            'start_time' => $session->start_time,
+            'end_time' => $session->end_time,
+            'type' => 'makeup',
+            'makeup_for_id' => $session->id,
+        ]);
+
+        return $redirect()->with('ok', 'Đã tạo buổi học bù ngày ' . Carbon::parse($makeup->date)->format('d/m/Y') . ' (tính tiền như buổi học bình thường).');
     }
 
     /* ===================== Học phí & công nợ ===================== */

@@ -12,6 +12,13 @@
       @endif
     </p>
   </div>
+  @if ($session && $session->type !== 'off')
+    @if ($session->attendance_submitted_at)
+      <span class="r" style="font-size:12.5px;color:var(--muted)" title="Bỏ điểm danh trước nếu muốn báo nghỉ">Đã điểm danh — không thể báo nghỉ</span>
+    @else
+      <button type="button" class="btn ghost" onclick="openOffModal('{{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}')">🔴 Báo cả lớp nghỉ</button>
+    @endif
+  @endif
 </div>
 
 <div class="filterbar">
@@ -33,10 +40,12 @@
   {{-- Tabs: các buổi trong tuần --}}
   <div class="tabs">
     @foreach ($sessions as $s)
-      <a class="tab {{ $session && $s->id === $session->id ? 'on' : '' }}"
-         href="{{ $base }}?class_id={{ $class->id }}&week={{ $weekStart->toDateString() }}&session_id={{ $s->id }}">
+      @php($offNoMakeup = $s->type === 'off' && (int) $s->makeups_count === 0)
+      <a class="tab {{ $session && $s->id === $session->id ? 'on' : '' }} {{ $offNoMakeup ? 'pending-makeup' : '' }}"
+         href="{{ $base }}?class_id={{ $class->id }}&week={{ $weekStart->toDateString() }}&session_id={{ $s->id }}"
+         @if ($offNoMakeup) title="Buổi nghỉ chưa xếp lịch học bù" @endif>
         {{ \Illuminate\Support\Carbon::parse($s->date)->format('d/m') }}
-        @if ($s->type === 'makeup') (bù) @elseif ($s->type === 'off') (nghỉ) @endif
+        @if ($s->type === 'makeup') ( Bù ) @elseif ($s->type === 'off') ( Nghỉ ){!! $offNoMakeup ? ' ⚠' : '' !!} @endif
         @if ($s->attendance_submitted_at)<span class="dot-done">✓</span>@endif
       </a>
     @endforeach
@@ -106,8 +115,62 @@
       </div>
     </div>
   @elseif ($session && $session->type === 'off')
-    <div class="note">Buổi này là <b>buổi nghỉ</b> — không điểm danh, không tính tiền.</div>
+    <div class="note">🔴 Buổi này là <b>buổi nghỉ</b> — không điểm danh, không tính tiền.
+      @if ($session->note) <br>Lý do: {{ $session->note }}@endif
+    </div>
+    @php($makeups = $session->makeups()->orderBy('date')->get())
+    @if ($makeups->isNotEmpty())
+      <div class="note">🔵 Buổi học bù:
+        @foreach ($makeups as $mk)
+          <a href="{{ $base }}?class_id={{ $class->id }}&week={{ \Illuminate\Support\Carbon::parse($mk->date)->startOfWeek()->toDateString() }}&session_id={{ $mk->id }}">{{ \Illuminate\Support\Carbon::parse($mk->date)->format('d/m/Y') }}</a>@if (! $loop->last), @endif
+        @endforeach
+      </div>
+    @else
+      {{-- Chưa có buổi bù: cho phép xếp lịch bù hoặc hoàn tác --}}
+      <form method="POST" action="{{ route('teacher.attendance.makeup', $session->id) }}"
+            data-confirm="Xác nhận thêm buổi học bù?"
+            style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0">
+        @csrf
+        <label style="font-size:13px;color:var(--muted)">Xếp buổi học bù vào ngày:</label>
+        <input type="date" name="makeup_date" required
+               oninput="this.form.dataset.confirm = 'Xác nhận thêm buổi học bù' + (this.value ? ' vào ngày ' + this.value.split('-').reverse().join('/') : '') + '?'">
+        <button type="submit" class="btn ghost sm">➕ Thêm buổi học bù</button>
+      </form>
+
+      <form method="POST" action="{{ route('teacher.attendance.unoff', $session->id) }}"
+            data-confirm="Hoàn tác buổi nghỉ {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }} về buổi học bình thường?"
+            style="margin-top:6px">
+        @csrf
+        <button type="submit" class="btn ghost">↩ Hoàn tác (chuyển về buổi học)</button>
+      </form>
+    @endif
   @endif
+@endif
+
+{{-- Modal: báo cả lớp nghỉ --}}
+@if ($session)
+<div class="modal-backdrop" id="m-off">
+  <form class="modal" method="POST" action="{{ route('teacher.attendance.off', $session->id) }}" style="width:460px">
+    @csrf
+    <div class="mh"><h3>Báo cả lớp nghỉ</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
+    <div class="mb">
+      <div class="note" style="margin-top:0">Buổi <b id="off-date"></b> sẽ được đánh dấu <b>nghỉ</b> — cả lớp không bị tính tiền buổi này.</div>
+      <div class="field"><label>Lý do nghỉ (tuỳ chọn)</label>
+        <input name="reason" placeholder="VD: Cô bận việc, nghỉ lễ..." autocomplete="off"></div>
+      <div class="field"><label>Ngày học bù (tuỳ chọn)</label>
+        <input type="date" name="makeup_date">
+        <div class="r" style="font-size:12px;color:var(--muted);margin-top:4px">Để trống nếu chưa xếp được lịch bù. Buổi bù sẽ tính tiền như buổi học bình thường.</div>
+      </div>
+    </div>
+    <div class="mf"><button type="button" class="btn ghost" onclick="closeModal(this)">Huỷ</button><button type="submit" class="btn primary">Xác nhận nghỉ</button></div>
+  </form>
+</div>
+<script>
+  function openOffModal(dateLabel){
+    document.getElementById('off-date').textContent = dateLabel || '';
+    openModal('m-off');
+  }
+</script>
 @endif
 
 @push('scripts')

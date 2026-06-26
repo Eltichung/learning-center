@@ -55,7 +55,7 @@ a{color:inherit}
 .tdash{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
 .tside{background:#14161c;color:#cbd2e0;padding:18px 14px;overflow:auto;position:sticky;top:0;height:100vh}
 .tside .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;color:#fff;margin:4px 8px 18px}
-.navtoggle,.navclose{display:none}
+.navtoggle,.navclose,.navscrim{display:none}
 .tside .brand .mark{width:30px;height:30px;border-radius:9px;background:var(--brand);display:grid;place-items:center;color:#fff;font-size:16px}
 .tside .u{display:flex;gap:10px;align-items:center;padding:8px;margin-bottom:6px}
 .avatar{width:38px;height:38px;border-radius:10px;background:var(--brand-soft);color:var(--brand-ink);display:grid;place-items:center;font-weight:700}
@@ -242,6 +242,8 @@ tr:last-child td{border-bottom:0}
 .tab.on{background:var(--brand);color:#fff;border-color:var(--brand);font-weight:600}
 .tab .dot-done{color:var(--green);font-weight:800}
 .tab.on .dot-done{color:#fff}
+.tab.pending-makeup{background:#fdecec;border-color:#e7b3b3;color:var(--red);font-weight:600}
+.tab.pending-makeup.on{background:var(--red);border-color:var(--red);color:#fff}
 
 /* Filter bar */
 .filterbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
@@ -277,7 +279,7 @@ tr:last-child td{border-bottom:0}
   .navclose:hover{background:#2b2f3a;color:#fff}
 
   /* lớp phủ nền khi mở drawer */
-  .navscrim{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.45);
+  .navscrim{display:block;position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.45);
     opacity:0;visibility:hidden;transition:opacity .25s ease}
   body.nav-open .navscrim{opacity:1;visibility:visible}
 }
