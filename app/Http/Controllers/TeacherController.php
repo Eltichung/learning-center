@@ -821,8 +821,9 @@ class TeacherController extends Controller
         $tid = $this->tid();
         $class = Classroom::where('teacher_id', $tid)->findOrFail($id);
 
-        // Lớp được phép đổi trạng thái, lịch học (thứ) và giờ học (bắt đầu/kết thúc)
+        // Lớp được phép đổi tên, trạng thái, lịch học (thứ) và giờ học (bắt đầu/kết thúc)
         $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'in:active,paused'],
             'weekdays' => ['required', 'array', 'min:1'],
             'weekdays.*' => ['integer', 'between:1,7'],
@@ -834,7 +835,7 @@ class TeacherController extends Controller
 
         $oldStatus = $class->status;
 
-        $update = ['status' => $data['status']];
+        $update = ['name' => $data['name'], 'status' => $data['status']];
         // Tạm dừng -> lưu ngày kết thúc; kích hoạt lại -> xoá ngày kết thúc
         $update['ended_at'] = $data['status'] === 'paused' ? now()->toDateString() : null;
 

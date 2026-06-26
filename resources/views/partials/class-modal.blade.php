@@ -155,9 +155,11 @@
   }
 
   function setEditLock(lock){
-    ['cf-name','cf-type','cf-grade','cf-subject','cf-start-date'].forEach(function(id){
+    // Tên lớp luôn cho sửa (chỉ là nhãn). Khoá các trường cấu trúc khi lớp đã có dữ liệu.
+    ['cf-type','cf-grade','cf-subject','cf-start-date'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.disabled=lock;
     });
+    var nm=document.getElementById('cf-name'); if(nm) nm.disabled=false;
   }
 
   window.newClass = function(){
