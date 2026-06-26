@@ -32,6 +32,21 @@
     @endforelse
   </div>
 
+  {{-- Buổi học bù (lịch một lần, không thuộc lịch cố định) --}}
+  @if ($makeups->isNotEmpty())
+  <div class="pcard">
+    <h4>🔵 Buổi học bù</h4>
+    @foreach ($makeups as $mk)
+      <div class="sched-day">
+        <div class="day-pill" style="background:var(--blue-soft);color:var(--blue)">{{ $wdShort[$mk->date->dayOfWeekIso] }}</div>
+        <div class="day-info">{{ $mk->date->format('d/m/Y') }} ({{ $wdFull[$mk->date->dayOfWeekIso] }})
+          <div class="t">{{ $mk->start }} – {{ $mk->end }} · {{ $mk->class }}@if ($mk->forDate) · bù cho buổi {{ $mk->forDate->format('d/m') }}@endif</div>
+        </div>
+      </div>
+    @endforeach
+  </div>
+  @endif
+
   {{-- Nhận xét của giáo viên (3 mới nhất) --}}
   @if ($comments->isNotEmpty())
   <div class="pcard">

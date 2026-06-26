@@ -84,13 +84,28 @@ class LookupController extends Controller
         $balance = $student->balanceDue();
         $unpaidSessions = $price > 0 ? (int) round(max($balance, 0) / $price) : 0;
 
-        // Lịch cố định (gộp các lớp), sắp theo thứ
+        // Lịch cố định (gộp các lớp), sắp theo thứ — KHÔNG gồm buổi học bù (một lần)
         $schedules = $classes->flatMap(fn ($c) => $c->schedules->map(fn ($s) => (object) [
             'weekday' => (int) $s->weekday,
             'start' => Carbon::parse($s->start_time)->format('H:i'),
             'end' => Carbon::parse($s->end_time)->format('H:i'),
             'class' => $c->name,
         ]))->sortBy('weekday')->values();
+
+        // Buổi học bù sắp tới (one-off, tách riêng khỏi lịch cố định)
+        $makeups = ClassSession::whereIn('class_id', $student->classStudents->pluck('class_id'))
+            ->where('type', 'makeup')
+            ->whereDate('date', '>=', now()->toDateString())
+            ->with(['classroom', 'makeupFor'])
+            ->orderBy('date')->orderBy('start_time')
+            ->get()
+            ->map(fn ($s) => (object) [
+                'date' => Carbon::parse($s->date),
+                'start' => $s->start_time ? Carbon::parse($s->start_time)->format('H:i') : '',
+                'end' => $s->end_time ? Carbon::parse($s->end_time)->format('H:i') : '',
+                'class' => $s->classroom?->name,
+                'forDate' => $s->makeupFor ? Carbon::parse($s->makeupFor->date) : null,
+            ]);
 
         // 3 nhận xét mới nhất của giáo viên
         $comments = $student->comments()
@@ -104,6 +119,7 @@ class LookupController extends Controller
             'price' => $price,
             'unpaidSessions' => $unpaidSessions,
             'schedules' => $schedules,
+            'makeups' => $makeups,
             'payments' => $student->payments,
             'comments' => $comments,
         ];
