@@ -12,7 +12,9 @@
     default => ($active ?? ''),
 })
 <aside class="tside">
-  <div class="brand"><span class="mark">L</span> Lớp Tăng Lực</div>
+  <div class="brand"><span class="mark">L</span> Lớp Tăng Lực
+    <button type="button" class="navclose" aria-label="Đóng menu" onclick="toggleSidebar(false)">&times;</button>
+  </div>
 
   @auth
     @php($me = auth()->user())

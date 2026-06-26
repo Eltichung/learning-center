@@ -15,6 +15,16 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.show').forEach(m => m.classList.remove('show'));
 });
 
+/* ----- Sidebar drawer (màn nhỏ) ----- */
+function toggleSidebar(force){
+  const open = typeof force === 'boolean' ? force : !document.body.classList.contains('nav-open');
+  document.body.classList.toggle('nav-open', open);
+}
+window.toggleSidebar = toggleSidebar;
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') document.body.classList.remove('nav-open');
+});
+
 /* ----- Toast thông báo ----- */
 function toast(message, type){
   let wrap = document.getElementById('lt-toast-wrap');
