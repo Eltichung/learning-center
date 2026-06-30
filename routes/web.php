@@ -37,6 +37,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/classes/{id}/duplicate', [TeacherController::class, 'duplicateClass'])->name('teacher.classes.duplicate');
     Route::get('/classes/{id}', [TeacherController::class, 'classShow'])->name('teacher.class');
     Route::post('/classes/{id}/students', [TeacherController::class, 'addStudentToClass'])->name('teacher.class.addStudent');
+    Route::put('/classes/{id}/students/{studentId}/price', [TeacherController::class, 'updateClassStudentPrice'])->name('teacher.class.student.price');
+    Route::get('/classes/{id}/students/{studentId}/price-history', [TeacherController::class, 'classStudentPriceHistory'])->name('teacher.class.student.priceHistory');
 
     Route::get('/students', [TeacherController::class, 'students'])->name('teacher.students');
     Route::post('/students', [TeacherController::class, 'storeStudent'])->name('teacher.students.store');

@@ -11,13 +11,18 @@
     @foreach ($classList as $c)<option value="{{ $c->id }}" @selected($classId === $c->id)>{{ $c->name }}</option>@endforeach
   </select>
   <select name="status" onchange="this.form.submit()">
-    <option value="">Tất cả trạng thái</option>
-    <option value="unpaid" @selected($status === 'unpaid')>Còn nợ</option>
-    <option value="paid" @selected($status === 'paid')>Đã đóng</option>
+    <option value="active" @selected($status === 'active')>Hoạt động</option>
+    <option value="inactive" @selected($status === 'inactive')>Ngừng HĐ</option>
+    <option value="" @selected($status === '')>Tất cả trạng thái</option>
+  </select>
+  <select name="pay_status" onchange="this.form.submit()">
+    <option value="">Tất cả công nợ</option>
+    <option value="unpaid" @selected($payStatus === 'unpaid')>Còn nợ</option>
+    <option value="paid" @selected($payStatus === 'paid')>Đã đóng</option>
   </select>
   <input class="search-box" name="q" value="{{ $q }}" placeholder="Tên / mã...">
   <button class="btn primary sm" type="submit">Lọc</button>
-  @if ($classId || $status || $q !== '')<a class="btn ghost sm" href="{{ route('teacher.students') }}">Xoá lọc</a>@endif
+  @if ($classId || $status !== 'active' || $payStatus || $q !== '')<a class="btn ghost sm" href="{{ route('teacher.students') }}">Xoá lọc</a>@endif
 </form>
 
 <div class="panel"><div class="pb">

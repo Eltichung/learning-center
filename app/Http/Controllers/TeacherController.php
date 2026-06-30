@@ -7,6 +7,7 @@ use App\Models\Classroom;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
 use App\Models\ClassStudent;
+use App\Models\ClassStudentPriceLog;
 use App\Models\Payment;
 use App\Models\Student;
 use App\Models\StudentComment;
@@ -175,12 +176,16 @@ class TeacherController extends Controller
         $balances = $this->balances($tid);
 
         $classId = (int) $request->get('class_id');
-        $status = $request->get('status'); // paid | unpaid
+        $payStatus = $request->get('pay_status'); // paid | unpaid
+        $status = $request->has('status') ? $request->get('status') : 'active'; // active | inactive | '' (tất cả)
         $q = trim((string) $request->get('q'));
 
         $query = Student::where('teacher_id', $tid)->with(['classStudents.classroom']);
         if ($classId) {
             $query->whereHas('classStudents', fn ($x) => $x->where('class_id', $classId));
+        }
+        if ($status === 'active' || $status === 'inactive') {
+            $query->where('status', $status);
         }
         if ($q !== '') {
             $query->where(fn ($x) => $x->where('full_name', 'like', "%{$q}%")->orWhere('student_code', 'like', "%{$q}%"));
@@ -201,9 +206,9 @@ class TeacherController extends Controller
                 ];
             });
 
-        if ($status === 'paid') {
+        if ($payStatus === 'paid') {
             $students = $students->where('paid', true)->values();
-        } elseif ($status === 'unpaid') {
+        } elseif ($payStatus === 'unpaid') {
             $students = $students->where('paid', false)->values();
         }
 
@@ -219,7 +224,7 @@ class TeacherController extends Controller
 
         $classList = Classroom::where('teacher_id', $tid)->orderBy('id')->get();
 
-        return view('teacher.students', compact('students', 'classList', 'classId', 'status', 'q'));
+        return view('teacher.students', compact('students', 'classList', 'classId', 'status', 'payStatus', 'q'));
     }
 
     /* ===================== Hồ sơ học sinh ===================== */
@@ -937,6 +942,62 @@ class TeacherController extends Controller
         }
 
         return redirect()->route('teacher.class', $class->id)->with('ok', 'Đã thêm ' . $count . ' học sinh vào lớp.');
+    }
+
+    /* ===================== Sửa đơn giá học sinh trong lớp ===================== */
+    public function updateClassStudentPrice(Request $request, int $id, int $studentId)
+    {
+        $tid = $this->tid();
+        $class = Classroom::where('teacher_id', $tid)->findOrFail($id);
+        $data = $request->validate([
+            'price_per_session' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $cs = ClassStudent::where('class_id', $class->id)
+            ->where('student_id', $studentId)
+            ->whereHas('student', fn ($q) => $q->where('teacher_id', $tid))
+            ->firstOrFail();
+
+        $oldPrice = (int) $cs->price_per_session;
+        $newPrice = (int) $data['price_per_session'];
+
+        if ($oldPrice !== $newPrice) {
+            $cs->update(['price_per_session' => $newPrice]);
+            ClassStudentPriceLog::create([
+                'class_id' => $class->id,
+                'student_id' => $studentId,
+                'user_id' => $tid,
+                'old_price' => $oldPrice,
+                'new_price' => $newPrice,
+            ]);
+        }
+
+        return redirect()->route('teacher.class', $class->id)->with('ok', 'Đã cập nhật đơn giá.');
+    }
+
+    /* ===================== Lịch sử sửa đơn giá (JSON) ===================== */
+    public function classStudentPriceHistory(int $id, int $studentId)
+    {
+        $tid = $this->tid();
+        $class = Classroom::where('teacher_id', $tid)->findOrFail($id);
+        $student = Student::where('teacher_id', $tid)->findOrFail($studentId);
+
+        $logs = ClassStudentPriceLog::where('class_id', $class->id)
+            ->where('student_id', $student->id)
+            ->with('user:id,name')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn ($l) => [
+                'old_price' => (int) $l->old_price,
+                'new_price' => (int) $l->new_price,
+                'user' => optional($l->user)->name,
+                'at' => optional($l->created_at)->format('H:i d/m/Y'),
+            ]);
+
+        return response()->json([
+            'student' => $student->full_name,
+            'logs' => $logs,
+        ]);
     }
 
     /* ===================== Thêm học sinh mới ===================== */
