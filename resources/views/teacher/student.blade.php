@@ -12,7 +12,7 @@
     <p>{{ $grade ? 'Lớp '.$grade : '—' }}{{ $student->school ? ' · '.$student->school : '' }}</p>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
-    <form method="POST" action="{{ route('teacher.students.toggleStatus', $student->id) }}"
+    <form method="POST" action="{{ route('teacher.students.toggleStatus', ['id' => $student->id], false) }}"
           data-confirm="{{ $student->status === 'active' ? 'Ngừng hoạt động học sinh này? Sẽ không xuất hiện khi điểm danh.' : 'Kích hoạt lại học sinh này?' }}">
       @csrf @method('PUT')
       @if ($student->status === 'active')
@@ -27,7 +27,7 @@
 
 <div class="twocol">
   <div>
-    <form class="panel" method="POST" action="{{ route('teacher.students.update', $student->id) }}">
+    <form class="panel" method="POST" action="{{ route('teacher.students.update', ['id' => $student->id], false) }}">
       @csrf
       @method('PUT')
       <div class="ph"><h3>Thông tin & link tra cứu</h3></div>
@@ -75,7 +75,7 @@
 
 {{-- Nhận xét học sinh (lưu theo ngày) --}}
 <div class="panel"><div class="ph"><h3>Nhận xét học sinh</h3></div><div class="pb" style="padding:16px">
-  <form method="POST" action="{{ route('teacher.student.comments.store', $student->id) }}" style="margin-bottom:14px">
+  <form method="POST" action="{{ route('teacher.student.comments.store', ['id' => $student->id], false) }}" style="margin-bottom:14px">
     @csrf
     <div class="field" style="max-width:220px"><label>Ngày</label>
       <input type="date" name="comment_date" value="{{ old('comment_date', now()->toDateString()) }}" required>
@@ -92,7 +92,7 @@
         <div class="r" style="margin-bottom:2px">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</div>
         <div style="white-space:pre-line">{{ $c->body }}</div>
       </div>
-      <form method="POST" action="{{ route('teacher.student.comments.delete', [$student->id, $c->id]) }}" data-confirm="Xoá nhận xét này?" style="flex:none">
+      <form method="POST" action="{{ route('teacher.student.comments.delete', ['id' => $student->id, 'commentId' => $c->id], false) }}" data-confirm="Xoá nhận xét này?" style="flex:none">
         @csrf @method('DELETE')
         <button class="btn ghost sm" type="submit" style="color:var(--red)">Xoá</button>
       </form>

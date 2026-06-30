@@ -18,7 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo('/dashboard');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Render JSON cho mọi request AJAX (wantsJson hoặc X-Requested-With),
+        // không chỉ riêng /api — để validation/csrf/auth errors trả 422/401/419 JSON.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson()
         );
     })->create();

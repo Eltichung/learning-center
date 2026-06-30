@@ -24,6 +24,12 @@ class AuthController extends Controller
         ]);
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'message' => 'Email hoặc mật khẩu không đúng.',
+                    'errors' => ['email' => ['Email hoặc mật khẩu không đúng.']],
+                ], 422);
+            }
             return back()
                 ->withErrors(['email' => 'Email hoặc mật khẩu không đúng.'])
                 ->onlyInput('email');
@@ -31,7 +37,8 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('teacher.dashboard'));
+        $intended = $request->session()->pull('url.intended', route('teacher.dashboard'));
+        return $this->respondOk($request, 'Đăng nhập thành công', $intended);
     }
 
     public function showRegister()
@@ -61,7 +68,7 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('teacher.dashboard');
+        return $this->respondOk($request, 'Đăng ký thành công', route('teacher.dashboard'));
     }
 
 
@@ -71,6 +78,6 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('teacher.login');
+        return $this->respondOk($request, 'Đã đăng xuất', route('teacher.login'));
     }
 }

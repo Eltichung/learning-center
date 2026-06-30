@@ -61,7 +61,7 @@
               </button>
               <div class="row-menu">
                 <button type="button" class="rmi" id="editbtn-{{ $c->id }}" onclick='closeRowMenus(); editClass(@json($cdata))'>Sửa lớp</button>
-                <form method="POST" action="{{ route('teacher.classes.duplicate', $c->id) }}" data-confirm="Nhân bản lớp “{{ $c->name }}” (kèm lịch học và toàn bộ học sinh)?">
+                <form method="POST" action="{{ route('teacher.classes.duplicate', ['id' => $c->id], false) }}" data-confirm="Nhân bản lớp “{{ $c->name }}” (kèm lịch học và toàn bộ học sinh)?">
                   @csrf
                   <button type="submit" class="rmi">Nhân bản</button>
                 </form>

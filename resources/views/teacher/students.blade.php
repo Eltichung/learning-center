@@ -67,7 +67,7 @@
 
 {{-- Popup thêm học sinh --}}
 <div class="modal-backdrop" id="m-student">
-  <form class="modal" method="POST" action="{{ route('teacher.students.store') }}">
+  <form class="modal" method="POST" action="{{ route('teacher.students.store', [], false) }}">
     @csrf
     <div class="mh"><h3>Thêm học sinh</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
     <div class="mb">

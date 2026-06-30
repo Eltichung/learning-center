@@ -56,7 +56,7 @@
 
     <div class="att-cols">
       <div>
-        <form id="att-form" method="POST" action="{{ route('teacher.attendance.submit', $session->id) }}"
+        <form id="att-form" method="POST" action="{{ route('teacher.attendance.submit', ['session' => $session->id], false) }}"
               data-confirm="Xác nhận lưu điểm danh buổi {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}?">
           @csrf
           <div class="panel"><div class="pb">
@@ -127,7 +127,7 @@
       </div>
     @else
       {{-- Chưa có buổi bù: cho phép xếp lịch bù hoặc hoàn tác --}}
-      <form method="POST" action="{{ route('teacher.attendance.makeup', $session->id) }}"
+      <form method="POST" action="{{ route('teacher.attendance.makeup', ['session' => $session->id], false) }}"
             data-confirm="Xác nhận thêm buổi học bù?"
             style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0">
         @csrf
@@ -137,7 +137,7 @@
         <button type="submit" class="btn ghost sm">➕ Thêm buổi học bù</button>
       </form>
 
-      <form method="POST" action="{{ route('teacher.attendance.unoff', $session->id) }}"
+      <form method="POST" action="{{ route('teacher.attendance.unoff', ['session' => $session->id], false) }}"
             data-confirm="Hoàn tác buổi nghỉ {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }} về buổi học bình thường?"
             style="margin-top:6px">
         @csrf
@@ -150,7 +150,7 @@
 {{-- Modal: báo cả lớp nghỉ --}}
 @if ($session)
 <div class="modal-backdrop" id="m-off">
-  <form class="modal" method="POST" action="{{ route('teacher.attendance.off', $session->id) }}" style="width:460px">
+  <form class="modal" method="POST" action="{{ route('teacher.attendance.off', ['session' => $session->id], false) }}" style="width:460px">
     @csrf
     <div class="mh"><h3>Báo cả lớp nghỉ</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
     <div class="mb">

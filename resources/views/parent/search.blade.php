@@ -2,7 +2,7 @@
 @section('title','Tra cứu — LớpThêm')
 
 @section('content')
-<form class="search-screen" method="POST" action="{{ route('parent.search') }}">
+<form class="search-screen" method="POST" action="{{ route('parent.search', [], false) }}">
   @csrf
   <div class="mk">L</div>
   <h2>Tra cứu học tập</h2>

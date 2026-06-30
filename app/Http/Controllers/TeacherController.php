@@ -293,17 +293,17 @@ class TeacherController extends Controller
             'body' => $data['body'],
         ]);
 
-        return redirect()->route('teacher.student', $student->id)->with('ok', 'Đã lưu nhận xét.');
+        return $this->respondOk($request, 'Đã lưu nhận xét.', route('teacher.student', $student->id));
     }
 
     /** Xoá một nhận xét. */
-    public function deleteComment(int $id, int $commentId)
+    public function deleteComment(Request $request, int $id, int $commentId)
     {
         $tid = $this->tid();
         $student = Student::where('teacher_id', $tid)->findOrFail($id);
         $student->comments()->whereKey($commentId)->delete();
 
-        return redirect()->route('teacher.student', $student->id)->with('ok', 'Đã xoá nhận xét.');
+        return $this->respondOk($request, 'Đã xoá nhận xét.', route('teacher.student', $student->id));
     }
 
     /* ===================== Điểm danh ===================== */
@@ -419,11 +419,16 @@ class TeacherController extends Controller
             'snapshot' => $snapshot,
         ]);
 
-        return redirect()->route('teacher.attendance', [
+        $redirectUrl = route('teacher.attendance', [
             'class_id' => $session->class_id,
             'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
             'session_id' => $session->id,
-        ])->with('ok', 'Đã lưu điểm danh lúc ' . now()->format('H:i d/m/Y') . ($wasSubmitted ? ' (cập nhật lại)' : '') . '.');
+        ]);
+        return $this->respondOk(
+            $request,
+            'Đã lưu điểm danh lúc ' . now()->format('H:i d/m/Y') . ($wasSubmitted ? ' (cập nhật lại)' : '') . '.',
+            $redirectUrl
+        );
     }
 
     /** Báo cả lớp nghỉ một buổi: chuyển type=off (không tính tiền), tuỳ chọn tạo buổi học bù */
@@ -433,7 +438,7 @@ class TeacherController extends Controller
         $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
             ->findOrFail($sessionId);
 
-        $redirect = fn () => redirect()->route('teacher.attendance', [
+        $redirectUrl = route('teacher.attendance', [
             'class_id' => $session->class_id,
             'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
             'session_id' => $session->id,
@@ -441,10 +446,10 @@ class TeacherController extends Controller
 
         // Đã điểm danh thì không cho báo nghỉ — phải bỏ điểm danh trước (tránh sai lệch tiền đã chốt)
         if ($session->attendance_submitted_at) {
-            return $redirect()->withErrors(['off' => 'Buổi này đã điểm danh nên không thể báo nghỉ.']);
+            return $this->respondError($request, 'off', 'Buổi này đã điểm danh nên không thể báo nghỉ.', $redirectUrl);
         }
         if ($session->type === 'off') {
-            return $redirect()->withErrors(['off' => 'Buổi này đã là buổi nghỉ.']);
+            return $this->respondError($request, 'off', 'Buổi này đã là buổi nghỉ.', $redirectUrl);
         }
 
         $data = $request->validate([
@@ -458,7 +463,7 @@ class TeacherController extends Controller
             $exists = ClassSession::where('class_id', $session->class_id)
                 ->whereDate('date', $data['makeup_date'])->exists();
             if ($exists) {
-                return $redirect()->withErrors(['off' => 'Ngày học bù đã có buổi học khác — chọn ngày khác.']);
+                return $this->respondError($request, 'off', 'Ngày học bù đã có buổi học khác — chọn ngày khác.', $redirectUrl);
             }
         }
 
@@ -489,7 +494,7 @@ class TeacherController extends Controller
             $msg .= ' Đã tạo buổi học bù ngày ' . Carbon::parse($makeup->date)->format('d/m/Y') . '.';
         }
 
-        return $redirect()->with('ok', $msg);
+        return $this->respondOk($request, $msg, $redirectUrl);
     }
 
     /** Hoàn tác báo nghỉ: chuyển buổi off về regular, xoá buổi bù chưa điểm danh (nếu có) */
@@ -499,14 +504,14 @@ class TeacherController extends Controller
         $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
             ->findOrFail($sessionId);
 
-        $redirect = fn () => redirect()->route('teacher.attendance', [
+        $redirectUrl = route('teacher.attendance', [
             'class_id' => $session->class_id,
             'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
             'session_id' => $session->id,
         ]);
 
         if ($session->type !== 'off') {
-            return $redirect()->withErrors(['off' => 'Buổi này không phải buổi nghỉ.']);
+            return $this->respondError($request, 'off', 'Buổi này không phải buổi nghỉ.', $redirectUrl);
         }
 
         DB::transaction(function () use ($session) {
@@ -518,7 +523,11 @@ class TeacherController extends Controller
             $session->update(['type' => 'regular']);
         });
 
-        return $redirect()->with('ok', 'Đã hoàn tác — buổi ' . Carbon::parse($session->date)->format('d/m/Y') . ' trở lại buổi học bình thường.');
+        return $this->respondOk(
+            $request,
+            'Đã hoàn tác — buổi ' . Carbon::parse($session->date)->format('d/m/Y') . ' trở lại buổi học bình thường.',
+            $redirectUrl
+        );
     }
 
     /** Thêm buổi học bù cho một buổi đã báo nghỉ (xếp lịch bù sau khi nghỉ) */
@@ -528,17 +537,17 @@ class TeacherController extends Controller
         $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
             ->findOrFail($sessionId);
 
-        $redirect = fn () => redirect()->route('teacher.attendance', [
+        $redirectUrl = route('teacher.attendance', [
             'class_id' => $session->class_id,
             'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
             'session_id' => $session->id,
         ]);
 
         if ($session->type !== 'off') {
-            return $redirect()->withErrors(['off' => 'Chỉ tạo buổi học bù cho buổi đã báo nghỉ.']);
+            return $this->respondError($request, 'off', 'Chỉ tạo buổi học bù cho buổi đã báo nghỉ.', $redirectUrl);
         }
         if ($session->makeups()->exists()) {
-            return $redirect()->withErrors(['off' => 'Buổi nghỉ này đã có buổi học bù.']);
+            return $this->respondError($request, 'off', 'Buổi nghỉ này đã có buổi học bù.', $redirectUrl);
         }
 
         $data = $request->validate(['makeup_date' => ['required', 'date']]);
@@ -546,7 +555,7 @@ class TeacherController extends Controller
         $exists = ClassSession::where('class_id', $session->class_id)
             ->whereDate('date', $data['makeup_date'])->exists();
         if ($exists) {
-            return $redirect()->withErrors(['off' => 'Ngày học bù đã có buổi học khác — chọn ngày khác.']);
+            return $this->respondError($request, 'off', 'Ngày học bù đã có buổi học khác — chọn ngày khác.', $redirectUrl);
         }
 
         $makeup = ClassSession::create([
@@ -558,7 +567,11 @@ class TeacherController extends Controller
             'makeup_for_id' => $session->id,
         ]);
 
-        return $redirect()->with('ok', 'Đã tạo buổi học bù ngày ' . Carbon::parse($makeup->date)->format('d/m/Y') . ' (tính tiền như buổi học bình thường).');
+        return $this->respondOk(
+            $request,
+            'Đã tạo buổi học bù ngày ' . Carbon::parse($makeup->date)->format('d/m/Y') . ' (tính tiền như buổi học bình thường).',
+            $redirectUrl
+        );
     }
 
     /* ===================== Học phí & công nợ ===================== */
@@ -694,11 +707,11 @@ class TeacherController extends Controller
 
         $student->update($data);
 
-        return back()->with('ok', 'Đã cập nhật thông tin học sinh “' . $student->full_name . '”.');
+        return $this->respondOk($request, 'Đã cập nhật thông tin học sinh “' . $student->full_name . '”.');
     }
 
     /** Bật/tắt trạng thái hoạt động của học sinh. Ngừng hoạt động => không điểm danh nữa. */
-    public function toggleStudentStatus(int $id)
+    public function toggleStudentStatus(Request $request, int $id)
     {
         $tid = $this->tid();
         $student = Student::where('teacher_id', $tid)->findOrFail($id);
@@ -716,7 +729,7 @@ class TeacherController extends Controller
             ? 'Đã kích hoạt lại học sinh “' . $student->full_name . '”.'
             : 'Đã ngừng hoạt động học sinh “' . $student->full_name . '” — sẽ không xuất hiện khi điểm danh.';
 
-        return back()->with('ok', $msg);
+        return $this->respondOk($request, $msg);
     }
 
     /* ===================== Ghi nhận đóng tiền ===================== */
@@ -745,7 +758,7 @@ class TeacherController extends Controller
         $msg = 'Đã ghi nhận ' . \App\Support\Money::vnd($data['amount']) . ' từ ' . $student->full_name
             . ' · công nợ còn lại: ' . ($balance > 0 ? \App\Support\Money::vnd($balance) : 'đã đóng đủ ✓');
 
-        return back()->with('ok', $msg);
+        return $this->respondOk($request, $msg);
     }
 
     /* ===================== AJAX: tìm học sinh ===================== */
@@ -820,7 +833,7 @@ class TeacherController extends Controller
             }
         }
 
-        return redirect()->route('teacher.classes')->with('ok', 'Đã tạo lớp “' . $class->name . '”.');
+        return $this->respondOk($request, 'Đã tạo lớp “' . $class->name . '”.', route('teacher.classes'));
     }
 
     /* ===================== Sửa lớp (dùng chung form tạo) ===================== */
@@ -869,11 +882,11 @@ class TeacherController extends Controller
             $msg = 'Đã cập nhật lớp “' . $class->name . '”.';
         }
 
-        return redirect()->route('teacher.classes')->with('ok', $msg);
+        return $this->respondOk($request, $msg, route('teacher.classes'));
     }
 
     /* ===================== Nhân bản lớp ===================== */
-    public function duplicateClass(int $id)
+    public function duplicateClass(Request $request, int $id)
     {
         $tid = $this->tid();
         $class = Classroom::where('teacher_id', $tid)
@@ -913,8 +926,11 @@ class TeacherController extends Controller
             return $copy;
         });
 
-        return redirect()->route('teacher.classes', ['edit' => $new->id])
-            ->with('ok', 'Đã nhân bản lớp “' . $class->name . '”. Hãy sửa lại tên/giờ rồi lưu.');
+        return $this->respondOk(
+            $request,
+            'Đã nhân bản lớp “' . $class->name . '”. Hãy sửa lại tên/giờ rồi lưu.',
+            route('teacher.classes', ['edit' => $new->id])
+        );
     }
 
     /* ===================== Thêm học sinh vào lớp ===================== */
@@ -941,7 +957,7 @@ class TeacherController extends Controller
             }
         }
 
-        return redirect()->route('teacher.class', $class->id)->with('ok', 'Đã thêm ' . $count . ' học sinh vào lớp.');
+        return $this->respondOk($request, 'Đã thêm ' . $count . ' học sinh vào lớp.', route('teacher.class', $class->id));
     }
 
     /* ===================== Sửa đơn giá học sinh trong lớp ===================== */
@@ -972,7 +988,7 @@ class TeacherController extends Controller
             ]);
         }
 
-        return redirect()->route('teacher.class', $class->id)->with('ok', 'Đã cập nhật đơn giá.');
+        return $this->respondOk($request, 'Đã cập nhật đơn giá.', route('teacher.class', $class->id));
     }
 
     /* ===================== Lịch sử sửa đơn giá (JSON) ===================== */
@@ -1031,7 +1047,7 @@ class TeacherController extends Controller
             ]);
         }
 
-        return redirect()->route('teacher.student', $student->id)->with('ok', 'Đã thêm học sinh ' . $student->full_name . '.');
+        return $this->respondOk($request, 'Đã thêm học sinh ' . $student->full_name . '.', route('teacher.student', $student->id));
     }
 
     /* ===================== Báo cáo ===================== */

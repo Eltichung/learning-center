@@ -1,5 +1,5 @@
 <div class="modal-backdrop" id="m-pay">
-  <form class="modal" method="POST" action="{{ route('teacher.payments.store') }}">
+  <form class="modal" method="POST" action="{{ route('teacher.payments.store', [], false) }}">
     @csrf
     <div class="mh"><h3>Ghi nhận đóng tiền</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
     <div class="mb">

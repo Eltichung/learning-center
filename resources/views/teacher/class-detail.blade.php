@@ -150,7 +150,7 @@
 
 {{-- Popup thêm học sinh vào lớp (chọn nhiều cùng lúc) --}}
 <div class="modal-backdrop" id="m-addstudent">
-  <form class="modal" method="POST" action="{{ route('teacher.class.addStudent', $class->id) }}">
+  <form class="modal" method="POST" action="{{ route('teacher.class.addStudent', ['id' => $class->id], false) }}">
     @csrf
     <div class="mh"><h3>Thêm học sinh vào lớp</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
     <div class="mb">

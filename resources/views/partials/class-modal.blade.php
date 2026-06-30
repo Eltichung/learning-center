@@ -1,5 +1,5 @@
 <div class="modal-backdrop" id="m-class">
-  <form class="modal" id="class-form" method="POST" action="{{ route('teacher.classes.store') }}" style="width:820px;max-width:100%">
+  <form class="modal" id="class-form" method="POST" action="{{ route('teacher.classes.store', [], false) }}" style="width:820px;max-width:100%">
     @csrf
     <input type="hidden" name="_method" id="cf-method" value="POST">
     <div class="mh"><h3 id="cf-title">Tạo lớp mới</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
@@ -70,8 +70,9 @@
 
 <script>
 (function(){
-  var STORE = @json(route('teacher.classes.store'));
-  var BASE  = @json(url('classes'));
+  var STORE = @json(route('teacher.classes.store', [], false));
+  var BASE  = @json(route('teacher.class', ['id' => '__ID__'], false));
+  function classEditUrl(id){ return BASE.replace('__ID__', id); }
   function moneyDisplay(){ var mi=document.querySelector('#m-class .money-input'); var h=document.getElementById('cf-price'); if(mi&&h) mi.value=window.fmtMoney(h.value||'0'); }
 
   /* ===== Popover chọn giờ ===== */
@@ -178,7 +179,7 @@
   window.editClass = function(d){
     var f=document.getElementById('class-form');
     closeTimePop();
-    f.action=BASE+'/'+d.id; document.getElementById('cf-method').value='PUT';
+    f.action=classEditUrl(d.id); document.getElementById('cf-method').value='PUT';
     document.getElementById('cf-title').textContent='Sửa lớp';
     document.getElementById('cf-submit').textContent='Lưu thay đổi';
     document.getElementById('cf-create-only').style.display='none';

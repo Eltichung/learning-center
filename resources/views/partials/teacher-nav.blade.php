@@ -47,7 +47,7 @@
   </nav>
 
   @auth
-  <form method="POST" action="{{ route('teacher.logout') }}" class="logout-form">
+  <form method="POST" action="{{ route('teacher.logout', [], false) }}" class="logout-form" data-no-toast>
     @csrf
     <button type="submit" class="logout-btn"><span class="ic">⎋</span> Đăng xuất</button>
   </form>

@@ -20,8 +20,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Render terminate HTTPS ở proxy nên ép sinh URL https khi chạy production
-        if (app()->environment('production')) {
+        // Render terminate HTTPS ở proxy nên ép sinh URL https khi:
+        //  - chạy production, HOẶC
+        //  - APP_URL khai báo https, HOẶC
+        //  - request đang đi qua proxy với X-Forwarded-Proto=https
+        $appUrlIsHttps = str_starts_with((string) config('app.url'), 'https://');
+        $forwardedHttps = strtolower((string) request()->server('HTTP_X_FORWARDED_PROTO')) === 'https';
+        if (app()->environment('production') || $appUrlIsHttps || $forwardedHttps) {
             URL::forceScheme('https');
         }
     }

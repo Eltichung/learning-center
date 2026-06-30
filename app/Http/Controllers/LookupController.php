@@ -27,10 +27,10 @@ class LookupController extends Controller
 
         $student = Student::where('student_code', $code)->first();
         if (! $student) {
-            return back()->withErrors(['code' => 'Không tìm thấy học sinh với mã này.'])->onlyInput('code');
+            return $this->respondError($request, 'code', 'Không tìm thấy học sinh với mã này.');
         }
 
-        return redirect()->route('parent.info', $code);
+        return $this->respondOk($request, 'Đã tìm thấy', route('parent.info', $code));
     }
 
     /* Thông tin học sinh */
