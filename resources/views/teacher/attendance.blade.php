@@ -40,7 +40,7 @@
   {{-- Tabs: các buổi trong tuần --}}
   <div class="tabs">
     @foreach ($sessions as $s)
-      @php($offNoMakeup = $s->type === 'off' && (int) $s->makeups_count === 0)
+      @php($offNoMakeup = $s->type === 'off' && (int) $s->makeups_count === 0 && ! $s->no_makeup)
       <a class="tab {{ $session && $s->id === $session->id ? 'on' : '' }} {{ $offNoMakeup ? 'pending-makeup' : '' }}"
          href="{{ $base }}?class_id={{ $class->id }}&week={{ $weekStart->toDateString() }}&session_id={{ $s->id }}"
          @if ($offNoMakeup) title="Buổi nghỉ chưa xếp lịch học bù" @endif>
@@ -125,8 +125,16 @@
           <a href="{{ $base }}?class_id={{ $class->id }}&week={{ \Illuminate\Support\Carbon::parse($mk->date)->startOfWeek()->toDateString() }}&session_id={{ $mk->id }}">{{ \Illuminate\Support\Carbon::parse($mk->date)->format('d/m/Y') }}</a>@if (! $loop->last), @endif
         @endforeach
       </div>
+    @elseif ($session->no_makeup)
+      <div class="note">⚫ Buổi này đã được đánh dấu <b>không cần học bù</b> — coi như bỏ buổi dạy.</div>
+      <form method="POST" action="{{ route('teacher.attendance.noMakeup', ['session' => $session->id], false) }}"
+            data-confirm="Bỏ đánh dấu — buổi này sẽ cần xếp học bù lại?"
+            style="margin-top:6px">
+        @csrf
+        <button type="submit" class="btn ghost">↩ Bỏ đánh dấu (cần học bù lại)</button>
+      </form>
     @else
-      {{-- Chưa có buổi bù: cho phép xếp lịch bù hoặc hoàn tác --}}
+      {{-- Chưa có buổi bù: cho phép xếp lịch bù, bỏ luôn, hoặc hoàn tác --}}
       <form method="POST" action="{{ route('teacher.attendance.makeup', ['session' => $session->id], false) }}"
             data-confirm="Xác nhận thêm buổi học bù?"
             style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0">
@@ -135,6 +143,13 @@
         <input type="date" name="makeup_date" required
                oninput="this.form.dataset.confirm = 'Xác nhận thêm buổi học bù' + (this.value ? ' vào ngày ' + this.value.split('-').reverse().join('/') : '') + '?'">
         <button type="submit" class="btn ghost sm">➕ Thêm buổi học bù</button>
+      </form>
+
+      <form method="POST" action="{{ route('teacher.attendance.noMakeup', ['session' => $session->id], false) }}"
+            data-confirm="Bỏ hẳn buổi {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }} — sẽ không cần học bù?"
+            style="margin-top:6px">
+        @csrf
+        <button type="submit" class="btn ghost">🚫 Không cần học bù (bỏ buổi)</button>
       </form>
 
       <form method="POST" action="{{ route('teacher.attendance.unoff', ['session' => $session->id], false) }}"

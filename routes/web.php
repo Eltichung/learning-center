@@ -53,6 +53,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/attendance/{session}/off', [TeacherController::class, 'markSessionOff'])->name('teacher.attendance.off');
     Route::post('/attendance/{session}/unoff', [TeacherController::class, 'unmarkSessionOff'])->name('teacher.attendance.unoff');
     Route::post('/attendance/{session}/makeup', [TeacherController::class, 'addMakeup'])->name('teacher.attendance.makeup');
+    Route::post('/attendance/{session}/no-makeup', [TeacherController::class, 'toggleNoMakeup'])->name('teacher.attendance.noMakeup');
 
     Route::post('/payments', [TeacherController::class, 'storePayment'])->name('teacher.payments.store');
 

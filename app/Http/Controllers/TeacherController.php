@@ -68,8 +68,9 @@ class TeacherController extends Controller
         $debtorCount = $balances->filter(fn ($b) => $b > 0)->count();
         $notDoneToday = $todayClasses->filter(fn ($r) => ! $r->done && ! $r->off)->count();
 
-        // Buổi đã báo nghỉ nhưng chưa xếp lịch học bù
+        // Buổi đã báo nghỉ nhưng chưa xếp lịch học bù (bỏ qua buổi được đánh dấu không cần bù)
         $pendingMakeups = ClassSession::where('type', 'off')
+            ->where('no_makeup', false)
             ->whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
             ->whereDoesntHave('makeups')
             ->with('classroom')
@@ -573,6 +574,35 @@ class TeacherController extends Controller
             'Đã tạo buổi học bù ngày ' . Carbon::parse($makeup->date)->format('d/m/Y') . ' (tính tiền như buổi học bình thường).',
             $redirectUrl
         );
+    }
+
+    /** Đánh dấu buổi nghỉ này KHÔNG cần học bù (coi như bỏ hẳn). Toggle qua tham số state. */
+    public function toggleNoMakeup(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->findOrFail($sessionId);
+
+        $redirectUrl = route('teacher.attendance', [
+            'class_id' => $session->class_id,
+            'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
+            'session_id' => $session->id,
+        ]);
+
+        if ($session->type !== 'off') {
+            return $this->respondError($request, 'off', 'Chỉ áp dụng cho buổi đã báo nghỉ.', $redirectUrl);
+        }
+        if ($session->makeups()->exists()) {
+            return $this->respondError($request, 'off', 'Buổi này đã có buổi học bù — xoá buổi bù trước.', $redirectUrl);
+        }
+
+        $session->update(['no_makeup' => ! $session->no_makeup]);
+
+        $msg = $session->no_makeup
+            ? 'Đã đánh dấu buổi ' . Carbon::parse($session->date)->format('d/m/Y') . ' không cần học bù.'
+            : 'Đã bỏ đánh dấu — buổi ' . Carbon::parse($session->date)->format('d/m/Y') . ' cần xếp học bù lại.';
+
+        return $this->respondOk($request, $msg, $redirectUrl);
     }
 
     /* ===================== Học phí & công nợ ===================== */

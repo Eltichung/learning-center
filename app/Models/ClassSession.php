@@ -10,10 +10,10 @@ class ClassSession extends Model
 {
     protected $fillable = [
         'class_id', 'date', 'start_time', 'end_time',
-        'type', 'makeup_for_id', 'note', 'attendance_submitted_at',
+        'type', 'makeup_for_id', 'no_makeup', 'note', 'attendance_submitted_at',
     ];
 
-    protected $casts = ['date' => 'date', 'attendance_submitted_at' => 'datetime'];
+    protected $casts = ['date' => 'date', 'attendance_submitted_at' => 'datetime', 'no_makeup' => 'boolean'];
 
     public function classroom(): BelongsTo { return $this->belongsTo(Classroom::class, 'class_id'); }
     public function studentSessions(): HasMany { return $this->hasMany(StudentSession::class); }
