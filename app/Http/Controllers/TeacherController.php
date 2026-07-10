@@ -33,10 +33,11 @@ class TeacherController extends Controller
         $classesActive = Classroom::where('teacher_id', $tid)->where('status', 'active')->count();
         $studentsCount = Student::where('teacher_id', $tid)->count();
 
-        // Buổi hôm nay: lớp active có lịch trùng thứ hôm nay
+        // Buổi hôm nay: lớp active có lịch trùng thứ hôm nay VÀ đã khai giảng (start_date <= hôm nay)
         $todayWd = now()->dayOfWeekIso;
         $todayDate = now()->toDateString();
         $todayClasses = Classroom::where('teacher_id', $tid)->where('status', 'active')
+            ->where(fn ($q) => $q->whereNull('start_date')->orWhereDate('start_date', '<=', $todayDate))
             ->whereHas('schedules', fn ($q) => $q->where('weekday', $todayWd))
             ->with(['schedules' => fn ($q) => $q->where('weekday', $todayWd)])
             ->withCount('classStudents')
