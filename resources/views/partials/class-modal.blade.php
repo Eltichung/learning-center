@@ -17,7 +17,7 @@
           </div>
           <div class="grid2">
             <div class="field"><label>Môn học <span style="color:var(--red)">*</span></label><input id="cf-subject" name="subject" required placeholder="VD: Toán"></div>
-            <div class="field"><label>Ngày bắt đầu <span style="color:var(--red)">*</span></label><input type="date" id="cf-start-date" name="start_date" value="{{ now()->toDateString() }}" required></div>
+            <div class="field"><label>Ngày bắt đầu <span style="color:var(--red)">*</span></label><input type="date" id="cf-start-date" name="start_date" required></div>
           </div>
           <div class="field"><label>Trạng thái</label>
             <select id="cf-status" name="status"><option value="active">Hoạt động</option><option value="paused">Tạm dừng (deactive)</option></select></div>
