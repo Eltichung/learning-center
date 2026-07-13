@@ -39,7 +39,7 @@
             'start' => $s->start_time ? \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') : '17:30',
             'end' => $s->end_time ? \Illuminate\Support\Carbon::parse($s->end_time)->format('H:i') : '19:00',
           ])->values(),
-          'locked' => $c->sessions_count > 0,
+          'locked' => (int) ($c->submitted_count ?? 0) > 0,
         ])
         <tr>
           <td><b>{{ $c->name }}</b></td>

@@ -106,7 +106,13 @@ class TeacherController extends Controller
         $status = $request->get('status');  // active | paused
 
         $query = Classroom::where('teacher_id', $tid)
-            ->with('schedules')->withCount(['classStudents', 'sessions']);
+            ->with('schedules')
+            ->withCount([
+                'classStudents',
+                'sessions',
+                // Lock chỉ khi đã có buổi ĐÃ điểm danh — session tự sinh khi mở trang chưa tính
+                'sessions as submitted_count' => fn ($q) => $q->whereNotNull('attendance_submitted_at'),
+            ]);
         if ($q !== '') {
             $query->where('name', 'like', "%{$q}%");
         }
@@ -132,7 +138,9 @@ class TeacherController extends Controller
     public function classShow(int $id, Request $request)
     {
         $tid = $this->tid();
-        $class = Classroom::where('teacher_id', $tid)->with('schedules')->withCount('sessions')->findOrFail($id);
+        $class = Classroom::where('teacher_id', $tid)->with('schedules')
+            ->withCount(['sessions as submitted_count' => fn ($q) => $q->whereNotNull('attendance_submitted_at')])
+            ->findOrFail($id);
 
         $students = $class->students()->get()->map(function ($s) use ($class) {
             $alloc = $this->allocateByClass($s);
@@ -871,9 +879,11 @@ class TeacherController extends Controller
     public function updateClass(Request $request, int $id)
     {
         $tid = $this->tid();
-        $class = Classroom::where('teacher_id', $tid)->withCount('sessions')->findOrFail($id);
-        // Nếu lớp chưa phát sinh buổi học nào -> cho phép sửa cả cấu trúc (type/grade/subject/start_date)
-        $canEditAll = (int) $class->sessions_count === 0;
+        $class = Classroom::where('teacher_id', $tid)
+            ->withCount(['sessions as submitted_count' => fn ($q) => $q->whereNotNull('attendance_submitted_at')])
+            ->findOrFail($id);
+        // Chỉ khoá khi lớp đã có buổi ĐÃ điểm danh (tránh khoá vì session tự sinh chưa dùng)
+        $canEditAll = (int) $class->submitted_count === 0;
 
         $rules = [
             'name' => ['required', 'string', 'max:255'],
