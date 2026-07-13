@@ -17,6 +17,7 @@
     'weekdays' => $class->schedules->pluck('weekday')->map(fn ($w) => (int) $w)->values(),
     'start_time' => optional($class->schedules->first())->start_time ? \Illuminate\Support\Carbon::parse($class->schedules->first()->start_time)->format('H:i') : '17:30',
     'end_time' => optional($class->schedules->first())->end_time ? \Illuminate\Support\Carbon::parse($class->schedules->first()->end_time)->format('H:i') : '19:00',
+    'locked' => (int) ($class->sessions_count ?? 0) > 0,
   ])
   <div><a class="btn ghost" href="{{ route('teacher.attendance', ['class_id' => $class->id]) }}">Điểm danh</a> <button class="btn primary" type="button" onclick='editClass(@json($cdata))'>Sửa lớp</button></div>
 </div>

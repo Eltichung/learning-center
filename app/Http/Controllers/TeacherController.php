@@ -132,7 +132,7 @@ class TeacherController extends Controller
     public function classShow(int $id, Request $request)
     {
         $tid = $this->tid();
-        $class = Classroom::where('teacher_id', $tid)->with('schedules')->findOrFail($id);
+        $class = Classroom::where('teacher_id', $tid)->with('schedules')->withCount('sessions')->findOrFail($id);
 
         $students = $class->students()->get()->map(function ($s) use ($class) {
             $alloc = $this->allocateByClass($s);
@@ -871,10 +871,11 @@ class TeacherController extends Controller
     public function updateClass(Request $request, int $id)
     {
         $tid = $this->tid();
-        $class = Classroom::where('teacher_id', $tid)->findOrFail($id);
+        $class = Classroom::where('teacher_id', $tid)->withCount('sessions')->findOrFail($id);
+        // Nếu lớp chưa phát sinh buổi học nào -> cho phép sửa cả cấu trúc (type/grade/subject/start_date)
+        $canEditAll = (int) $class->sessions_count === 0;
 
-        // Lớp được phép đổi tên, trạng thái, lịch học (thứ) và giờ học (bắt đầu/kết thúc)
-        $data = $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'in:active,paused'],
             'weekdays' => ['required', 'array', 'min:1'],
@@ -883,11 +884,24 @@ class TeacherController extends Controller
             'time_start.*' => ['nullable', 'date_format:H:i'],
             'time_end' => ['array'],
             'time_end.*' => ['nullable', 'date_format:H:i'],
-        ]);
+        ];
+        if ($canEditAll) {
+            $rules['type'] = ['required', 'in:group,tutor_1on1'];
+            $rules['grade'] = ['required', 'integer', 'between:1,12'];
+            $rules['subject'] = ['required', 'string', 'max:100'];
+            $rules['start_date'] = ['required', 'date'];
+        }
+        $data = $request->validate($rules);
 
         $oldStatus = $class->status;
 
         $update = ['name' => $data['name'], 'status' => $data['status']];
+        if ($canEditAll) {
+            $update['type'] = $data['type'];
+            $update['grade'] = $data['grade'];
+            $update['subject'] = $data['subject'];
+            $update['start_date'] = $data['start_date'];
+        }
         // Tạm dừng -> lưu ngày kết thúc; kích hoạt lại -> xoá ngày kết thúc
         $update['ended_at'] = $data['status'] === 'paused' ? now()->toDateString() : null;
 
