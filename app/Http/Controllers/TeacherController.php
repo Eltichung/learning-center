@@ -904,6 +904,7 @@ class TeacherController extends Controller
         $data = $request->validate($rules);
 
         $oldStatus = $class->status;
+        $oldStartDate = optional($class->start_date)->toDateString();
 
         $update = ['name' => $data['name'], 'status' => $data['status']];
         if ($canEditAll) {
@@ -916,6 +917,12 @@ class TeacherController extends Controller
         $update['ended_at'] = $data['status'] === 'paused' ? now()->toDateString() : null;
 
         $class->update($update);
+
+        // Đổi ngày khai giảng: xoá các buổi cũ (tự sinh) để trang điểm danh sinh lại theo mốc mới.
+        // Chỉ chạy khi canEditAll = true, tức lớp chưa có buổi nào đã điểm danh.
+        if ($canEditAll && $oldStartDate !== $data['start_date']) {
+            $class->sessions()->delete();
+        }
 
         // Dựng lại lịch cố định theo các thứ + giờ riêng từng buổi (áp dụng cho các buổi tạo MỚI;
         // các buổi đã tạo/đã điểm danh giữ nguyên). Xoá hết rồi tạo lại cho khớp lựa chọn.
