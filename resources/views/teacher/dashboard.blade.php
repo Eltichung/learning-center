@@ -27,7 +27,7 @@
             @forelse ($todayClasses as $row)
                 <tr>
                     <td><b>{{ \Illuminate\Support\Carbon::parse($row->start)->format('H:i') }}</b><div class="r">– {{ \Illuminate\Support\Carbon::parse($row->end)->format('H:i') }}</div></td>
-                    <td>{{ $row->class->name }}</td>
+                    <td>{{ $row->class->name }}@if ($row->makeup)<span class="chip b" style="margin-left:6px;font-size:11px">Bù</span>@endif</td>
                     <td>{{ $row->count }} học sinh</td>
                     <td>
                         @if ($row->off)<span class="chip r">Nghỉ</span>
@@ -35,7 +35,7 @@
                         @else<span class="chip a">Chưa điểm danh</span>@endif
                     </td>
                     <td style="text-align:right">
-                        <a class="btn {{ $row->done || $row->off ? 'ghost' : 'primary' }} sm" href="{{ route('teacher.attendance', ['class_id' => $row->class->id]) }}">{{ $row->done || $row->off ? 'Xem' : 'Điểm danh' }}</a>
+                        <a class="btn {{ $row->done || $row->off ? 'ghost' : 'primary' }} sm" href="{{ route('teacher.attendance', array_filter(['class_id' => $row->class->id, 'session_id' => $row->session_id])) }}">{{ $row->done || $row->off ? 'Xem' : 'Điểm danh' }}</a>
                     </td>
                 </tr>
             @empty

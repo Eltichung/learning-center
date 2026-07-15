@@ -33,28 +33,38 @@ class TeacherController extends Controller
         $classesActive = Classroom::where('teacher_id', $tid)->where('status', 'active')->count();
         $studentsCount = Student::where('teacher_id', $tid)->count();
 
-        // Buổi hôm nay: lớp active có lịch trùng thứ hôm nay VÀ đã khai giảng (start_date <= hôm nay)
+        // Buổi hôm nay: lớp active có lịch cố định trùng thứ hôm nay HOẶC có buổi (bù/thường) đúng ngày hôm nay
+        // (chỉ tính lớp đã khai giảng: start_date <= hôm nay)
         $todayWd = now()->dayOfWeekIso;
         $todayDate = now()->toDateString();
         $todayClasses = Classroom::where('teacher_id', $tid)->where('status', 'active')
             ->where(fn ($q) => $q->whereNull('start_date')->orWhereDate('start_date', '<=', $todayDate))
-            ->whereHas('schedules', fn ($q) => $q->where('weekday', $todayWd))
+            ->where(function ($q) use ($todayWd, $todayDate) {
+                $q->whereHas('schedules', fn ($x) => $x->where('weekday', $todayWd))
+                  ->orWhereHas('sessions', fn ($x) => $x->whereDate('date', $todayDate));
+            })
             ->with(['schedules' => fn ($q) => $q->where('weekday', $todayWd)])
             ->withCount('classStudents')
             ->get()
             ->map(function ($c) use ($todayDate) {
-                $sc = $c->schedules->first();
                 // "Đã điểm danh" = đã submit (attendance_submitted_at), KHÔNG phải chỉ tồn tại bản ghi buổi
                 // (bản ghi buổi tự sinh khi mở trang điểm danh nên không phản ánh việc đã điểm danh).
                 $session = ClassSession::where('class_id', $c->id)->whereDate('date', $todayDate)->first();
+                $sc = $c->schedules->first();
+
+                // Ưu tiên giờ từ session (buổi bù có giờ riêng), fallback về lịch cố định
+                $start = $session?->start_time ?: $sc?->start_time;
+                $end = $session?->end_time ?: $sc?->end_time;
 
                 return (object) [
                     'class' => $c,
-                    'start' => $sc?->start_time,
-                    'end' => $sc?->end_time,
+                    'start' => $start,
+                    'end' => $end,
                     'count' => $c->class_students_count,
                     'done' => (bool) ($session && $session->attendance_submitted_at),
                     'off' => (bool) ($session && $session->type === 'off'),
+                    'makeup' => (bool) ($session && $session->type === 'makeup'),
+                    'session_id' => $session?->id,
                 ];
             });
 
