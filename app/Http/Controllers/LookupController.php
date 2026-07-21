@@ -111,6 +111,22 @@ class LookupController extends Controller
         $comments = $student->comments()
             ->orderByDesc('comment_date')->orderByDesc('id')->limit(3)->get();
 
+        // Giáo án tuần này (T2 → CN) — chỉ hiển thị ngày có title hoặc content
+        $wkStart = now()->startOfWeek()->toDateString();
+        $wkEnd = now()->endOfWeek()->toDateString();
+        $lessons = ClassSession::whereIn('class_id', $student->classStudents->pluck('class_id'))
+            ->whereBetween('date', [$wkStart, $wkEnd])
+            ->where(fn ($q) => $q->whereNotNull('title')->orWhereNotNull('content'))
+            ->orderBy('date')
+            ->get()
+            ->map(fn ($s) => (object) [
+                'id' => $s->id,
+                'date' => Carbon::parse($s->date),
+                'title' => $s->title,
+                'content' => $s->content,
+                'submitted' => (bool) $s->attendance_submitted_at,
+            ]);
+
         return [
             'student' => $student,
             'className' => $primaryClass?->name,
@@ -122,6 +138,7 @@ class LookupController extends Controller
             'makeups' => $makeups,
             'payments' => $student->payments,
             'comments' => $comments,
+            'lessons' => $lessons,
         ];
     }
 

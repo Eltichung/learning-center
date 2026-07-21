@@ -96,9 +96,10 @@
         </form>
       </div>
 
-      {{-- Log lịch sử — ngang hàng với bảng điểm danh, mỗi submit ghi thêm 1 dòng --}}
+      {{-- Log lịch sử — cột phải, ngang bảng điểm danh --}}
       <div>
-        <div class="panel"><div class="ph"><h3>Lịch sử điểm danh{{ $logs->count() ? ' (' . $logs->count() . ' lần)' : '' }}</h3></div>
+        <div class="panel">
+          <div class="ph"><h3>Lịch sử điểm danh{{ $logs->count() ? ' (' . $logs->count() . ' lần)' : '' }}</h3></div>
           <div class="pb" style="padding:6px 14px">
             @forelse ($logs as $lg)
               <div class="prow">
@@ -114,6 +115,34 @@
         </div>
       </div>
     </div>
+
+    {{-- Bài học buổi này — full width, dưới đáy --}}
+    <form style="margin-top:20px" id="lesson-form" method="POST" action="{{ route('teacher.session.lesson', ['session' => $session->id], false) }}">
+      @csrf @method('PUT')
+      <div class="panel">
+        <div class="ph">
+          <h3>📝 Bài học buổi này</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <a href="{{ route('teacher.lessons', ['class_id' => $class->id, 'week' => $weekStart->toDateString()]) }}" class="linklike" style="font-size:12px">Giáo án cả tuần →</a>
+            <button type="button" class="btn ghost sm" id="lesson-edit-btn" onclick="editLesson()">✏️ Chỉnh sửa</button>
+          </div>
+        </div>
+        <div class="pb" style="padding:14px 16px">
+          <div class="field">
+            <label>Tiêu đề <span class="r" style="font-weight:400">(tối đa 100 kí tự)</span></label>
+            <textarea name="title" id="lesson-title" rows="4" maxlength="100" placeholder="VD: Ôn tập chương 1" disabled>{{ $session->title }}</textarea>
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Chi tiết bài học</label>
+            <textarea name="content" id="lesson-content" rows="12" maxlength="5000" placeholder="Nội dung đã dạy, bài tập về nhà..." disabled>{{ $session->content }}</textarea>
+          </div>
+          <div id="lesson-actions" style="display:none;gap:8px;align-items:center">
+            <button type="submit" class="btn primary sm" id="lesson-save-btn">💾 Lưu bài học</button>
+            <button type="button" class="btn ghost sm" id="lesson-cancel-btn" onclick="cancelLesson()">Huỷ</button>
+          </div>
+        </div>
+      </div>
+    </form>
   @elseif ($session && $session->type === 'off')
     <div class="note">🔴 Buổi này là <b>buổi nghỉ</b> — không điểm danh, không tính tiền.
       @if ($session->note) <br>Lý do: {{ $session->note }}@endif
@@ -189,6 +218,35 @@
 @endif
 
 @push('scripts')
+<style>
+  #lesson-title:disabled, #lesson-content:disabled{background:#fafafa;color:var(--ink);cursor:default;opacity:1}
+</style>
 <script src="{{ asset('js/attendance.js') }}?v={{ filemtime(public_path('js/attendance.js')) }}" defer></script>
+<script>
+  var lessonOrig = null;
+
+  function editLesson(){
+    var t = document.getElementById('lesson-title');
+    var c = document.getElementById('lesson-content');
+    lessonOrig = { title: t.value, content: c.value };
+    t.disabled = false; c.disabled = false;
+    document.getElementById('lesson-edit-btn').style.display = 'none';
+    document.getElementById('lesson-actions').style.display = 'flex';
+    t.focus();
+  }
+  function cancelLesson(){
+    if(!lessonOrig) return resetLesson();
+    document.getElementById('lesson-title').value = lessonOrig.title;
+    document.getElementById('lesson-content').value = lessonOrig.content;
+    resetLesson();
+  }
+  function resetLesson(){
+    document.getElementById('lesson-title').disabled = true;
+    document.getElementById('lesson-content').disabled = true;
+    document.getElementById('lesson-edit-btn').style.display = '';
+    document.getElementById('lesson-actions').style.display = 'none';
+  }
+
+</script>
 @endpush
 @endsection

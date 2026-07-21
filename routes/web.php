@@ -55,6 +55,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/attendance/{session}/makeup', [TeacherController::class, 'addMakeup'])->name('teacher.attendance.makeup');
     Route::post('/attendance/{session}/no-makeup', [TeacherController::class, 'toggleNoMakeup'])->name('teacher.attendance.noMakeup');
 
+    // Giáo án
+    Route::get('/lessons', [TeacherController::class, 'lessonsIndex'])->name('teacher.lessons');
+    Route::post('/lessons', [TeacherController::class, 'lessonsBatchSave'])->name('teacher.lessons.save');
+    Route::put('/sessions/{session}/lesson', [TeacherController::class, 'updateSessionLesson'])->name('teacher.session.lesson');
+    Route::delete('/sessions/{session}/lesson', [TeacherController::class, 'clearSessionLesson'])->name('teacher.session.lesson.clear');
+
     Route::post('/payments', [TeacherController::class, 'storePayment'])->name('teacher.payments.store');
 
     Route::get('/fees', [TeacherController::class, 'fees'])->name('teacher.fees');

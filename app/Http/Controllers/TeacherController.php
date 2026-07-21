@@ -1122,6 +1122,109 @@ class TeacherController extends Controller
         return $this->respondOk($request, 'Đã thêm học sinh ' . $student->full_name . '.', route('teacher.student', $student->id));
     }
 
+    /* ===================== Giáo án ===================== */
+    /** Trang giáo án tuần cho 1 lớp */
+    public function lessonsIndex(Request $request)
+    {
+        $tid = $this->tid();
+        $classList = Classroom::where('teacher_id', $tid)->where('status', 'active')
+            ->with('schedules')->orderBy('id')->get();
+
+        $classId = (int) ($request->get('class_id') ?: $classList->first()?->id);
+        $class = $classList->firstWhere('id', $classId) ?: $classList->first();
+
+        $weekStart = $request->get('week')
+            ? Carbon::parse($request->get('week'))->startOfWeek()
+            : now()->startOfWeek();
+        $weekEnd = $weekStart->copy()->endOfWeek();
+
+        $days = collect();
+        if ($class) {
+            $weekdays = $class->schedules->pluck('weekday')->map(fn ($w) => (int) $w)->unique()->values();
+            $sessions = ClassSession::where('class_id', $class->id)
+                ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+                ->get()->keyBy(fn ($s) => Carbon::parse($s->date)->toDateString());
+
+            for ($i = 0; $i < 7; $i++) {
+                $day = $weekStart->copy()->addDays($i);
+                $wd = $day->dayOfWeekIso;
+                $hasSchedule = $weekdays->contains($wd);
+                $session = $sessions[$day->toDateString()] ?? null;
+                if (! $hasSchedule && ! $session) {
+                    continue;
+                }
+                $days->push((object) [
+                    'date' => $day,
+                    'session_id' => $session?->id,
+                    'title' => $session?->title,
+                    'content' => $session?->content,
+                    'submitted' => (bool) $session?->attendance_submitted_at,
+                    'type' => $session?->type ?? 'regular',
+                ]);
+            }
+        }
+
+        return view('teacher.lessons', compact('classList', 'class', 'weekStart', 'weekEnd', 'days'));
+    }
+
+    /** Batch save giáo án cả tuần: pre-create session nếu ngày đó chưa có */
+    public function lessonsBatchSave(Request $request)
+    {
+        $tid = $this->tid();
+        $data = $request->validate([
+            'class_id' => ['required', 'integer'],
+            'week' => ['required', 'date'],
+            'lessons' => ['array'],
+            'lessons.*.date' => ['required', 'date'],
+            'lessons.*.title' => ['nullable', 'string', 'max:100'],
+            'lessons.*.content' => ['nullable', 'string', 'max:5000'],
+        ]);
+        $class = Classroom::where('teacher_id', $tid)->findOrFail($data['class_id']);
+
+        $default = $class->schedules->first();
+        foreach (($data['lessons'] ?? []) as $row) {
+            $session = ClassSession::firstOrCreate(
+                ['class_id' => $class->id, 'date' => $row['date']],
+                [
+                    'start_time' => optional($default)->start_time,
+                    'end_time' => optional($default)->end_time,
+                    'type' => 'regular',
+                ]
+            );
+            $session->update([
+                'title' => $row['title'] ?? null,
+                'content' => $row['content'] ?? null,
+            ]);
+        }
+
+        return $this->respondOk($request, 'Đã lưu giáo án tuần.', route('teacher.lessons', ['class_id' => $class->id, 'week' => $data['week']]));
+    }
+
+    /** Sửa bài học của 1 buổi cụ thể (không đụng điểm danh) */
+    public function updateSessionLesson(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))->findOrFail($sessionId);
+        $data = $request->validate([
+            'title' => ['nullable', 'string', 'max:100'],
+            'content' => ['nullable', 'string', 'max:5000'],
+        ]);
+        $session->update([
+            'title' => $data['title'] ?? null,
+            'content' => $data['content'] ?? null,
+        ]);
+        return $this->respondOk($request, 'Đã lưu bài học.');
+    }
+
+    /** Xoá nội dung bài học của 1 buổi (không đụng điểm danh) */
+    public function clearSessionLesson(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))->findOrFail($sessionId);
+        $session->update(['title' => null, 'content' => null]);
+        return $this->respondOk($request, 'Đã xoá bài học.');
+    }
+
     /* ===================== Cài đặt QR chuyển khoản ===================== */
     public function qrSettings()
     {

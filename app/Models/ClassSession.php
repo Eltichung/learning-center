@@ -10,6 +10,7 @@ class ClassSession extends Model
 {
     protected $fillable = [
         'class_id', 'date', 'start_time', 'end_time',
+        'title', 'content',
         'type', 'makeup_for_id', 'no_makeup', 'note', 'attendance_submitted_at',
     ];
 

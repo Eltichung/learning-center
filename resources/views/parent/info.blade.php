@@ -66,6 +66,35 @@
   </div>
   @endif
 
+  {{-- Giáo án tuần này --}}
+  @if ($lessons->isNotEmpty())
+  <div class="pcard">
+    <h4>📚 Giáo án tuần này</h4>
+    @foreach ($lessons as $ls)
+      <div class="prow" style="align-items:center">
+        <div style="flex:1;min-width:0">
+          <div class="r" style="font-size:12px">
+            {{ $wdFull[$ls->date->dayOfWeekIso] }} · {{ $ls->date->format('d/m/Y') }}
+            @if ($ls->submitted)<span class="chip g" style="margin-left:4px;font-size:10px">✓ Đã dạy</span>@endif
+          </div>
+          <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $ls->title ?: '(chưa đặt tiêu đề)' }}</div>
+        </div>
+        <button type="button" class="btn ghost sm" onclick='openLesson(@json($ls->id))'>Xem chi tiết →</button>
+      </div>
+    @endforeach
+  </div>
+
+  {{-- Modal chi tiết bài học --}}
+  <div class="lesson-modal" id="lesson-modal" onclick="if(event.target===this) closeLesson()">
+    <div class="lesson-modal-inner">
+      <button type="button" class="lesson-close" onclick="closeLesson()">×</button>
+      <div class="r" id="lesson-date" style="font-size:12px"></div>
+      <h3 id="lesson-title" style="margin:2px 0 12px"></h3>
+      <div id="lesson-content" style="white-space:pre-line;line-height:1.6;font-size:14px"></div>
+    </div>
+  </div>
+  @endif
+
   {{-- Nhận xét của giáo viên (3 mới nhất) --}}
   @if ($comments->isNotEmpty())
   <div class="pcard">
@@ -118,11 +147,31 @@
   .qr-modal-inner img{display:block;margin:0 auto;max-width:280px;width:100%;border:1px dashed var(--line);border-radius:12px;padding:8px;background:#fafbfc}
   .qr-modal-note{font-size:11.5px;color:var(--muted);margin:12px 0;line-height:1.5}
   .qr-dl{display:inline-block;width:100%;padding:12px;font-size:14px;text-decoration:none;text-align:center}
+
+  .lesson-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+  .lesson-modal.show{display:flex}
+  .lesson-modal-inner{background:#fff;border-radius:16px;max-width:480px;width:100%;padding:22px 20px;position:relative;margin-top:40px}
+  .lesson-close{position:absolute;top:8px;right:8px;background:transparent;border:0;font-size:26px;line-height:1;color:var(--muted);cursor:pointer;width:36px;height:36px;border-radius:8px}
+  .lesson-close:hover{background:#f5f6f8;color:var(--ink)}
 </style>
 <script>
   function openTeacherQr(){ document.getElementById('qr-modal').classList.add('show'); document.body.style.overflow='hidden'; }
   function closeTeacherQr(){ document.getElementById('qr-modal')?.classList.remove('show'); document.body.style.overflow=''; }
-  document.addEventListener('keydown', e => { if(e.key==='Escape') closeTeacherQr(); });
+
+  window.LT_LESSONS = @json($lessons ?? []);
+  function openLesson(id){
+    var ls = (window.LT_LESSONS || []).find(function(x){ return x.id === id; });
+    if(!ls) return;
+    var WD = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+    var d = ls.date ? new Date(ls.date) : null;
+    document.getElementById('lesson-date').textContent = d ? (WD[d.getDay()] + ' · ' + d.toLocaleDateString('vi-VN')) : '';
+    document.getElementById('lesson-title').textContent = ls.title || '';
+    document.getElementById('lesson-content').textContent = ls.content || '(Chưa có nội dung chi tiết)';
+    document.getElementById('lesson-modal').classList.add('show');
+    document.body.style.overflow='hidden';
+  }
+  function closeLesson(){ document.getElementById('lesson-modal')?.classList.remove('show'); document.body.style.overflow=''; }
+  document.addEventListener('keydown', e => { if(e.key==='Escape'){ closeTeacherQr(); closeLesson(); } });
 </script>
 <script>
   window.LT_WEEKS = @json($weeks);

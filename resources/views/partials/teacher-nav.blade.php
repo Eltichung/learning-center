@@ -7,6 +7,7 @@
     $rn === 'teacher.fees' => 'fees',
     $rn === 'teacher.reports' => 'reports',
     in_array($rn, ['teacher.settings.qr', 'teacher.settings.qr.update']) => 'settings-qr',
+    in_array($rn, ['teacher.lessons', 'teacher.lessons.save']) => 'lessons',
     $rn === 'parent.search' => 'p-search',
     $rn === 'parent.info' => 'p-info',
     $rn === 'parent.history' => 'p-history',
@@ -36,6 +37,7 @@
     <a href="{{ route('teacher.classes') }}"    class="{{ $active==='classes'    ? 'on':'' }}"><span class="ic">📚</span> Danh sách lớp</a>
     <a href="{{ route('teacher.students') }}"   class="{{ $active==='students'   ? 'on':'' }}"><span class="ic">🎓</span> Danh sách học sinh</a>
     <a href="{{ route('teacher.attendance') }}" class="{{ $active==='attendance' ? 'on':'' }}"><span class="ic">✅</span> Điểm danh</a>
+    <a href="{{ route('teacher.lessons') }}"    class="{{ $active==='lessons'    ? 'on':'' }}"><span class="ic">📚</span> Giáo án</a>
     <a href="{{ route('teacher.fees') }}"       class="{{ $active==='fees'       ? 'on':'' }}"><span class="ic">💰</span> Học phí &amp; công nợ</a>
     <a href="{{ route('teacher.reports') }}"    class="{{ $active==='reports'    ? 'on':'' }}"><span class="ic">📊</span> Báo cáo</a>
     <a href="{{ route('teacher.settings.qr') }}" class="{{ $active==='settings-qr' ? 'on':'' }}"><span class="ic">🏦</span> QR chuyển khoản</a>
