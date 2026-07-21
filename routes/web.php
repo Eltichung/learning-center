@@ -60,6 +60,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/fees', [TeacherController::class, 'fees'])->name('teacher.fees');
     Route::get('/reports', [TeacherController::class, 'reports'])->name('teacher.reports');
 
+    // Cài đặt QR chuyển khoản của giáo viên
+    Route::get('/settings/qr', [TeacherController::class, 'qrSettings'])->name('teacher.settings.qr');
+    Route::post('/settings/qr', [TeacherController::class, 'updateQrSettings'])->name('teacher.settings.qr.update');
+
     // AJAX
     Route::get('/api/students/search', [TeacherController::class, 'searchStudents'])->name('api.students.search');
     Route::get('/api/students/{id}/monthly', [TeacherController::class, 'studentMonthly'])->name('api.student.monthly');

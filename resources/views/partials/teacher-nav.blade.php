@@ -6,6 +6,7 @@
     $rn === 'teacher.attendance' => 'attendance',
     $rn === 'teacher.fees' => 'fees',
     $rn === 'teacher.reports' => 'reports',
+    in_array($rn, ['teacher.settings.qr', 'teacher.settings.qr.update']) => 'settings-qr',
     $rn === 'parent.search' => 'p-search',
     $rn === 'parent.info' => 'p-info',
     $rn === 'parent.history' => 'p-history',
@@ -37,13 +38,14 @@
     <a href="{{ route('teacher.attendance') }}" class="{{ $active==='attendance' ? 'on':'' }}"><span class="ic">✅</span> Điểm danh</a>
     <a href="{{ route('teacher.fees') }}"       class="{{ $active==='fees'       ? 'on':'' }}"><span class="ic">💰</span> Học phí &amp; công nợ</a>
     <a href="{{ route('teacher.reports') }}"    class="{{ $active==='reports'    ? 'on':'' }}"><span class="ic">📊</span> Báo cáo</a>
+    <a href="{{ route('teacher.settings.qr') }}" class="{{ $active==='settings-qr' ? 'on':'' }}"><span class="ic">🏦</span> QR chuyển khoản</a>
   </nav>
 
   <div class="group">👨‍👩‍👧 Phụ huynh · Mobile</div>
   <nav class="tnav">
     <a href="{{ route('parent.search') }}"               class="{{ $active==='p-search'  ? 'on':'' }}"><span class="ic">🔍</span> Trang tra cứu</a>
-    <a href="{{ route('parent.info', 'an-toan9') }}"      class="{{ $active==='p-info'    ? 'on':'' }}"><span class="ic">📄</span> Thông tin học sinh</a>
-    <a href="{{ route('parent.history', 'an-toan9') }}"   class="{{ $active==='p-history' ? 'on':'' }}"><span class="ic">🗓️</span> Lịch sử học (theo tuần)</a>
+{{--    <a href="{{ route('parent.info', 'an-toan9') }}"      class="{{ $active==='p-info'    ? 'on':'' }}"><span class="ic">📄</span> Thông tin học sinh</a>--}}
+{{--    <a href="{{ route('parent.history', 'an-toan9') }}"   class="{{ $active==='p-history' ? 'on':'' }}"><span class="ic">🗓️</span> Lịch sử học (theo tuần)</a>--}}
   </nav>
 
   @auth

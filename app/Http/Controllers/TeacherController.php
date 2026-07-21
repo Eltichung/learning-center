@@ -1122,6 +1122,40 @@ class TeacherController extends Controller
         return $this->respondOk($request, 'Đã thêm học sinh ' . $student->full_name . '.', route('teacher.student', $student->id));
     }
 
+    /* ===================== Cài đặt QR chuyển khoản ===================== */
+    public function qrSettings()
+    {
+        return view('teacher.settings-qr', ['me' => auth()->user()]);
+    }
+
+    public function updateQrSettings(Request $request)
+    {
+        $user = auth()->user();
+        $data = $request->validate([
+            'qr_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_qr_image' => ['nullable', 'in:1'],
+        ]);
+
+        $update = [];
+
+        if (! empty($data['remove_qr_image']) && $user->qr_image_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($user->qr_image_path);
+            $update['qr_image_path'] = null;
+        }
+        if ($request->hasFile('qr_image')) {
+            if ($user->qr_image_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->qr_image_path);
+            }
+            $update['qr_image_path'] = $request->file('qr_image')->store('qr', 'public');
+        }
+
+        if ($update) {
+            $user->update($update);
+        }
+
+        return $this->respondOk($request, 'Đã lưu cài đặt QR chuyển khoản.', route('teacher.settings.qr'));
+    }
+
     /* ===================== Báo cáo ===================== */
     public function reports(Request $request)
     {

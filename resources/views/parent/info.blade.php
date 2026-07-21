@@ -10,6 +10,8 @@
   <h2>{{ $student->full_name }}</h2>
 </div>
 <div class="pbody">
+  @php($qrUrl = optional($student->teacher)->qr_image_path ? asset('storage/'.$student->teacher->qr_image_path) : null)
+
   {{-- Tổng nợ --}}
   <div class="due-card">
     <div class="due-total">💰 Tổng học phí chưa đóng</div>
@@ -20,7 +22,24 @@
       <div class="amt">Đã đóng đủ</div>
       <div class="meta">Không còn công nợ. Cảm ơn quý phụ huynh!</div>
     @endif
+    @if ($qrUrl)
+      <button type="button" class="due-qr-btn" onclick="openTeacherQr()">Chuyển khoản qua QR</button>
+    @endif
   </div>
+
+  @if ($qrUrl)
+    {{-- Modal QR --}}
+    <div class="qr-modal" id="qr-modal" onclick="if(event.target===this) closeTeacherQr()">
+      <div class="qr-modal-inner">
+        <button type="button" class="qr-close" onclick="closeTeacherQr()" aria-label="Đóng">×</button>
+        <div class="qr-modal-title">QR chuyển khoản</div>
+        <div class="qr-modal-sub">{{ $teacherName }}</div>
+        <img id="qr-img" src="{{ $qrUrl }}" alt="QR chuyển khoản">
+        <div class="qr-modal-note">Quét bằng app ngân hàng để chuyển học phí.</div>
+        <a class="btn primary qr-dl" href="{{ $qrUrl }}" download="qr-{{ \Illuminate\Support\Str::slug($teacherName) }}.png">⬇️ Tải xuống</a>
+      </div>
+    </div>
+  @endif
 
   {{-- Lịch học cố định --}}
   <div class="pcard">
@@ -86,6 +105,25 @@
 </div>
 
 @push('scripts')
+<style>
+  .due-qr-btn{margin-top:12px;width:100%;padding:11px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:13.5px;font-weight:600;border-radius:10px;cursor:pointer}
+  .due-qr-btn:hover{background:rgba(255,255,255,.28)}
+  .qr-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;align-items:center;justify-content:center;padding:20px}
+  .qr-modal.show{display:flex}
+  .qr-modal-inner{background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 20px;text-align:center;position:relative}
+  .qr-close{position:absolute;top:8px;right:8px;background:transparent;border:0;font-size:26px;line-height:1;color:var(--muted);cursor:pointer;width:36px;height:36px;border-radius:8px}
+  .qr-close:hover{background:#f5f6f8;color:var(--ink)}
+  .qr-modal-title{font-size:16px;font-weight:700}
+  .qr-modal-sub{font-size:13px;color:var(--muted);margin:2px 0 14px}
+  .qr-modal-inner img{display:block;margin:0 auto;max-width:280px;width:100%;border:1px dashed var(--line);border-radius:12px;padding:8px;background:#fafbfc}
+  .qr-modal-note{font-size:11.5px;color:var(--muted);margin:12px 0;line-height:1.5}
+  .qr-dl{display:inline-block;width:100%;padding:12px;font-size:14px;text-decoration:none;text-align:center}
+</style>
+<script>
+  function openTeacherQr(){ document.getElementById('qr-modal').classList.add('show'); document.body.style.overflow='hidden'; }
+  function closeTeacherQr(){ document.getElementById('qr-modal')?.classList.remove('show'); document.body.style.overflow=''; }
+  document.addEventListener('keydown', e => { if(e.key==='Escape') closeTeacherQr(); });
+</script>
 <script>
   window.LT_WEEKS = @json($weeks);
   window.LT_PRICE_K = {{ (int) ($price / 1000) }};

@@ -91,7 +91,7 @@
           {{-- Nút submit ngay dưới bảng điểm danh --}}
           <div style="display:flex;justify-content:space-between;align-items:center">
               <button type="submit" class="btn primary">{{ $session->attendance_submitted_at ? 'Cập nhật điểm danh' : 'Lưu điểm danh' }}</button>
-            <div style="font-size:13px;color:var(--muted)">Tổng buổi này: <b style="color:var(--ink)" id="att-total">{{ $rows->whereIn('status', \App\Models\StudentSession::BILLABLE)->count() }} buổi · {{ Money::vnd($total) }}</b></div>
+            <div style="font-size:13px;color:var(--muted)">Tổng buổi này: <b style="color:var(--ink)" id="att-total">{{ $rows->whereIn('status', \App\Models\StudentSession::BILLABLE)->count() }} học sinh · {{ Money::vnd($total) }}</b></div>
           </div>
         </form>
       </div>
