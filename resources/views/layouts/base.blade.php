@@ -21,7 +21,9 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('{{ asset('sw.js') }}').catch(function () {});
+        navigator.serviceWorker.register('/sw.js', {scope: '/'})
+          .then(function(reg){ console.log('SW registered:', reg.scope); })
+          .catch(function(err){ console.error('SW register failed:', err); if (window.toast) toast('SW lỗi: '+err.message, 'error'); });
       });
     }
   </script>
