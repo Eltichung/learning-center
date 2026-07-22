@@ -11,11 +11,11 @@
   <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16.png') }}">
   <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
   {{-- PWA --}}
-  <link rel="manifest" href="{{ asset('manifest.json') }}">
+  <link rel="manifest" href="{{ route('pwa.manifest') }}?v={{ filemtime(base_path('routes/web.php')) }}">
   <meta name="theme-color" content="#c96442">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="LớpThêm">
+  <meta name="apple-mobile-web-app-title" content="Học Chưa">
   <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
   <script src="{{ asset('js/app-ui.js') }}?v={{ filemtime(public_path('js/app-ui.js')) }}" defer></script>
   <script>
