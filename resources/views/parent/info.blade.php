@@ -246,29 +246,39 @@
     var reg = await navigator.serviceWorker.ready;
     return reg.pushManager.getSubscription();
   }
+  function notify(msg, type){
+    if (window.toast) toast(msg, type);
+    else alert(msg);
+  }
   window.togglePush = async function(){
     try{
       btn.disabled = true;
+      if (!('serviceWorker' in navigator)) { notify('Trình duyệt không hỗ trợ Service Worker', 'error'); return; }
+      if (!('PushManager' in window))     { notify('Trình duyệt không hỗ trợ Push API', 'error'); return; }
+      if (Notification.permission === 'denied') { notify('Bạn đã chặn thông báo trước đây. Vui lòng bật lại trong Cài đặt trình duyệt.', 'error'); return; }
+
       var reg = await navigator.serviceWorker.ready;
       var sub = await reg.pushManager.getSubscription();
       if (sub) {
-        // Unsubscribe
         var endpoint = sub.endpoint;
         await sub.unsubscribe();
         await post(URL_UNSUB, {endpoint: endpoint});
         setState(null);
-        window.toast && toast('Đã tắt thông báo', 'success');
+        notify('Đã tắt thông báo', 'success');
       } else {
         var perm = await Notification.requestPermission();
-        if (perm !== 'granted') { setState(null); window.toast && toast('Bạn đã từ chối quyền thông báo', 'error'); return; }
+        if (perm !== 'granted') { setState(null); notify('Bạn đã từ chối quyền thông báo', 'error'); return; }
         var newSub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: urlB64ToUint8(VAPID_PUBLIC)});
         var json = newSub.toJSON();
         var res = await post(URL_SUB, {endpoint: json.endpoint, keys: json.keys});
-        if (!res.ok) { await newSub.unsubscribe(); throw new Error('Server reject'); }
+        if (!res.ok) { await newSub.unsubscribe(); throw new Error('Server reject '+res.status); }
         setState(newSub);
-        window.toast && toast('Đã bật thông báo — bạn sẽ nhận trước giờ học 2 tiếng', 'success');
+        notify('Đã bật thông báo — bạn sẽ nhận trước giờ học 2 tiếng', 'success');
       }
-    } catch(e){ window.toast && toast('Không đăng ký được thông báo', 'error'); }
+    } catch(e){
+      // Hiển thị lỗi chi tiết để dễ debug trên mobile
+      notify('Lỗi: ' + (e && (e.message || e.name) || e), 'error');
+    }
     finally { btn.disabled = false; }
   };
   navigator.serviceWorker.ready.then(function(){ return currentSub(); }).then(setState).catch(function(){});
