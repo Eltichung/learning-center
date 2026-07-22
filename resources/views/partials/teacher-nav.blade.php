@@ -14,7 +14,7 @@
     default => ($active ?? ''),
 })
 <aside class="tside">
-  <div class="brand"><span class="mark">L</span> Lớp Tăng Lực
+  <div class="brand"><span class="mark">L</span> Học Chưa?
     <button type="button" class="navclose" aria-label="Đóng menu" onclick="toggleSidebar(false)">&times;</button>
   </div>
 
@@ -26,7 +26,7 @@
       <div class="avatar">{{ $initials }}</div>
       <div>
         <div class="nm">{{ $me->name }}</div>
-        <div class="sb">{{ $planName ? 'Gói '.$planName : 'Gói Free' }}</div>
+        <div class="sb">{{ $planName ? 'Gói '.$planName : 'Gói Yêu Anh' }}</div>
       </div>
     </div>
   @endauth
