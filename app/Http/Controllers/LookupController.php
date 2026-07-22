@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
 use App\Models\Classroom;
-use App\Models\PushSubscription;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -64,39 +63,6 @@ class LookupController extends Controller
             'weeks' => $weeks,
             'weekIndex' => 3,
         ]));
-    }
-
-    /* Web Push — đăng ký subscription cho học sinh (public, cần đúng slug) */
-    public function pushSubscribe(Request $request, string $slug)
-    {
-        $student = $this->resolve($slug);
-        $data = $request->validate([
-            'endpoint' => ['required', 'string', 'max:500'],
-            'keys.p256dh' => ['required', 'string', 'max:255'],
-            'keys.auth' => ['required', 'string', 'max:255'],
-        ]);
-
-        PushSubscription::updateOrCreate(
-            ['endpoint' => $data['endpoint']],
-            [
-                'student_id' => $student->id,
-                'p256dh' => $data['keys']['p256dh'],
-                'auth' => $data['keys']['auth'],
-                'user_agent' => substr((string) $request->userAgent(), 0, 255),
-                'last_seen_at' => now(),
-            ]
-        );
-
-        return response()->json(['ok' => true]);
-    }
-
-    public function pushUnsubscribe(Request $request, string $slug)
-    {
-        $this->resolve($slug); // xác nhận slug hợp lệ
-        $data = $request->validate(['endpoint' => ['required', 'string']]);
-        PushSubscription::where('endpoint', $data['endpoint'])->delete();
-
-        return response()->json(['ok' => true]);
     }
 
     /* ===================== Helpers ===================== */

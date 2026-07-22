@@ -102,5 +102,3 @@ Route::get('/search', [LookupController::class, 'search'])->name('parent.search'
 Route::post('/search', [LookupController::class, 'find']);
 Route::get('/search/{slug}', [LookupController::class, 'show'])->name('parent.info');
 Route::get('/search/{slug}/lich-su', [LookupController::class, 'history'])->name('parent.history');
-Route::post('/search/{slug}/push/subscribe', [LookupController::class, 'pushSubscribe'])->name('parent.push.subscribe');
-Route::post('/search/{slug}/push/unsubscribe', [LookupController::class, 'pushUnsubscribe'])->name('parent.push.unsubscribe');

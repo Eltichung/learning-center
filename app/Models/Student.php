@@ -21,7 +21,6 @@ class Student extends Model
     public function payments(): HasMany        { return $this->hasMany(Payment::class); }
     public function comments(): HasMany        { return $this->hasMany(StudentComment::class); }
     public function statusLogs(): HasMany      { return $this->hasMany(StudentStatusLog::class); }
-    public function pushSubscriptions(): HasMany { return $this->hasMany(PushSubscription::class); }
 
     /** Công nợ = tổng tiền đã học - tổng đã đóng (tính động, không lưu cứng). */
     public function balanceDue(): int
