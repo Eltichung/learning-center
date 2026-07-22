@@ -118,7 +118,7 @@
       Nhận thông báo <b>2 tiếng trước</b> mỗi buổi học của con. Chỉ hoạt động sau khi
       <b>“Thêm vào Màn hình chính”</b>
     </p>
-    <button type="button" class="btn primary" id="push-btn" onclick="togglePush()" style="width:100%;padding:11px">Bật thông báo</button>
+    <button type="button" class="btn primary" id="push-btn" onclick="typeof togglePush==='function' ? togglePush() : alert('JS chưa load xong. Reload lại trang.')" style="width:100%;padding:11px">Bật thông báo</button>
   </div>
 
   {{-- Tuần này --}}
@@ -251,6 +251,7 @@
     else alert(msg);
   }
   window.togglePush = async function(){
+    notify('👆 Đã bấm — đang xử lý…', 'success');
     try{
       btn.disabled = true;
       if (!('serviceWorker' in navigator)) { notify('Trình duyệt không hỗ trợ Service Worker', 'error'); return; }
