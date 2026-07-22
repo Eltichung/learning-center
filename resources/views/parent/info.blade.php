@@ -115,8 +115,8 @@
       <span id="push-state" class="r" style="font-size:12px"></span>
     </div>
     <p style="font-size:13px;color:var(--muted);margin:6px 0 10px;line-height:1.5">
-      Nhận thông báo <b>1 tiếng trước</b> mỗi buổi học của con. Chỉ hoạt động sau khi
-      <b>“Thêm vào Màn hình chính”</b> trên iPhone/iPad.
+      Nhận thông báo <b>2 tiếng trước</b> mỗi buổi học của con. Chỉ hoạt động sau khi
+      <b>“Thêm vào Màn hình chính”</b>
     </p>
     <button type="button" class="btn primary" id="push-btn" onclick="togglePush()" style="width:100%;padding:11px">Bật thông báo</button>
   </div>
@@ -266,7 +266,7 @@
         var res = await post(URL_SUB, {endpoint: json.endpoint, keys: json.keys});
         if (!res.ok) { await newSub.unsubscribe(); throw new Error('Server reject'); }
         setState(newSub);
-        window.toast && toast('Đã bật thông báo — bạn sẽ nhận trước giờ học 1 tiếng', 'success');
+        window.toast && toast('Đã bật thông báo — bạn sẽ nhận trước giờ học 2 tiếng', 'success');
       }
     } catch(e){ window.toast && toast('Không đăng ký được thông báo', 'error'); }
     finally { btn.disabled = false; }

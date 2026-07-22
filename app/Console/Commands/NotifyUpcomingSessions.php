@@ -12,21 +12,24 @@ use Minishlink\WebPush\WebPush;
 
 class NotifyUpcomingSessions extends Command
 {
+    /** Bắn noti trước bao nhiêu phút (2 tiếng = 120). */
+    private const AHEAD_MINUTES = 120;
+
     protected $signature = 'lopthem:notify-upcoming
-        {--window=10 : Cửa sổ ± phút quanh mốc "còn 1 tiếng"}
+        {--window=16 : Cửa sổ ± phút quanh mốc "còn 2 tiếng"}
         {--dry : Chỉ in ra, không gửi thật}';
 
-    protected $description = 'Gửi web-push tới phụ huynh cho các buổi học bắt đầu sau ~60 phút.';
+    protected $description = 'Gửi web-push tới phụ huynh cho các buổi học bắt đầu sau ~2 tiếng.';
 
     public function handle(): int
     {
         $win = max(1, (int) $this->option('window'));
         $dry = (bool) $this->option('dry');
 
-        // Cửa sổ: bây giờ + (60 - win) đến bây giờ + (60 + win) phút
+        // Cửa sổ: bây giờ + (AHEAD - win) đến bây giờ + (AHEAD + win) phút
         $now = now();
-        $lower = $now->copy()->addMinutes(60 - $win);
-        $upper = $now->copy()->addMinutes(60 + $win);
+        $lower = $now->copy()->addMinutes(self::AHEAD_MINUTES - $win);
+        $upper = $now->copy()->addMinutes(self::AHEAD_MINUTES + $win);
 
         // Query các session hôm nay chưa gửi và giờ bắt đầu rơi trong cửa sổ
         $sessions = ClassSession::whereIn('type', ['regular', 'makeup'])
@@ -78,7 +81,7 @@ class NotifyUpcomingSessions extends Command
 
             $start = Carbon::parse($session->start_time)->format('H:i');
             $end = Carbon::parse($session->end_time)->format('H:i');
-            $title = ($class->name ?? 'Lớp học') . ' — Còn 1 tiếng nữa vào học';
+            $title = ($class->name ?? 'Lớp học') . ' — Còn 2 tiếng nữa vào học';
             $body = 'Buổi ' . $start . '–' . $end . ' hôm nay (' . Carbon::parse($session->date)->format('d/m') . ')';
 
             foreach ($subs as $sub) {
