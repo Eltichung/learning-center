@@ -32,7 +32,42 @@
     <span class="wlabel" style="padding:0 6px">{{ $weekStart->format('d/m') }} – {{ $weekEnd->format('d/m') }}</span>
     <a class="btn ghost sm" href="{{ $base }}?class_id={{ $class?->id }}&week={{ $weekStart->copy()->addWeek()->toDateString() }}">▶</a>
   </div>
+  @if ($class)
+    <button type="button" class="btn ghost sm" onclick="openModal('m-new-session')">+ Tạo buổi thủ công</button>
+  @endif
 </div>
+
+@if ($class)
+{{-- Modal tạo buổi học thủ công --}}
+<div class="modal-backdrop" id="m-new-session">
+  <form class="modal" method="POST" action="{{ route('teacher.sessions.create', [], false) }}" style="width:420px">
+    @csrf
+    <input type="hidden" name="class_id" value="{{ $class->id }}">
+    <div class="mh"><h3>Tạo buổi học thủ công</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
+    <div class="mb">
+      <div class="field"><label>Lớp</label><input value="{{ $class->name }}" disabled></div>
+      <div class="field"><label>Ngày <span style="color:var(--red)">*</span></label>
+        <input type="date" name="date" required value="{{ $weekStart->toDateString() }}">
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Bắt đầu</label>
+          <input type="time" name="start_time" value="{{ optional($class->schedules->first())->start_time ? \Illuminate\Support\Carbon::parse($class->schedules->first()->start_time)->format('H:i') : '17:30' }}">
+        </div>
+        <div class="field"><label>Kết thúc</label>
+          <input type="time" name="end_time" value="{{ optional($class->schedules->first())->end_time ? \Illuminate\Support\Carbon::parse($class->schedules->first()->end_time)->format('H:i') : '19:00' }}">
+        </div>
+      </div>
+      <div class="field"><label>Loại buổi</label>
+        <select name="type">
+          <option value="regular">Buổi thường</option>
+          <option value="makeup">Buổi bù</option>
+        </select>
+      </div>
+    </div>
+    <div class="mf"><button type="button" class="btn ghost" onclick="closeModal(this)">Huỷ</button><button type="submit" class="btn primary">Tạo buổi</button></div>
+  </form>
+</div>
+@endif
 
 @if ($sessions->isEmpty())
   <div class="note">Tuần này lớp chưa có buổi học nào. Chọn tuần khác hoặc tạo buổi học.</div>
@@ -44,9 +79,14 @@
       <a class="tab {{ $session && $s->id === $session->id ? 'on' : '' }} {{ $offNoMakeup ? 'pending-makeup' : '' }}"
          href="{{ $base }}?class_id={{ $class->id }}&week={{ $weekStart->toDateString() }}&session_id={{ $s->id }}"
          @if ($offNoMakeup) title="Buổi nghỉ chưa xếp lịch học bù" @endif>
-        {{ \Illuminate\Support\Carbon::parse($s->date)->format('d/m') }}
-        @if ($s->type === 'makeup') ( Bù ) @elseif ($s->type === 'off') ( Nghỉ ){!! $offNoMakeup ? ' ⚠' : '' !!} @endif
-        @if ($s->attendance_submitted_at)<span class="dot-done">✓</span>@endif
+        <div>
+          {{ \Illuminate\Support\Carbon::parse($s->date)->format('d/m') }}
+          @if ($s->type === 'makeup') ( Bù ) @elseif ($s->type === 'off') ( Nghỉ ){!! $offNoMakeup ? ' ⚠' : '' !!} @endif
+          @if ($s->attendance_submitted_at)<span class="dot-done">✓</span>@endif
+        </div>
+        @if ($s->start_time && $s->end_time)
+          <div class="tab-time">{{ \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') }}–{{ \Illuminate\Support\Carbon::parse($s->end_time)->format('H:i') }}</div>
+        @endif
       </a>
     @endforeach
   </div>
@@ -164,14 +204,24 @@
       </form>
     @else
       {{-- Chưa có buổi bù: cho phép xếp lịch bù, bỏ luôn, hoặc hoàn tác --}}
-      <form method="POST" action="{{ route('teacher.attendance.makeup', ['session' => $session->id], false) }}"
+      <form id="makeup-form" method="POST" action="{{ route('teacher.attendance.makeup', ['session' => $session->id], false) }}"
             data-confirm="Xác nhận thêm buổi học bù?"
-            style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0">
+            style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:10px 0"
+            oninput="buildMakeupConfirm(this)">
         @csrf
-        <label style="font-size:13px;color:var(--muted)">Xếp buổi học bù vào ngày:</label>
-        <input type="date" name="makeup_date" required
-               oninput="this.form.dataset.confirm = 'Xác nhận thêm buổi học bù' + (this.value ? ' vào ngày ' + this.value.split('-').reverse().join('/') : '') + '?'">
-        <button type="submit" class="btn ghost sm">➕ Thêm buổi học bù</button>
+        <div class="field" style="margin:0;min-width:150px">
+          <label style="font-size:12px">Ngày học bù</label>
+          <input type="date" name="makeup_date" required>
+        </div>
+        <div class="field" style="margin:0;min-width:110px">
+          <label style="font-size:12px">Bắt đầu</label>
+          <input type="time" name="start_time" value="{{ $session->start_time ? \Illuminate\Support\Carbon::parse($session->start_time)->format('H:i') : '17:30' }}">
+        </div>
+        <div class="field" style="margin:0;min-width:110px">
+          <label style="font-size:12px">Kết thúc</label>
+          <input type="time" name="end_time" value="{{ $session->end_time ? \Illuminate\Support\Carbon::parse($session->end_time)->format('H:i') : '19:00' }}">
+        </div>
+        <button type="submit" class="btn primary sm">➕ Thêm buổi học bù</button>
       </form>
 
       <form method="POST" action="{{ route('teacher.attendance.noMakeup', ['session' => $session->id], false) }}"
@@ -205,6 +255,14 @@
         <input type="date" name="makeup_date">
         <div class="r" style="font-size:12px;color:var(--muted);margin-top:4px">Để trống nếu chưa xếp được lịch bù. Buổi bù sẽ tính tiền như buổi học bình thường.</div>
       </div>
+      <div class="grid2">
+        <div class="field"><label>Giờ bù · Bắt đầu</label>
+          <input type="time" name="start_time" value="{{ $session && $session->start_time ? \Illuminate\Support\Carbon::parse($session->start_time)->format('H:i') : '17:30' }}">
+        </div>
+        <div class="field"><label>Giờ bù · Kết thúc</label>
+          <input type="time" name="end_time" value="{{ $session && $session->end_time ? \Illuminate\Support\Carbon::parse($session->end_time)->format('H:i') : '19:00' }}">
+        </div>
+      </div>
     </div>
     <div class="mf"><button type="button" class="btn ghost" onclick="closeModal(this)">Huỷ</button><button type="submit" class="btn primary">Xác nhận nghỉ</button></div>
   </form>
@@ -220,7 +278,21 @@
 @push('scripts')
 <style>
   #lesson-title:disabled, #lesson-content:disabled{background:#fafafa;color:var(--ink);cursor:default;opacity:1}
+  .tab-time{font-size:10.5px;color:var(--muted);margin-top:2px;font-weight:500}
+  .tab.on .tab-time{color:rgba(255,255,255,.85)}
 </style>
+<script>
+  function buildMakeupConfirm(f){
+    var d = f.querySelector('input[name=makeup_date]')?.value;
+    var s = f.querySelector('input[name=start_time]')?.value;
+    var e = f.querySelector('input[name=end_time]')?.value;
+    var msg = 'Xác nhận thêm buổi học bù';
+    if(d) msg += ' vào ngày ' + d.split('-').reverse().join('/');
+    if(s && e) msg += ' (' + s + '–' + e + ')';
+    f.dataset.confirm = msg + '?';
+    f.dataset.confirmed = ''; // reset để confirm lại nếu user đổi thông tin sau khi confirm rồi huỷ
+  }
+</script>
 <script src="{{ asset('js/attendance.js') }}?v={{ filemtime(public_path('js/attendance.js')) }}" defer></script>
 <script>
   var lessonOrig = null;

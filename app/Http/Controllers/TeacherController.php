@@ -475,15 +475,21 @@ class TeacherController extends Controller
         $data = $request->validate([
             'reason' => ['nullable', 'string', 'max:255'],
             'makeup_date' => ['nullable', 'date'],
+            'start_time' => ['nullable', 'date_format:H:i'],
+            'end_time' => ['nullable', 'date_format:H:i'],
         ]);
 
-        // Ngày học bù (nếu có) phải trống lịch để tránh trùng buổi đang có
+        // Ngày học bù (nếu có) — chỉ chặn khi trùng khung giờ với buổi đã có
         $makeup = null;
         if (! empty($data['makeup_date'])) {
-            $exists = ClassSession::where('class_id', $session->class_id)
-                ->whereDate('date', $data['makeup_date'])->exists();
-            if ($exists) {
-                return $this->respondError($request, 'off', 'Ngày học bù đã có buổi học khác — chọn ngày khác.', $redirectUrl);
+            $mStart = $data['start_time'] ?: $session->start_time;
+            $mEnd = $data['end_time'] ?: $session->end_time;
+            $overlap = ClassSession::where('class_id', $session->class_id)
+                ->whereDate('date', $data['makeup_date'])
+                ->where(fn ($q) => $q->where('start_time', '<', $mEnd)->where('end_time', '>', $mStart))
+                ->exists();
+            if ($overlap) {
+                return $this->respondError($request, 'off', 'Ngày này đã có buổi học khác trùng khung giờ. Chọn giờ khác.', $redirectUrl);
             }
         }
 
@@ -501,8 +507,8 @@ class TeacherController extends Controller
                 $makeup = ClassSession::create([
                     'class_id' => $session->class_id,
                     'date' => $data['makeup_date'],
-                    'start_time' => $session->start_time,
-                    'end_time' => $session->end_time,
+                    'start_time' => $data['start_time'] ?: $session->start_time,
+                    'end_time' => $data['end_time'] ?: $session->end_time,
                     'type' => 'makeup',
                     'makeup_for_id' => $session->id,
                 ]);
@@ -570,19 +576,27 @@ class TeacherController extends Controller
             return $this->respondError($request, 'off', 'Buổi nghỉ này đã có buổi học bù.', $redirectUrl);
         }
 
-        $data = $request->validate(['makeup_date' => ['required', 'date']]);
+        $data = $request->validate([
+            'makeup_date' => ['required', 'date'],
+            'start_time' => ['nullable', 'date_format:H:i'],
+            'end_time' => ['nullable', 'date_format:H:i'],
+        ]);
 
-        $exists = ClassSession::where('class_id', $session->class_id)
-            ->whereDate('date', $data['makeup_date'])->exists();
-        if ($exists) {
-            return $this->respondError($request, 'off', 'Ngày học bù đã có buổi học khác — chọn ngày khác.', $redirectUrl);
+        $mStart = $data['start_time'] ?: $session->start_time;
+        $mEnd = $data['end_time'] ?: $session->end_time;
+        $overlap = ClassSession::where('class_id', $session->class_id)
+            ->whereDate('date', $data['makeup_date'])
+            ->where(fn ($q) => $q->where('start_time', '<', $mEnd)->where('end_time', '>', $mStart))
+            ->exists();
+        if ($overlap) {
+            return $this->respondError($request, 'off', 'Ngày này đã có buổi khác trùng khung giờ. Chọn giờ khác.', $redirectUrl);
         }
 
         $makeup = ClassSession::create([
             'class_id' => $session->class_id,
             'date' => $data['makeup_date'],
-            'start_time' => $session->start_time,
-            'end_time' => $session->end_time,
+            'start_time' => $mStart,
+            'end_time' => $mEnd,
             'type' => 'makeup',
             'makeup_for_id' => $session->id,
         ]);
@@ -1120,6 +1134,55 @@ class TeacherController extends Controller
         }
 
         return $this->respondOk($request, 'Đã thêm học sinh ' . $student->full_name . '.', route('teacher.student', $student->id));
+    }
+
+    /* ===================== Tạo buổi học thủ công ===================== */
+    public function createSession(Request $request)
+    {
+        $tid = $this->tid();
+        $data = $request->validate([
+            'class_id' => ['required', 'integer'],
+            'date' => ['required', 'date'],
+            'start_time' => ['nullable', 'date_format:H:i'],
+            'end_time' => ['nullable', 'date_format:H:i'],
+            'type' => ['nullable', 'in:regular,makeup'],
+        ]);
+        $class = Classroom::where('teacher_id', $tid)->findOrFail($data['class_id']);
+
+        $default = $class->schedules->first();
+        $start = $data['start_time'] ?: (optional($default)->start_time ?: '17:30');
+        $end = $data['end_time'] ?: (optional($default)->end_time ?: '19:00');
+
+        // 1 ngày có thể có nhiều ca — chỉ chặn khi giờ mới TRÙNG/CHỒNG LẤN với ca đã có
+        $overlap = ClassSession::where('class_id', $class->id)
+            ->whereDate('date', $data['date'])
+            ->where(function ($q) use ($start, $end) {
+                // overlap: new.start < existing.end AND new.end > existing.start
+                $q->where('start_time', '<', $end)
+                  ->where('end_time', '>', $start);
+            })
+            ->exists();
+        if ($overlap) {
+            return $this->respondError($request, 'start_time', 'Đã có buổi khác trùng khung giờ này. Chọn giờ khác.');
+        }
+
+        $session = ClassSession::create([
+            'class_id' => $class->id,
+            'date' => $data['date'],
+            'start_time' => $start,
+            'end_time' => $end,
+            'type' => $data['type'] ?? 'regular',
+        ]);
+
+        return $this->respondOk(
+            $request,
+            'Đã tạo buổi học ngày ' . Carbon::parse($session->date)->format('d/m/Y') . '.',
+            route('teacher.attendance', [
+                'class_id' => $class->id,
+                'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
+                'session_id' => $session->id,
+            ])
+        );
     }
 
     /* ===================== Giáo án ===================== */
