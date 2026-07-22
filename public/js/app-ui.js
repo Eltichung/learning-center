@@ -257,6 +257,8 @@ function shouldAjaxify(form){
 document.addEventListener('submit', function(e){
   var form = e.target;
   if (!shouldAjaxify(form)) return;
+  // Có data-confirm và chưa xác nhận → nhường cho confirm handler (đã preventDefault + gọi lại ajaxSubmit trong callback OK)
+  if (form.dataset.confirm && !form.dataset.confirmed) return;
   e.preventDefault();
   ajaxSubmit(form);
 });
