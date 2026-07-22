@@ -15,6 +15,26 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('teacher.dashboard'));
 
+/* PWA manifest — build động để start_url luôn khớp route hiện tại */
+Route::get('/manifest.json', function () {
+    return response()->json([
+        'name' => 'Học Chưa — Tra cứu phụ huynh',
+        'short_name' => 'Học Chưa',
+        'description' => 'Theo dõi lịch học, học phí và nhận xét của con.',
+        'start_url' => route('parent.search', [], false),
+        'scope' => '/',
+        'display' => 'standalone',
+        'orientation' => 'portrait',
+        'background_color' => '#f6f7f9',
+        'theme_color' => '#c96442',
+        'lang' => 'vi',
+        'icons' => [
+            ['src' => '/favicon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => '/favicon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+        ],
+    ])->header('Content-Type', 'application/manifest+json');
+})->name('pwa.manifest');
+
 /* ---------------- Xác thực (khách chưa đăng nhập) ---------------- */
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('teacher.login');

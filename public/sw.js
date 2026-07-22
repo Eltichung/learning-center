@@ -1,13 +1,13 @@
 // Service worker tối giản cho PWA LớpThêm.
 // Chiến lược: cache-first cho file tĩnh (css/js/ảnh/font), network-first cho HTML
 // để không bao giờ hiện dữ liệu cũ hay trang của người khác.
-const CACHE = 'lopthem-v1';
+const CACHE = 'hocchua-v3';
+// Chỉ precache asset tĩnh — manifest.json bây giờ do Laravel trả về động, để network-first
 const PRECACHE = [
   '/favicon.svg',
   '/favicon-192.png',
   '/favicon-512.png',
   '/apple-touch-icon.png',
-  '/manifest.json',
 ];
 
 self.addEventListener('install', (e) => {
