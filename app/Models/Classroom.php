@@ -80,10 +80,10 @@ class Classroom extends Model
         };
     }
 
-    /** "T2 17:30, T4 18:00" — mỗi thứ kèm giờ riêng */
+    /** "T2 08:00, T2 15:00, T4 18:00" — hỗ trợ nhiều ca / thứ */
     public function scheduleLabel(): string
     {
-        $items = $this->schedules->sortBy('weekday');
+        $items = $this->schedules->sortBy([['weekday', 'asc'], ['start_time', 'asc']]);
         if ($items->isEmpty()) {
             return '—';
         }

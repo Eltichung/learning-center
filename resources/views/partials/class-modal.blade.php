@@ -36,26 +36,24 @@
           </div>
         </div>
 
-        {{-- CỘT PHẢI: lịch học cố định --}}
+        {{-- CỘT PHẢI: lịch học cố định (nhiều ca / thứ) --}}
         <div style="flex:1 1 320px;min-width:0">
-          <div class="field"><label>Lịch học cố định — chọn thứ, mỗi thứ đặt giờ riêng (24h) <span style="color:var(--red)">*</span></label>
-            <div class="wdays">
-              @foreach ([1=>'T2',2=>'T3',3=>'T4',4=>'T5',5=>'T6',6=>'T7',7=>'CN'] as $w => $l)
-                <label><input type="checkbox" name="weekdays[]" value="{{ $w }}" id="wd-{{ $w }}" onchange="toggleDay({{ $w }})"> {{ $l }}</label>
-              @endforeach
-            </div>
-            <div class="sched-times" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
-              @foreach ([1=>'Thứ Hai',2=>'Thứ Ba',3=>'Thứ Tư',4=>'Thứ Năm',5=>'Thứ Sáu',6=>'Thứ Bảy',7=>'Chủ Nhật'] as $w => $l)
-                <div class="sched-trow" id="row-{{ $w }}" style="display:none;align-items:center;gap:8px">
-                  <span style="width:60px;flex:none;font-size:12px;color:var(--muted);white-space:nowrap">{{ $l }}</span>
-                  <button type="button" class="timefld" id="tf-ts-{{ $w }}" onclick="openTimePop(this,'ts',{{ $w }})">17:30</button>
-                  <span style="color:var(--muted);flex:none">–</span>
-                  <button type="button" class="timefld" id="tf-te-{{ $w }}" onclick="openTimePop(this,'te',{{ $w }})">19:00</button>
-                  <input type="hidden" name="time_start[{{ $w }}]" id="ts-{{ $w }}" value="17:30" disabled>
-                  <input type="hidden" name="time_end[{{ $w }}]" id="te-{{ $w }}" value="19:00" disabled>
-                </div>
-              @endforeach
-            </div>
+          <div class="field"><label>Lịch học cố định — thêm ca theo thứ + giờ (24h) <span style="color:var(--red)">*</span></label>
+            <div id="slot-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            <div style="margin-top:8px"><button type="button" class="btn ghost sm" onclick="addSlot()">➕ Thêm ca</button></div>
+            <template id="slot-tpl">
+              <div class="slot-row" style="display:flex;align-items:center;gap:8px">
+                <select class="slot-wd" style="flex:none;width:110px">
+                  <option value="1">Thứ Hai</option><option value="2">Thứ Ba</option><option value="3">Thứ Tư</option>
+                  <option value="4">Thứ Năm</option><option value="5">Thứ Sáu</option><option value="6">Thứ Bảy</option>
+                  <option value="7">Chủ Nhật</option>
+                </select>
+                <button type="button" class="timefld slot-ts" onclick="openSlotTimePop(this,'ts')">17:30</button>
+                <span style="color:var(--muted);flex:none">–</span>
+                <button type="button" class="timefld slot-te" onclick="openSlotTimePop(this,'te')">19:00</button>
+                <button type="button" class="btn ghost sm slot-del" onclick="delSlot(this)" title="Xoá ca" style="padding:4px 8px;color:var(--red)">×</button>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -75,8 +73,8 @@
   function classEditUrl(id){ return BASE.replace('__ID__', id); }
   function moneyDisplay(){ var mi=document.querySelector('#m-class .money-input'); var h=document.getElementById('cf-price'); if(mi&&h) mi.value=window.fmtMoney(h.value||'0'); }
 
-  /* ===== Popover chọn giờ ===== */
-  var tpActive = null;
+  /* ===== Popover chọn giờ (dùng chung cho mọi slot-row) ===== */
+  var tpActive = null; // { kind:'ts'|'te', row:HTMLElement, btn:HTMLElement }
   function buildTimePop(ch, cm){
     var hrs='<div class="tp-cap">Giờ</div>', mins='<div class="tp-cap">Phút</div>';
     for(var h=0;h<24;h++){ var hh=('0'+h).slice(-2); hrs+='<div class="tp-item'+(hh===ch?' sel':'')+'" data-v="'+hh+'" onclick="pickTime(\'h\',\''+hh+'\')">'+hh+'h</div>'; }
@@ -84,11 +82,12 @@
     document.getElementById('tp-hours').innerHTML=hrs;
     document.getElementById('tp-mins').innerHTML=mins;
   }
-  window.openTimePop = function(btn, prefix, w){
+  window.openSlotTimePop = function(btn, kind){
     var pop = document.getElementById('time-pop');
-    if(tpActive && tpActive.prefix===prefix && tpActive.w===w && pop.style.display==='block'){ closeTimePop(); return; }
-    tpActive = {prefix:prefix, w:w, btn:btn};
-    var cur = (document.getElementById(prefix+'-'+w).value || '17:30').split(':');
+    var row = btn.closest('.slot-row');
+    if(tpActive && tpActive.kind===kind && tpActive.row===row && pop.style.display==='block'){ closeTimePop(); return; }
+    tpActive = { kind:kind, row:row, btn:btn };
+    var cur = (btn.textContent || '17:30').split(':');
     buildTimePop(cur[0], cur[1]);
     pop.style.display='block';
     var r = btn.getBoundingClientRect(), pw = pop.offsetWidth || 134, ph = pop.offsetHeight || 200;
@@ -100,10 +99,9 @@
   };
   window.pickTime = function(kind, val){
     if(!tpActive) return;
-    var f = document.getElementById(tpActive.prefix+'-'+tpActive.w);
-    var cur = (f.value || '17:30').split(':');
+    var cur = (tpActive.btn.textContent || '17:30').split(':');
     if(kind==='h') cur[0]=val; else cur[1]=val;
-    setDayTime(tpActive.prefix, tpActive.w, cur[0]+':'+cur[1]);
+    tpActive.btn.textContent = cur[0]+':'+cur[1];
     var col = document.getElementById(kind==='h'?'tp-hours':'tp-mins');
     col.querySelectorAll('.tp-item').forEach(function(el){ el.classList.toggle('sel', el.dataset.v===val); });
   };
@@ -120,38 +118,53 @@
   }, true);
   window.addEventListener('resize', closeTimePop);
 
-  /* ===== Lịch theo thứ ===== */
-  function setDayTime(prefix, w, val){
-    document.getElementById(prefix+'-'+w).value = val;
-    var btn=document.getElementById('tf-'+prefix+'-'+w);
-    if(btn) btn.textContent = val;
+  /* ===== Lịch: list các ca (slot) ===== */
+  function makeSlotRow(weekday, start, end){
+    var tpl = document.getElementById('slot-tpl');
+    var row = tpl.content.firstElementChild.cloneNode(true);
+    row.querySelector('.slot-wd').value = String(weekday || 1);
+    row.querySelector('.slot-ts').textContent = start || '17:30';
+    row.querySelector('.slot-te').textContent = end   || '19:00';
+    return row;
   }
-  window.toggleDay = function(w){
-    var cb=document.getElementById('wd-'+w), row=document.getElementById('row-'+w);
-    var on = cb && cb.checked;
-    if(row) row.style.display = on ? 'flex' : 'none';
-    var ts=document.getElementById('ts-'+w), te=document.getElementById('te-'+w);
-    if(ts) ts.disabled=!on;
-    if(te) te.disabled=!on;
+  window.addSlot = function(weekday, start, end){
+    var list = document.getElementById('slot-list');
+    list.appendChild(makeSlotRow(weekday, start, end));
   };
-  function resetDays(){
-    for(var w=1; w<=7; w++){
-      var cb=document.getElementById('wd-'+w); if(cb) cb.checked=false;
-      setDayTime('ts', w, '17:30'); setDayTime('te', w, '19:00');
-      var row=document.getElementById('row-'+w); if(row) row.style.display='none';
-      var ts=document.getElementById('ts-'+w), te=document.getElementById('te-'+w);
-      if(ts) ts.disabled=true; if(te) te.disabled=true;
-    }
+  window.delSlot = function(btn){
+    var row = btn.closest('.slot-row'); if(row) row.remove();
+  };
+  function resetSlots(){ document.getElementById('slot-list').innerHTML=''; }
+  function applySlots(schedules){
+    resetSlots();
+    var arr = (schedules||[]).slice().sort(function(a,b){
+      var d = (a.weekday|0) - (b.weekday|0); if(d) return d;
+      return String(a.start||'').localeCompare(String(b.start||''));
+    });
+    if(arr.length===0){ addSlot(1,'17:30','19:00'); return; }
+    arr.forEach(function(s){ addSlot(parseInt(s.weekday,10)||1, s.start||'17:30', s.end||'19:00'); });
   }
-  function applyDays(schedules){
-    resetDays();
-    (schedules||[]).forEach(function(s){
-      var w=parseInt(s.weekday,10);
-      var cb=document.getElementById('wd-'+w); if(cb) cb.checked=true;
-      setDayTime('ts', w, s.start||'17:30'); setDayTime('te', w, s.end||'19:00');
-      var row=document.getElementById('row-'+w); if(row) row.style.display='flex';
-      var ts=document.getElementById('ts-'+w), te=document.getElementById('te-'+w);
-      if(ts) ts.disabled=false; if(te) te.disabled=false;
+  /* Gom slots trong DOM thành mảng {weekday,start,end} */
+  function readSlots(){
+    return Array.prototype.map.call(document.querySelectorAll('#slot-list .slot-row'), function(row){
+      return {
+        weekday: parseInt(row.querySelector('.slot-wd').value, 10),
+        start:   row.querySelector('.slot-ts').textContent.trim(),
+        end:     row.querySelector('.slot-te').textContent.trim(),
+      };
+    });
+  }
+  /* Chèn hidden inputs `slots[i][...]` trước khi submit (native/AJAX đều đọc được) */
+  function syncSlotHiddens(form){
+    form.querySelectorAll('input[data-slot-hidden]').forEach(function(n){ n.remove(); });
+    readSlots().forEach(function(s, i){
+      ['weekday','start_time','end_time'].forEach(function(k){
+        var v = k==='weekday' ? s.weekday : (k==='start_time' ? s.start : s.end);
+        var inp = document.createElement('input');
+        inp.type='hidden'; inp.name='slots['+i+']['+k+']'; inp.value=v;
+        inp.setAttribute('data-slot-hidden','1');
+        form.appendChild(inp);
+      });
     });
   }
 
@@ -171,7 +184,7 @@
     document.getElementById('cf-submit').textContent='Tạo lớp';
     document.getElementById('cf-create-only').style.display='';
     document.getElementById('class-students-chips').innerHTML='';
-    resetDays();
+    applySlots([]); // 1 slot mặc định
     document.getElementById('cf-price').value='120000'; moneyDisplay();
     setEditLock(false);
     openModal('m-class');
@@ -189,19 +202,42 @@
     document.getElementById('cf-subject').value=d.subject||'';
     document.getElementById('cf-status').value=(d.status==='paused'?'paused':'active');
     document.getElementById('cf-start-date').value=d.start_date||'';
-    applyDays(d.schedules);
+    applySlots(d.schedules);
     setEditLock(d.locked !== false);
     openModal('m-class');
   };
   document.addEventListener('DOMContentLoaded', function(){
     moneyDisplay();
-    resetDays();
+    applySlots([]);
     var cf=document.getElementById('class-form');
     if(cf){ cf.addEventListener('submit', function(e){
-      if(cf.querySelectorAll('input[name="weekdays[]"]:checked').length===0){
+      var slots = readSlots();
+      if(slots.length===0){
         e.preventDefault(); e.stopImmediatePropagation();
-        alert('Vui lòng chọn ít nhất 1 thứ cho lịch học.');
+        alert('Vui lòng thêm ít nhất 1 ca học.');
+        return;
       }
+      // Validate: end > start; không trùng giờ cùng thứ
+      var byDay = {};
+      for(var i=0;i<slots.length;i++){
+        var s = slots[i];
+        if(!s.start || !s.end || s.start >= s.end){
+          e.preventDefault(); e.stopImmediatePropagation();
+          alert('Ca #'+(i+1)+': giờ kết thúc phải sau giờ bắt đầu.');
+          return;
+        }
+        var arr = byDay[s.weekday] || (byDay[s.weekday]=[]);
+        for(var j=0;j<arr.length;j++){
+          var o = arr[j];
+          if(s.start < o.end && s.end > o.start){
+            e.preventDefault(); e.stopImmediatePropagation();
+            alert('Có 2 ca cùng thứ bị trùng khung giờ. Vui lòng kiểm tra lại.');
+            return;
+          }
+        }
+        arr.push(s);
+      }
+      syncSlotHiddens(cf);
     }); }
     var ssel=document.getElementById('class-ssel');
     if(ssel){ ssel.addEventListener('ssel:select', function(e){

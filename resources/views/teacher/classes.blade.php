@@ -34,7 +34,7 @@
           'id' => $c->id, 'name' => $c->name, 'type' => $c->type, 'grade' => $c->grade,
           'subject' => $c->subject, 'status' => $c->status,
           'start_date' => optional($c->start_date)->toDateString(),
-          'schedules' => $c->schedules->sortBy('weekday')->map(fn ($s) => [
+          'schedules' => $c->schedules->sortBy([['weekday', 'asc'], ['start_time', 'asc']])->map(fn ($s) => [
             'weekday' => (int) $s->weekday,
             'start' => $s->start_time ? \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') : '17:30',
             'end' => $s->end_time ? \Illuminate\Support\Carbon::parse($s->end_time)->format('H:i') : '19:00',

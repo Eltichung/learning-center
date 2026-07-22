@@ -40,7 +40,7 @@
               <b>{{ $wdFull[$d->date->dayOfWeekIso] }}</b>
               <span class="r" style="font-size:12px;margin-left:6px">{{ $d->date->format('d/m/Y') }}</span>
               @if ($d->submitted)<span class="chip g" style="margin-left:8px">✓ Đã dạy</span>@endif
-              @if ($d->type === 'off')<span class="chip r" style="margin-left:6px">Nghỉ</span>@endif
+             @if ($d->type === 'off')<span class="chip r" style="margin-left:6px">Nghỉ</span>@endif
               @if ($d->type === 'makeup')<span class="chip b" style="margin-left:6px">Bù</span>@endif
             </div>
           </div>

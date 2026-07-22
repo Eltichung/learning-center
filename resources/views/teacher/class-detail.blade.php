@@ -14,9 +14,11 @@
     'id' => $class->id, 'name' => $class->name, 'type' => $class->type, 'grade' => $class->grade,
     'subject' => $class->subject, 'status' => $class->status,
     'start_date' => optional($class->start_date)->toDateString(),
-    'weekdays' => $class->schedules->pluck('weekday')->map(fn ($w) => (int) $w)->values(),
-    'start_time' => optional($class->schedules->first())->start_time ? \Illuminate\Support\Carbon::parse($class->schedules->first()->start_time)->format('H:i') : '17:30',
-    'end_time' => optional($class->schedules->first())->end_time ? \Illuminate\Support\Carbon::parse($class->schedules->first()->end_time)->format('H:i') : '19:00',
+    'schedules' => $class->schedules->sortBy([['weekday', 'asc'], ['start_time', 'asc']])->map(fn ($s) => [
+      'weekday' => (int) $s->weekday,
+      'start' => $s->start_time ? \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') : '17:30',
+      'end' => $s->end_time ? \Illuminate\Support\Carbon::parse($s->end_time)->format('H:i') : '19:00',
+    ])->values(),
     'locked' => (int) ($class->submitted_count ?? 0) > 0,
   ])
   <div><a class="btn ghost" href="{{ route('teacher.attendance', ['class_id' => $class->id]) }}">Điểm danh</a> <button class="btn primary" type="button" onclick='editClass(@json($cdata))'>Sửa lớp</button></div>
@@ -70,7 +72,7 @@
   </div>
   <div>
     <div class="panel"><div class="ph"><h3>Lịch học cố định</h3></div><div class="pb" style="padding:14px 16px">
-      @forelse ($class->schedules->sortBy('weekday') as $sc)
+      @forelse ($class->schedules->sortBy([['weekday', 'asc'], ['start_time', 'asc']]) as $sc)
         <div class="prow"><div>{{ Classroom::weekdayLabel((int) $sc->weekday) }}</div><div class="r">{{ \Illuminate\Support\Carbon::parse($sc->start_time)->format('H:i') }} – {{ \Illuminate\Support\Carbon::parse($sc->end_time)->format('H:i') }}</div></div>
       @empty
         <div class="prow r">Chưa đặt lịch.</div>

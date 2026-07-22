@@ -25,6 +25,44 @@ class TeacherController extends Controller
         return (int) auth()->id();
     }
 
+    /**
+     * Validate & normalize slots[] input cho lịch cố định (nhiều ca / thứ).
+     * Trả về mảng [{weekday, start_time, end_time}, ...] sạch, không trùng khung giờ trong cùng thứ.
+     * Ném ValidationException nếu sai.
+     */
+    private function normalizeSlots(Request $request): array
+    {
+        $request->validate([
+            'slots' => ['required', 'array', 'min:1'],
+            'slots.*.weekday' => ['required', 'integer', 'between:1,7'],
+            'slots.*.start_time' => ['required', 'date_format:H:i'],
+            'slots.*.end_time' => ['required', 'date_format:H:i'],
+        ]);
+
+        $slots = [];
+        foreach ($request->input('slots', []) as $i => $s) {
+            $wd = (int) ($s['weekday'] ?? 0);
+            $st = (string) ($s['start_time'] ?? '');
+            $en = (string) ($s['end_time'] ?? '');
+            if ($st >= $en) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "slots.$i.end_time" => 'Giờ kết thúc phải sau giờ bắt đầu.',
+                ]);
+            }
+            // Trùng giờ cùng thứ
+            foreach ($slots as $o) {
+                if ($o['weekday'] === $wd && $st < $o['end_time'] && $en > $o['start_time']) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "slots.$i.start_time" => 'Trùng khung giờ với ca khác cùng thứ.',
+                    ]);
+                }
+            }
+            $slots[] = ['weekday' => $wd, 'start_time' => $st, 'end_time' => $en];
+        }
+
+        return $slots;
+    }
+
     /* ===================== Tổng quan ===================== */
     public function dashboard()
     {
@@ -46,27 +84,45 @@ class TeacherController extends Controller
             ->with(['schedules' => fn ($q) => $q->where('weekday', $todayWd)])
             ->withCount('classStudents')
             ->get()
-            ->map(function ($c) use ($todayDate) {
-                // "Đã điểm danh" = đã submit (attendance_submitted_at), KHÔNG phải chỉ tồn tại bản ghi buổi
-                // (bản ghi buổi tự sinh khi mở trang điểm danh nên không phản ánh việc đã điểm danh).
-                $session = ClassSession::where('class_id', $c->id)->whereDate('date', $todayDate)->first();
-                $sc = $c->schedules->first();
+            ->flatMap(function ($c) use ($todayDate) {
+                // Lấy toàn bộ session hôm nay của lớp (mỗi ca sinh 1 row, key theo start_time)
+                $sessions = ClassSession::where('class_id', $c->id)->whereDate('date', $todayDate)->get()
+                    ->keyBy(fn ($s) => (string) $s->start_time);
 
-                // Ưu tiên giờ từ session (buổi bù có giờ riêng), fallback về lịch cố định
-                $start = $session?->start_time ?: $sc?->start_time;
-                $end = $session?->end_time ?: $sc?->end_time;
+                // Danh sách ca gốc từ lịch cố định (đã filter weekday = hôm nay)
+                $rows = collect();
+                foreach ($c->schedules as $sc) {
+                    $key = (string) $sc->start_time;
+                    $session = $sessions->pull($key);
+                    $rows->push((object) [
+                        'class' => $c,
+                        'start' => $session?->start_time ?: $sc->start_time,
+                        'end' => $session?->end_time ?: $sc->end_time,
+                        'count' => $c->class_students_count,
+                        'done' => (bool) ($session && $session->attendance_submitted_at),
+                        'off' => (bool) ($session && $session->type === 'off'),
+                        'makeup' => (bool) ($session && $session->type === 'makeup'),
+                        'session_id' => $session?->id,
+                    ]);
+                }
+                // Session không match lịch cố định (buổi bù/tạo thủ công) → thêm vào dưới
+                foreach ($sessions as $session) {
+                    $rows->push((object) [
+                        'class' => $c,
+                        'start' => $session->start_time,
+                        'end' => $session->end_time,
+                        'count' => $c->class_students_count,
+                        'done' => (bool) $session->attendance_submitted_at,
+                        'off' => $session->type === 'off',
+                        'makeup' => $session->type === 'makeup',
+                        'session_id' => $session->id,
+                    ]);
+                }
 
-                return (object) [
-                    'class' => $c,
-                    'start' => $start,
-                    'end' => $end,
-                    'count' => $c->class_students_count,
-                    'done' => (bool) ($session && $session->attendance_submitted_at),
-                    'off' => (bool) ($session && $session->type === 'off'),
-                    'makeup' => (bool) ($session && $session->type === 'makeup'),
-                    'session_id' => $session?->id,
-                ];
-            });
+                return $rows;
+            })
+            ->sortBy('start')
+            ->values();
 
         $revenueMonth = (int) $this->charged($tid)
             ->whereYear('class_sessions.date', now()->year)
@@ -358,9 +414,10 @@ class TeacherController extends Controller
                 if ($day->gt($genLimit)) {
                     continue;
                 }
+                // Key theo (class_id, date, start_time) để hỗ trợ nhiều ca / ngày.
                 ClassSession::firstOrCreate(
-                    ['class_id' => $class->id, 'date' => $day->toDateString()],
-                    ['start_time' => $sc->start_time, 'end_time' => $sc->end_time, 'type' => 'regular']
+                    ['class_id' => $class->id, 'date' => $day->toDateString(), 'start_time' => $sc->start_time],
+                    ['end_time' => $sc->end_time, 'type' => 'regular']
                 );
             }
 
@@ -856,16 +913,11 @@ class TeacherController extends Controller
             'subject' => ['required', 'string', 'max:100'],
             'status' => ['required', 'in:active,paused'],
             'start_date' => ['required', 'date'],
-            'weekdays' => ['required', 'array', 'min:1'],
-            'weekdays.*' => ['integer', 'between:1,7'],
-            'time_start' => ['array'],
-            'time_start.*' => ['nullable', 'date_format:H:i'],
-            'time_end' => ['array'],
-            'time_end.*' => ['nullable', 'date_format:H:i'],
             'students' => ['array'],
             'students.*' => ['integer'],
             'price_per_session' => ['nullable', 'integer', 'min:0'],
         ]);
+        $slots = $this->normalizeSlots($request);
 
         $class = Classroom::create([
             'teacher_id' => $tid,
@@ -877,12 +929,8 @@ class TeacherController extends Controller
             'start_date' => $data['start_date'],
             'default_price' => (int) ($data['price_per_session'] ?? 0),
         ]);
-        foreach (($data['weekdays'] ?? []) as $wd) {
-            $class->schedules()->create([
-                'weekday' => $wd,
-                'start_time' => $data['time_start'][$wd] ?? '17:30',
-                'end_time' => $data['time_end'][$wd] ?? '19:00',
-            ]);
+        foreach ($slots as $s) {
+            $class->schedules()->create($s);
         }
 
         // Ghi danh các học sinh đã chọn (nếu có)
@@ -912,12 +960,6 @@ class TeacherController extends Controller
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'in:active,paused'],
-            'weekdays' => ['required', 'array', 'min:1'],
-            'weekdays.*' => ['integer', 'between:1,7'],
-            'time_start' => ['array'],
-            'time_start.*' => ['nullable', 'date_format:H:i'],
-            'time_end' => ['array'],
-            'time_end.*' => ['nullable', 'date_format:H:i'],
         ];
         if ($canEditAll) {
             $rules['type'] = ['required', 'in:group,tutor_1on1'];
@@ -926,6 +968,7 @@ class TeacherController extends Controller
             $rules['start_date'] = ['required', 'date'];
         }
         $data = $request->validate($rules);
+        $slots = $this->normalizeSlots($request);
 
         $oldStatus = $class->status;
         $oldStartDate = optional($class->start_date)->toDateString();
@@ -948,15 +991,10 @@ class TeacherController extends Controller
             $class->sessions()->delete();
         }
 
-        // Dựng lại lịch cố định theo các thứ + giờ riêng từng buổi (áp dụng cho các buổi tạo MỚI;
-        // các buổi đã tạo/đã điểm danh giữ nguyên). Xoá hết rồi tạo lại cho khớp lựa chọn.
+        // Dựng lại lịch cố định (nhiều ca / thứ). Áp dụng cho các buổi tạo MỚI; buổi đã tạo giữ nguyên.
         $class->schedules()->delete();
-        foreach ($data['weekdays'] as $wd) {
-            $class->schedules()->create([
-                'weekday' => $wd,
-                'start_time' => $data['time_start'][$wd] ?? '17:30',
-                'end_time' => $data['time_end'][$wd] ?? '19:00',
-            ]);
+        foreach ($slots as $s) {
+            $class->schedules()->create($s);
         }
 
         // Thông báo theo thay đổi thực tế: ưu tiên báo trạng thái nếu nó đổi
@@ -1244,20 +1282,32 @@ class TeacherController extends Controller
         ]);
         $class = Classroom::where('teacher_id', $tid)->findOrFail($data['class_id']);
 
-        $default = $class->schedules->first();
+        // Giáo án theo NGÀY: nếu ngày có nhiều ca (nhiều session cùng date), apply title/content cho tất cả.
+        // Nếu chưa có session nào, sinh mới cho mọi ca của lịch cố định trùng thứ đó (fallback ca đầu nếu không có).
         foreach (($data['lessons'] ?? []) as $row) {
-            $session = ClassSession::firstOrCreate(
-                ['class_id' => $class->id, 'date' => $row['date']],
-                [
-                    'start_time' => optional($default)->start_time,
-                    'end_time' => optional($default)->end_time,
-                    'type' => 'regular',
-                ]
-            );
-            $session->update([
-                'title' => $row['title'] ?? null,
-                'content' => $row['content'] ?? null,
-            ]);
+            $existing = ClassSession::where('class_id', $class->id)->whereDate('date', $row['date'])->get();
+            if ($existing->isEmpty()) {
+                $wd = Carbon::parse($row['date'])->dayOfWeekIso;
+                $schedules = $class->schedules->where('weekday', $wd)->values();
+                if ($schedules->isEmpty()) {
+                    $schedules = collect([$class->schedules->first()])->filter();
+                }
+                foreach ($schedules as $sc) {
+                    $existing->push(ClassSession::create([
+                        'class_id' => $class->id,
+                        'date' => $row['date'],
+                        'start_time' => $sc->start_time,
+                        'end_time' => $sc->end_time,
+                        'type' => 'regular',
+                    ]));
+                }
+            }
+            foreach ($existing as $session) {
+                $session->update([
+                    'title' => $row['title'] ?? null,
+                    'content' => $row['content'] ?? null,
+                ]);
+            }
         }
 
         return $this->respondOk($request, 'Đã lưu giáo án tuần.', route('teacher.lessons', ['class_id' => $class->id, 'week' => $data['week']]));
