@@ -277,8 +277,26 @@
         notify('4/6 Xin quyền…', 'success');
         var perm = await Notification.requestPermission();
         if (perm !== 'granted') { setState(null); notify('Bị từ chối: perm='+perm, 'error'); return; }
+        // Dọn subscription cũ (nếu có, VD từ VAPID key khác) trước khi subscribe mới
+        try {
+          var existing = await reg.pushManager.getSubscription();
+          if (existing) { await existing.unsubscribe(); notify('Đã dọn sub cũ', 'success'); }
+        } catch(_){}
         notify('5/6 Subscribe với VAPID…', 'success');
-        var newSub = await withTimeout(reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: urlB64ToUint8(VAPID_PUBLIC)}), 15000, 'pushManager.subscribe');
+        var newSub;
+        try {
+          newSub = await withTimeout(reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: urlB64ToUint8(VAPID_PUBLIC)}), 15000, 'pushManager.subscribe');
+        } catch(subErr) {
+          // Nếu là InvalidStateError → thử unregister SW rồi register lại
+          if (subErr.name === 'InvalidStateError') {
+            notify('Sub cũ conflict — reset SW…', 'error');
+            var regs = await navigator.serviceWorker.getRegistrations();
+            for (var i=0;i<regs.length;i++) await regs[i].unregister();
+            notify('Vui lòng reload trang và bấm lại nút.', 'error');
+            return;
+          }
+          throw subErr;
+        }
         notify('6/6 Gửi lên server…', 'success');
         var json = newSub.toJSON();
         var res = await withTimeout(post(URL_SUB, {endpoint: json.endpoint, keys: json.keys}), 10000, 'POST subscribe');
