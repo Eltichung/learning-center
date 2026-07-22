@@ -32,7 +32,8 @@ Route::get('/manifest.json', function () {
             ['src' => '/favicon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
             ['src' => '/favicon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
         ],
-    ])->header('Content-Type', 'application/manifest+json');
+    ])->header('Content-Type', 'application/manifest+json')
+        ->header('Cache-Control', 'no-cache, must-revalidate');
 })->name('pwa.manifest');
 
 /* ---------------- Xác thực (khách chưa đăng nhập) ---------------- */
