@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
 use App\Models\Classroom;
+use App\Models\PushSubscription;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -63,6 +64,39 @@ class LookupController extends Controller
             'weeks' => $weeks,
             'weekIndex' => 3,
         ]));
+    }
+
+    /* Web Push — đăng ký subscription cho học sinh (public, cần đúng slug) */
+    public function pushSubscribe(Request $request, string $slug)
+    {
+        $student = $this->resolve($slug);
+        $data = $request->validate([
+            'endpoint' => ['required', 'string', 'max:500'],
+            'keys.p256dh' => ['required', 'string', 'max:255'],
+            'keys.auth' => ['required', 'string', 'max:255'],
+        ]);
+
+        PushSubscription::updateOrCreate(
+            ['endpoint' => $data['endpoint']],
+            [
+                'student_id' => $student->id,
+                'p256dh' => $data['keys']['p256dh'],
+                'auth' => $data['keys']['auth'],
+                'user_agent' => substr((string) $request->userAgent(), 0, 255),
+                'last_seen_at' => now(),
+            ]
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function pushUnsubscribe(Request $request, string $slug)
+    {
+        $this->resolve($slug); // xác nhận slug hợp lệ
+        $data = $request->validate(['endpoint' => ['required', 'string']]);
+        PushSubscription::where('endpoint', $data['endpoint'])->delete();
+
+        return response()->json(['ok' => true]);
     }
 
     /* ===================== Helpers ===================== */
@@ -147,18 +181,19 @@ class LookupController extends Controller
     {
         $classIds = $student->classStudents->pluck('class_id');
 
+        // Sessions grouped by date, sort theo giờ để hiển thị ca sớm trước
         $sessByDate = [];
-        foreach (ClassSession::whereIn('class_id', $classIds)->get() as $s) {
+        foreach (ClassSession::whereIn('class_id', $classIds)->orderBy('start_time')->get() as $s) {
             $sessByDate[Carbon::parse($s->date)->toDateString()][] = $s;
         }
-        $attByDate = [];
-        foreach ($student->studentSessions()->with('classSession')->get() as $a) {
-            $d = $a->classSession ? Carbon::parse($a->classSession->date)->toDateString() : null;
-            if ($d) {
-                $attByDate[$d] = $a->status;
-            }
+        // Attendance keyed theo class_session_id (không phải date) — mỗi ca có bản ghi riêng
+        $attBySession = [];
+        foreach ($student->studentSessions()->get() as $a) {
+            $attBySession[(int) $a->class_session_id] = $a->status;
         }
-        $schedWds = ClassSchedule::whereIn('class_id', $classIds)->pluck('weekday')->map(fn ($w) => (int) $w)->unique()->all();
+        // Số ca theo từng weekday để hiển thị "sắp học" đúng số lượng cho ngày tương lai
+        $wdCounts = ClassSchedule::whereIn('class_id', $classIds)
+            ->get()->groupBy(fn ($s) => (int) $s->weekday)->map->count()->all();
         $firstSched = ClassSchedule::whereIn('class_id', $classIds)->orderBy('start_time')->first();
         $time = $firstSched ? Carbon::parse($firstSched->start_time)->format('H:i') : '';
         $subj = optional($student->classStudents->first()?->classroom)->name ?? '';
@@ -167,35 +202,45 @@ class LookupController extends Controller
         $weeks = [];
         for ($w = -$back; $w <= $fwd; $w++) {
             $monday = now()->startOfWeek()->addWeeks($w)->startOfDay();
-            $days = $mo = $st = [];
+            $days = $mo = $st = $times = [];
             for ($i = 0; $i < 7; $i++) {
                 $day = $monday->copy()->addDays($i);
                 $ds = $day->toDateString();
                 $days[] = $day->format('d');
                 $mo[] = $day->format('m');
 
-                $status = null;
+                $statuses = [];
+                $daySlotTimes = [];
                 if (! empty($sessByDate[$ds])) {
-                    $sess = $sessByDate[$ds][0];
-                    $status = match ($sess->type) {
-                        'off' => 'off',
-                        'makeup' => 'makeup',
-                        default => match ($attByDate[$ds] ?? 'present') {
-                            'excused' => 'excused',
-                            'absent' => 'absent',
-                            default => 'present',
-                        },
-                    };
-                } elseif ($day->gt($today) && in_array($day->dayOfWeekIso, $schedWds, true)) {
-                    $status = 'study';
+                    foreach ($sessByDate[$ds] as $sess) {
+                        $statuses[] = match ($sess->type) {
+                            'off' => 'off',
+                            'makeup' => 'makeup',
+                            default => match ($attBySession[(int) $sess->id] ?? 'present') {
+                                'excused' => 'excused',
+                                'absent' => 'absent',
+                                default => 'present',
+                            },
+                        };
+                        $daySlotTimes[] = Carbon::parse($sess->start_time)->format('H:i');
+                    }
+                } elseif ($day->gt($today)) {
+                    $wd = $day->dayOfWeekIso;
+                    $n = (int) ($wdCounts[$wd] ?? 0);
+                    for ($k = 0; $k < $n; $k++) {
+                        $statuses[] = 'study';
+                    }
                 }
-                $st[] = $status;
+                // Rỗng → giữ null để giao diện render ô "không có buổi"
+                $st[] = empty($statuses) ? null : $statuses;
+                $times[] = $daySlotTimes;
             }
             $weeks[] = [
                 'label' => 'Tuần ' . $monday->format('d') . ' – ' . $monday->copy()->addDays(6)->format('d/m/Y'),
                 'days' => $days,
                 'mo' => $mo,
                 'st' => $st,
+                'times' => $times,
                 'time' => $time,
                 'subj' => $subj,
             ];

@@ -108,6 +108,19 @@
   </div>
   @endif
 
+  {{-- Bật thông báo trước 1 tiếng --}}
+  <div class="pcard" id="push-card" style="display:none">
+    <div class="pcard-head">
+      <h4>🔔 Nhắc trước giờ học</h4>
+      <span id="push-state" class="r" style="font-size:12px"></span>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin:6px 0 10px;line-height:1.5">
+      Nhận thông báo <b>1 tiếng trước</b> mỗi buổi học của con. Chỉ hoạt động sau khi
+      <b>“Thêm vào Màn hình chính”</b> trên iPhone/iPad.
+    </p>
+    <button type="button" class="btn primary" id="push-btn" onclick="togglePush()" style="width:100%;padding:11px">Bật thông báo</button>
+  </div>
+
   {{-- Tuần này --}}
   <div class="pcard">
     <div class="pcard-head"><h4>🗓️ Tuần này</h4><a class="linklike" href="{{ route('parent.history', $slug) }}">Lịch sử →</a></div>
@@ -130,7 +143,7 @@
     @endforelse
   </div>
 
-  <div style="text-align:center;color:var(--muted);font-size:11px;padding:8px 0 20px">Cập nhật bởi {{ $teacherName }} · LớpThêm</div>
+  <div style="text-align:center;color:var(--muted);font-size:11px;padding:8px 0 20px">Cập nhật bởi {{ $teacherName }} ·</div>
 </div>
 
 @push('scripts')
@@ -166,7 +179,7 @@
     var d = ls.date ? new Date(ls.date) : null;
     document.getElementById('lesson-date').textContent = d ? (WD[d.getDay()] + ' · ' + d.toLocaleDateString('vi-VN')) : '';
     document.getElementById('lesson-title').textContent = ls.title || '';
-    document.getElementById('lesson-content').textContent = ls.content || '(Chưa có nội dung chi tiết)';
+    document.getElementById('lesson-content').textContent = ls.content || '';
     document.getElementById('lesson-modal').classList.add('show');
     document.body.style.overflow='hidden';
   }
@@ -180,5 +193,86 @@
 </script>
 <script src="{{ asset('js/parent-week.js') }}?v={{ filemtime(public_path('js/parent-week.js')) }}"></script>
 <script>renderThisWeek();</script>
+
+<script>
+/* ===== Web Push subscribe / unsubscribe ===== */
+(function(){
+  var VAPID_PUBLIC = @json(config('webpush.public_key'));
+  var URL_SUB = @json(route('parent.push.subscribe', $slug, false));
+  var URL_UNSUB = @json(route('parent.push.unsubscribe', $slug, false));
+  var CSRF = @json(csrf_token());
+
+  var supported = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+  var card = document.getElementById('push-card');
+  var btn = document.getElementById('push-btn');
+  var stateEl = document.getElementById('push-state');
+  if (!supported || !VAPID_PUBLIC) return;
+  card.style.display = '';
+
+  function urlB64ToUint8(b64){
+    var pad = '='.repeat((4 - b64.length % 4) % 4);
+    var s = (b64 + pad).replace(/-/g,'+').replace(/_/g,'/');
+    var raw = atob(s), out = new Uint8Array(raw.length);
+    for (var i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  async function post(url, body){
+    return fetch(url, {
+      method:'POST', credentials:'same-origin',
+      headers: {'Content-Type':'application/json','X-CSRF-TOKEN':CSRF,'Accept':'application/json'},
+      body: JSON.stringify(body||{})
+    });
+  }
+  function setState(sub){
+    if (Notification.permission === 'denied') {
+      btn.textContent = 'Bị chặn ở trình duyệt';
+      btn.disabled = true;
+      stateEl.textContent = 'Đã tắt';
+      return;
+    }
+    if (sub) {
+      btn.textContent = 'Tắt thông báo';
+      btn.classList.remove('primary'); btn.classList.add('ghost');
+      stateEl.textContent = 'Đang bật';
+      stateEl.style.color = 'var(--green)';
+    } else {
+      btn.textContent = 'Bật thông báo';
+      btn.classList.remove('ghost'); btn.classList.add('primary');
+      stateEl.textContent = 'Đang tắt';
+      stateEl.style.color = 'var(--muted)';
+    }
+  }
+  async function currentSub(){
+    var reg = await navigator.serviceWorker.ready;
+    return reg.pushManager.getSubscription();
+  }
+  window.togglePush = async function(){
+    try{
+      btn.disabled = true;
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        // Unsubscribe
+        var endpoint = sub.endpoint;
+        await sub.unsubscribe();
+        await post(URL_UNSUB, {endpoint: endpoint});
+        setState(null);
+        window.toast && toast('Đã tắt thông báo', 'success');
+      } else {
+        var perm = await Notification.requestPermission();
+        if (perm !== 'granted') { setState(null); window.toast && toast('Bạn đã từ chối quyền thông báo', 'error'); return; }
+        var newSub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: urlB64ToUint8(VAPID_PUBLIC)});
+        var json = newSub.toJSON();
+        var res = await post(URL_SUB, {endpoint: json.endpoint, keys: json.keys});
+        if (!res.ok) { await newSub.unsubscribe(); throw new Error('Server reject'); }
+        setState(newSub);
+        window.toast && toast('Đã bật thông báo — bạn sẽ nhận trước giờ học 1 tiếng', 'success');
+      }
+    } catch(e){ window.toast && toast('Không đăng ký được thông báo', 'error'); }
+    finally { btn.disabled = false; }
+  };
+  navigator.serviceWorker.ready.then(function(){ return currentSub(); }).then(setState).catch(function(){});
+})();
+</script>
 @endpush
 @endsection

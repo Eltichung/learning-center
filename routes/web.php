@@ -77,7 +77,9 @@ Route::middleware('auth')->group(function () {
 });
 
 /* ---------------- Khu phụ huynh (công khai) ---------------- */
-Route::get('/tra-cuu', [LookupController::class, 'search'])->name('parent.search');
-Route::post('/tra-cuu', [LookupController::class, 'find']);
-Route::get('/p/{slug}', [LookupController::class, 'show'])->name('parent.info');
-Route::get('/p/{slug}/lich-su', [LookupController::class, 'history'])->name('parent.history');
+Route::get('/search', [LookupController::class, 'search'])->name('parent.search');
+Route::post('/search', [LookupController::class, 'find']);
+Route::get('/search/{slug}', [LookupController::class, 'show'])->name('parent.info');
+Route::get('/search/{slug}/lich-su', [LookupController::class, 'history'])->name('parent.history');
+Route::post('/search/{slug}/push/subscribe', [LookupController::class, 'pushSubscribe'])->name('parent.push.subscribe');
+Route::post('/search/{slug}/push/unsubscribe', [LookupController::class, 'pushUnsubscribe'])->name('parent.push.unsubscribe');
