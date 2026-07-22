@@ -250,35 +250,44 @@
     if (window.toast) toast(msg, type);
     else alert(msg);
   }
+  function withTimeout(promise, ms, label){
+    return Promise.race([promise, new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('Timeout '+ms+'ms tại: '+label)); }, ms); })]);
+  }
   window.togglePush = async function(){
-    notify('👆 Đã bấm — đang xử lý…', 'success');
+    notify('1/6 Đã bấm', 'success');
     try{
       btn.disabled = true;
-      if (!('serviceWorker' in navigator)) { notify('Trình duyệt không hỗ trợ Service Worker', 'error'); return; }
-      if (!('PushManager' in window))     { notify('Trình duyệt không hỗ trợ Push API', 'error'); return; }
-      if (Notification.permission === 'denied') { notify('Bạn đã chặn thông báo trước đây. Vui lòng bật lại trong Cài đặt trình duyệt.', 'error'); return; }
+      if (!('serviceWorker' in navigator)) { notify('Không hỗ trợ Service Worker', 'error'); return; }
+      if (!('PushManager' in window))     { notify('Không hỗ trợ Push API', 'error'); return; }
+      if (Notification.permission === 'denied') { notify('Đã bị chặn — mở Cài đặt Chrome > Site settings > Notifications > Allow', 'error'); return; }
 
-      var reg = await navigator.serviceWorker.ready;
-      var sub = await reg.pushManager.getSubscription();
+      notify('2/6 Chờ SW ready…', 'success');
+      var reg = await withTimeout(navigator.serviceWorker.ready, 5000, 'serviceWorker.ready');
+      notify('3/6 SW OK, check sub…', 'success');
+      var sub = await withTimeout(reg.pushManager.getSubscription(), 5000, 'getSubscription');
+
       if (sub) {
+        notify('4/6 Đã có sub — huỷ đăng ký…', 'success');
         var endpoint = sub.endpoint;
         await sub.unsubscribe();
         await post(URL_UNSUB, {endpoint: endpoint});
         setState(null);
-        notify('Đã tắt thông báo', 'success');
+        notify('✓ Đã TẮT thông báo', 'success');
       } else {
+        notify('4/6 Xin quyền…', 'success');
         var perm = await Notification.requestPermission();
-        if (perm !== 'granted') { setState(null); notify('Bạn đã từ chối quyền thông báo', 'error'); return; }
-        var newSub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: urlB64ToUint8(VAPID_PUBLIC)});
+        if (perm !== 'granted') { setState(null); notify('Bị từ chối: perm='+perm, 'error'); return; }
+        notify('5/6 Subscribe với VAPID…', 'success');
+        var newSub = await withTimeout(reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: urlB64ToUint8(VAPID_PUBLIC)}), 15000, 'pushManager.subscribe');
+        notify('6/6 Gửi lên server…', 'success');
         var json = newSub.toJSON();
-        var res = await post(URL_SUB, {endpoint: json.endpoint, keys: json.keys});
+        var res = await withTimeout(post(URL_SUB, {endpoint: json.endpoint, keys: json.keys}), 10000, 'POST subscribe');
         if (!res.ok) { await newSub.unsubscribe(); throw new Error('Server reject '+res.status); }
         setState(newSub);
-        notify('Đã bật thông báo — bạn sẽ nhận trước giờ học 2 tiếng', 'success');
+        notify('✓ Đã BẬT thông báo!', 'success');
       }
     } catch(e){
-      // Hiển thị lỗi chi tiết để dễ debug trên mobile
-      notify('Lỗi: ' + (e && (e.message || e.name) || e), 'error');
+      notify('❌ ' + (e && (e.message || e.name) || e), 'error');
     }
     finally { btn.disabled = false; }
   };
