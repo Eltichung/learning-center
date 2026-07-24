@@ -102,6 +102,7 @@ class TeacherController extends Controller
                         'done' => (bool) ($session && $session->attendance_submitted_at),
                         'off' => (bool) ($session && $session->type === 'off'),
                         'makeup' => (bool) ($session && $session->type === 'makeup'),
+                        'boost' => (bool) ($session && $session->type === 'boost'),
                         'session_id' => $session?->id,
                     ]);
                 }
@@ -115,6 +116,7 @@ class TeacherController extends Controller
                         'done' => (bool) $session->attendance_submitted_at,
                         'off' => $session->type === 'off',
                         'makeup' => $session->type === 'makeup',
+                        'boost' => $session->type === 'boost',
                         'session_id' => $session->id,
                     ]);
                 }
@@ -145,7 +147,7 @@ class TeacherController extends Controller
         $pendingMakeupCount = $pendingMakeups->count();
 
         // Buổi học đã qua ngày nhưng CHƯA điểm danh (chưa sinh tiền -> bỏ sót doanh thu)
-        $missedAttendance = ClassSession::whereIn('type', ['regular', 'makeup'])
+        $missedAttendance = ClassSession::whereIn('type', ['regular', 'makeup', 'boost'])
             ->whereDate('date', '<', $todayDate)
             ->whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
             ->whereDoesntHave('studentSessions')
@@ -154,11 +156,78 @@ class TeacherController extends Controller
             ->get();
         $missedAttendanceCount = $missedAttendance->count();
 
+        // Thời khóa biểu tuần: gộp lịch cố định + buổi tạo thủ công trong tuần
+        $weekDates = collect(range(1, 7))->mapWithKeys(fn ($d) => [$d => now()->startOfWeek()->addDays($d - 1)->toDateString()]);
+        $fmtTime = fn ($t) => Carbon::parse($t)->format('H:i:s');
+
+        $scheduleRows = ClassSchedule::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid)->where('status', 'active'))
+            ->with(['classroom' => fn ($q) => $q->withCount('classStudents')])
+            ->get();
+
+        $classIds = $scheduleRows->pluck('class_id')
+            ->merge(Classroom::where('teacher_id', $tid)->where('status', 'active')->pluck('id'))
+            ->unique()->all();
+
+        $weekSessions = ClassSession::whereIn('class_id', $classIds)
+            ->whereBetween('date', [$weekDates[1], $weekDates[7]])
+            ->with(['classroom' => fn ($q) => $q->withCount('classStudents')])
+            ->get();
+
+        // Set key (class_id|weekday|H:i:s) của các schedule cố định để detect session ad-hoc
+        $schedKeySet = $scheduleRows->mapWithKeys(fn ($sc) => [
+            $sc->class_id.'|'.$sc->weekday.'|'.$fmtTime($sc->start_time) => true,
+        ]);
+
+        // Map session theo (class_id|date|H:i:s) để tra trạng thái điểm danh/nghỉ cho slot lịch cố định
+        $weekSessionMap = $weekSessions->keyBy(
+            fn ($s) => $s->class_id.'|'.Carbon::parse($s->date)->toDateString().'|'.$fmtTime($s->start_time)
+        );
+
+        // Với mỗi ngày trong tuần: gom slot lịch cố định + slot ad-hoc, sort theo giờ
+        $weekSlots = collect(range(1, 7))->mapWithKeys(function ($d) use ($scheduleRows, $weekSessions, $schedKeySet, $weekSessionMap, $weekDates, $fmtTime) {
+            $items = collect();
+
+            foreach ($scheduleRows->where('weekday', $d) as $sc) {
+                $sess = $weekSessionMap->get($sc->class_id.'|'.$weekDates[$d].'|'.$fmtTime($sc->start_time));
+                $items->push((object) [
+                    'ad_hoc' => false,
+                    'class_id' => $sc->class_id,
+                    'classroom' => $sc->classroom,
+                    'start_time' => $sc->start_time,
+                    'end_time' => $sc->end_time,
+                    'session' => $sess,
+                    'type' => $sess?->type,
+                ]);
+            }
+
+            foreach ($weekSessions as $s) {
+                if (Carbon::parse($s->date)->dayOfWeekIso !== $d) {
+                    continue;
+                }
+                $key = $s->class_id.'|'.$d.'|'.$fmtTime($s->start_time);
+                if ($schedKeySet->has($key)) {
+                    continue; // đã render qua schedule cố định
+                }
+                $items->push((object) [
+                    'ad_hoc' => true,
+                    'class_id' => $s->class_id,
+                    'classroom' => $s->classroom,
+                    'start_time' => $s->start_time,
+                    'end_time' => $s->end_time,
+                    'session' => $s,
+                    'type' => $s->type,
+                ]);
+            }
+
+            return [$d => $items->sortBy(fn ($i) => $fmtTime($i->start_time))->values()];
+        });
+
         return view('teacher.dashboard', compact(
             'classesActive', 'studentsCount', 'todayClasses',
             'revenueMonth', 'debtTotal', 'debtorCount', 'notDoneToday',
             'pendingMakeups', 'pendingMakeupCount',
-            'missedAttendance', 'missedAttendanceCount'
+            'missedAttendance', 'missedAttendanceCount',
+            'weekSlots', 'weekDates'
         ));
     }
 
@@ -233,7 +302,7 @@ class TeacherController extends Controller
         $sessions = ClassSession::where('class_id', $class->id)
             ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
             ->orderBy('date')->get();
-        $taught = $sessions->whereIn('type', ['regular', 'makeup'])->count();
+        $taught = $sessions->whereIn('type', ['regular', 'makeup', 'boost'])->count();
         $offs = $sessions->where('type', 'off');
         $makeups = $sessions->where('type', 'makeup');
 
@@ -1183,7 +1252,7 @@ class TeacherController extends Controller
             'date' => ['required', 'date'],
             'start_time' => ['nullable', 'date_format:H:i'],
             'end_time' => ['nullable', 'date_format:H:i'],
-            'type' => ['nullable', 'in:regular,makeup'],
+            'type' => ['nullable', 'in:regular,makeup,boost'],
         ]);
         $class = Classroom::where('teacher_id', $tid)->findOrFail($data['class_id']);
 
@@ -1204,12 +1273,15 @@ class TeacherController extends Controller
             return $this->respondError($request, 'start_time', 'Đã có buổi khác trùng khung giờ này. Chọn giờ khác.');
         }
 
+        // Tôn trọng type user chọn. Modal đã default 'makeup' cho buổi thủ công.
+        $type = $data['type'] ?? 'makeup';
+
         $session = ClassSession::create([
             'class_id' => $class->id,
             'date' => $data['date'],
             'start_time' => $start,
             'end_time' => $end,
-            'type' => $data['type'] ?? 'regular',
+            'type' => $type,
         ]);
 
         return $this->respondOk(

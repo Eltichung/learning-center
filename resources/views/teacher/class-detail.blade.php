@@ -108,6 +108,7 @@
             @switch($s->type)
               @case('off')<span class="chip r">Nghỉ</span>@break
               @case('makeup')<span class="chip b">Học bù</span>@break
+              @case('boost')<span class="chip p">Tăng cường</span>@break
               @default<span class="chip n">Buổi thường</span>
             @endswitch
           </td>

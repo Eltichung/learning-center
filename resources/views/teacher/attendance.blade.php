@@ -57,10 +57,11 @@
           <input type="time" name="end_time" value="{{ optional($class->schedules->first())->end_time ? \Illuminate\Support\Carbon::parse($class->schedules->first()->end_time)->format('H:i') : '19:00' }}">
         </div>
       </div>
-      <div class="field"><label>Loại buổi</label>
-        <select name="type">
+      <div class="field"><label>Loại buổi <span style="color:var(--red)">*</span></label>
+        <select name="type" required>
+          <option value="makeup" selected>Buổi bù</option>
+          <option value="boost">Buổi tăng cường</option>
           <option value="regular">Buổi thường</option>
-          <option value="makeup">Buổi bù</option>
         </select>
       </div>
     </div>
@@ -81,7 +82,11 @@
          @if ($offNoMakeup) title="Buổi nghỉ chưa xếp lịch học bù" @endif>
         <div>
           {{ \Illuminate\Support\Carbon::parse($s->date)->format('d/m') }}
-          @if ($s->type === 'makeup') ( Bù ) @elseif ($s->type === 'off') ( Nghỉ ){!! $offNoMakeup ? ' ⚠' : '' !!} @endif
+          @switch($s->type)
+            @case('boost') ( Tăng cường ) @break
+            @case('makeup') ( Bù ) @break
+            @case('off') ( Nghỉ ){!! $offNoMakeup ? ' ⚠' : '' !!} @break
+          @endswitch
           @if ($s->attendance_submitted_at)<span class="dot-done">✓</span>@endif
         </div>
         @if ($s->start_time && $s->end_time)

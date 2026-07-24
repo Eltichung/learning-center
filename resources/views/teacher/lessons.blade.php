@@ -42,6 +42,7 @@
               @if ($d->submitted)<span class="chip g" style="margin-left:8px">✓ Đã dạy</span>@endif
              @if ($d->type === 'off')<span class="chip r" style="margin-left:6px">Nghỉ</span>@endif
               @if ($d->type === 'makeup')<span class="chip b" style="margin-left:6px">Bù</span>@endif
+              @if ($d->type === 'boost')<span class="chip p" style="margin-left:6px">Tăng cường</span>@endif
             </div>
           </div>
           <input type="hidden" name="lessons[{{ $i }}][date]" value="{{ $d->date->toDateString() }}">
