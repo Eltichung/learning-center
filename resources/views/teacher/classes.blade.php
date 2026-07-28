@@ -34,12 +34,12 @@
           'id' => $c->id, 'name' => $c->name, 'type' => $c->type, 'grade' => $c->grade,
           'subject' => $c->subject, 'status' => $c->status,
           'start_date' => optional($c->start_date)->toDateString(),
-          'schedules' => $c->schedules->sortBy('weekday')->map(fn ($s) => [
+          'schedules' => $c->schedules->sortBy([['weekday', 'asc'], ['start_time', 'asc']])->map(fn ($s) => [
             'weekday' => (int) $s->weekday,
             'start' => $s->start_time ? \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') : '17:30',
             'end' => $s->end_time ? \Illuminate\Support\Carbon::parse($s->end_time)->format('H:i') : '19:00',
           ])->values(),
-          'locked' => $c->sessions_count > 0,
+          'locked' => (int) ($c->submitted_count ?? 0) > 0,
         ])
         <tr>
           <td><b>{{ $c->name }}</b></td>
@@ -61,7 +61,7 @@
               </button>
               <div class="row-menu">
                 <button type="button" class="rmi" id="editbtn-{{ $c->id }}" onclick='closeRowMenus(); editClass(@json($cdata))'>Sửa lớp</button>
-                <form method="POST" action="{{ route('teacher.classes.duplicate', $c->id) }}" data-confirm="Nhân bản lớp “{{ $c->name }}” (kèm lịch học và toàn bộ học sinh)?">
+                <form method="POST" action="{{ route('teacher.classes.duplicate', ['id' => $c->id], false) }}" data-confirm="Nhân bản lớp “{{ $c->name }}” (kèm lịch học và toàn bộ học sinh)?">
                   @csrf
                   <button type="submit" class="rmi">Nhân bản</button>
                 </form>

@@ -22,6 +22,27 @@ Route::get('/', function () {
     return redirect()->route('teacher.dashboard');
 });
 
+/* PWA manifest — build động để start_url luôn khớp route hiện tại */
+Route::get('/manifest.json', function () {
+    return response()->json([
+        'name' => 'Học Chưa — Tra cứu phụ huynh',
+        'short_name' => 'Học Chưa',
+        'description' => 'Theo dõi lịch học, học phí và nhận xét của con.',
+        'start_url' => route('parent.search', [], false),
+        'scope' => '/',
+        'display' => 'standalone',
+        'orientation' => 'portrait',
+        'background_color' => '#f6f7f9',
+        'theme_color' => '#c96442',
+        'lang' => 'vi',
+        'icons' => [
+            ['src' => '/favicon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => '/favicon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+        ],
+    ])->header('Content-Type', 'application/manifest+json')
+        ->header('Cache-Control', 'no-cache, must-revalidate');
+})->name('pwa.manifest');
+
 /* ---------------- Xác thực (khách chưa đăng nhập) ---------------- */
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('teacher.login');
@@ -44,6 +65,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/classes/{id}/duplicate', [TeacherController::class, 'duplicateClass'])->name('teacher.classes.duplicate');
     Route::get('/classes/{id}', [TeacherController::class, 'classShow'])->name('teacher.class');
     Route::post('/classes/{id}/students', [TeacherController::class, 'addStudentToClass'])->name('teacher.class.addStudent');
+    Route::put('/classes/{id}/students/{studentId}/price', [TeacherController::class, 'updateClassStudentPrice'])->name('teacher.class.student.price');
+    Route::get('/classes/{id}/students/{studentId}/price-history', [TeacherController::class, 'classStudentPriceHistory'])->name('teacher.class.student.priceHistory');
 
     Route::get('/students', [TeacherController::class, 'students'])->name('teacher.students');
     Route::post('/students', [TeacherController::class, 'storeStudent'])->name('teacher.students.store');
@@ -55,11 +78,26 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/attendance', [TeacherController::class, 'attendance'])->name('teacher.attendance');
     Route::post('/attendance/{session}', [TeacherController::class, 'submitAttendance'])->name('teacher.attendance.submit');
+    Route::post('/attendance/{session}/off', [TeacherController::class, 'markSessionOff'])->name('teacher.attendance.off');
+    Route::post('/attendance/{session}/unoff', [TeacherController::class, 'unmarkSessionOff'])->name('teacher.attendance.unoff');
+    Route::post('/attendance/{session}/makeup', [TeacherController::class, 'addMakeup'])->name('teacher.attendance.makeup');
+    Route::post('/attendance/{session}/no-makeup', [TeacherController::class, 'toggleNoMakeup'])->name('teacher.attendance.noMakeup');
+    Route::post('/sessions', [TeacherController::class, 'createSession'])->name('teacher.sessions.create');
+
+    // Giáo án
+    Route::get('/lessons', [TeacherController::class, 'lessonsIndex'])->name('teacher.lessons');
+    Route::post('/lessons', [TeacherController::class, 'lessonsBatchSave'])->name('teacher.lessons.save');
+    Route::put('/sessions/{session}/lesson', [TeacherController::class, 'updateSessionLesson'])->name('teacher.session.lesson');
+    Route::delete('/sessions/{session}/lesson', [TeacherController::class, 'clearSessionLesson'])->name('teacher.session.lesson.clear');
 
     Route::post('/payments', [TeacherController::class, 'storePayment'])->name('teacher.payments.store');
 
     Route::get('/fees', [TeacherController::class, 'fees'])->name('teacher.fees');
     Route::get('/reports', [TeacherController::class, 'reports'])->name('teacher.reports');
+
+    // Cài đặt QR chuyển khoản của giáo viên
+    Route::get('/settings/qr', [TeacherController::class, 'qrSettings'])->name('teacher.settings.qr');
+    Route::post('/settings/qr', [TeacherController::class, 'updateQrSettings'])->name('teacher.settings.qr.update');
 
     // AJAX
     Route::get('/api/students/search', [TeacherController::class, 'searchStudents'])->name('api.students.search');
@@ -78,7 +116,7 @@ Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group
 });
 
 /* ---------------- Khu phụ huynh (công khai) ---------------- */
-Route::get('/tra-cuu', [LookupController::class, 'search'])->name('parent.search');
-Route::post('/tra-cuu', [LookupController::class, 'find']);
-Route::get('/p/{slug}', [LookupController::class, 'show'])->name('parent.info');
-Route::get('/p/{slug}/lich-su', [LookupController::class, 'history'])->name('parent.history');
+Route::get('/search', [LookupController::class, 'search'])->name('parent.search');
+Route::post('/search', [LookupController::class, 'find']);
+Route::get('/search/{slug}', [LookupController::class, 'show'])->name('parent.info');
+Route::get('/search/{slug}/lich-su', [LookupController::class, 'history'])->name('parent.history');

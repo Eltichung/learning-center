@@ -18,6 +18,8 @@ services:
         value: "false"
       - key: APP_URL
         value: https://learning-center-ninhtrang.onrender.com
+      - key: APP_TIMEZONE
+        value: Asia/Ho_Chi_Minh
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST

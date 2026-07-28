@@ -13,21 +13,32 @@ const STATUS = {
 
 const DEMO_WEEKS = [
   {label:'Tuần 25 – 31/05/2026', days:['25','26','27','28','29','30','31'],
-   st:['present',null,'present',null,'excused',null,null], time:'17:30'},
+   st:[['present'],null,['present'],null,['excused'],null,null], time:'17:30'},
   {label:'Tuần 01 – 07/06/2026', days:['01','02','03','04','05','06','07'],
-   st:['off',null,'present',null,'present',null,'makeup'], time:'17:30'},
+   st:[['off'],null,['present','present'],null,['present'],null,['makeup']], time:'17:30'},
   {label:'Tuần 08 – 14/06/2026', days:['08','09','10','11','12','13','14'],
-   st:['study',null,'study',null,'study',null,null], time:'17:30'}
+   st:[['study'],null,['study'],null,['study'],null,null], time:'17:30'}
 ];
 
 const WEEKS = (window.LT_WEEKS && window.LT_WEEKS.length) ? window.LT_WEEKS : DEMO_WEEKS;
 const PRICE_K = window.LT_PRICE_K || 120;          // đơn giá/buổi (nghìn đồng)
 let wIdx = (typeof window.LT_WEEK_INDEX === 'number') ? window.LT_WEEK_INDEX : 1;
 
+/* Chuẩn hoá st cũ (string|null) và mới (array|null) về array */
+function stArr(v){ return v == null ? [] : (Array.isArray(v) ? v : [v]); }
+/* Priority chọn màu ô khi có nhiều ca: off > absent > excused > makeup > present > study */
+function pickCls(arr){
+  const order = ['off','absent','excused','makeup','present','study'];
+  for (const key of order){ if (arr.includes(key)) return STATUS[key].cls; }
+  return 'none';
+}
+
 function cellHtml(wd, date, st){
-  if(!st) return '<div class="wcell none"><div class="wd">'+wd+'</div><div class="dn">'+date+'</div></div>';
-  const s = STATUS[st];
-  return '<div class="wcell '+s.cls+'"><div class="wd">'+wd+'</div><div class="dn">'+date+'</div><div class="ws">'+s.ic+'</div></div>';
+  const arr = stArr(st);
+  if(!arr.length) return '<div class="wcell none"><div class="wd">'+wd+'</div><div class="dn">'+date+'</div></div>';
+  const cls = pickCls(arr);
+  const ics = arr.map(k => '<span>'+(STATUS[k]?.ic || '')+'</span>').join('');
+  return '<div class="wcell '+cls+'"><div class="wd">'+wd+'</div><div class="dn">'+date+'</div><div class="ws">'+ics+'</div></div>';
 }
 function gridHtml(w){ return w.days.map((d,i)=>cellHtml(WD[i], d, w.st[i])).join(''); }
 
@@ -47,21 +58,25 @@ function renderHistory(){
   const subj = w.subj || 'Buổi học';
   let det='', np=0, no=0, nbAbsent=0, nbExcused=0;
   w.days.forEach(function(d,i){
-    const st = w.st[i]; if(!st) return;
-    const s = STATUS[st];
+    const arr = stArr(w.st[i]); if(!arr.length) return;
     const mo = (w.mo && w.mo[i]) ? w.mo[i] : '';
-    const color = st==='present' ? 'var(--green-soft);color:var(--green)' :
-                  st==='makeup'  ? 'var(--blue-soft);color:var(--blue)' :
-                  st==='study'   ? 'var(--amber-soft);color:var(--amber)' :
-                  st==='excused' ? 'var(--amber-soft);color:var(--amber)' :
-                                   'var(--red-soft);color:var(--red)';
-    det += '<div class="prow"><div>'+WD[i]+' '+d+(mo?'/'+mo:'')+'<div class="r">'+
-           (st==='off' ? 'Nghỉ lễ/cô bận' : w.time+' · '+subj)+'</div></div>'+
-           '<span class="badge" style="background:'+color+'">'+s.lab+'</span></div>';
-    if(st==='present'||st==='makeup') np++;
-    else if(st==='off') no++;
-    else if(st==='absent') nbAbsent++;   // vắng không phép — vẫn tính tiền
-    else if(st==='excused') nbExcused++; // vắng có phép — miễn
+    const dayTimes = (w.times && w.times[i]) ? w.times[i] : [];
+    arr.forEach(function(st, k){
+      const s = STATUS[st];
+      const color = st==='present' ? 'var(--green-soft);color:var(--green)' :
+                    st==='makeup'  ? 'var(--blue-soft);color:var(--blue)' :
+                    st==='study'   ? 'var(--amber-soft);color:var(--amber)' :
+                    st==='excused' ? 'var(--amber-soft);color:var(--amber)' :
+                                     'var(--red-soft);color:var(--red)';
+      const t = dayTimes[k] || w.time;
+      det += '<div class="prow"><div>'+WD[i]+' '+d+(mo?'/'+mo:'')+'<div class="r">'+
+             (st==='off' ? 'Nghỉ lễ/cô bận' : (t?t+' · ':'')+subj)+'</div></div>'+
+             '<span class="badge" style="background:'+color+'">'+s.lab+'</span></div>';
+      if(st==='present'||st==='makeup') np++;
+      else if(st==='off') no++;
+      else if(st==='absent') nbAbsent++;
+      else if(st==='excused') nbExcused++;
+    });
   });
   if(!det) det = '<div class="prow" style="color:var(--muted)"><div>Không có buổi nào trong tuần này</div></div>';
   document.getElementById('histDetail').innerHTML = det;

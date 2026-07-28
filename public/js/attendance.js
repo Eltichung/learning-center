@@ -15,7 +15,7 @@ function attRecalc(){
     if (pay) { cnt++; total += pay; }
   });
   var t = document.getElementById('att-total');
-  if (t) t.textContent = cnt + ' buổi · ' + total.toLocaleString('vi-VN') + 'đ';
+  if (t) t.textContent = cnt + ' học sinh · ' + total.toLocaleString('vi-VN') + 'đ';
 }
 
 document.addEventListener('click', function(e){

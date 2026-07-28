@@ -15,6 +15,16 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.show').forEach(m => m.classList.remove('show'));
 });
 
+/* ----- Sidebar drawer (màn nhỏ) ----- */
+function toggleSidebar(force){
+  const open = typeof force === 'boolean' ? force : !document.body.classList.contains('nav-open');
+  document.body.classList.toggle('nav-open', open);
+}
+window.toggleSidebar = toggleSidebar;
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') document.body.classList.remove('nav-open');
+});
+
 /* ----- Toast thông báo ----- */
 function toast(message, type){
   let wrap = document.getElementById('lt-toast-wrap');
@@ -63,7 +73,15 @@ document.addEventListener('submit', function(e){
   const f = e.target;
   if (f.dataset && f.dataset.confirm && !f.dataset.confirmed){
     e.preventDefault();
-    confirmAction(f.dataset.confirm, function(){ f.dataset.confirmed = '1'; f.submit(); });
+    confirmAction(f.dataset.confirm, function(){
+      f.dataset.confirmed = '1';
+      // Với form AJAX: gọi thẳng helper (vì f.submit() không trigger 'submit' event)
+      if (window.shouldAjaxify && window.shouldAjaxify(f) && window.ajaxSubmit) {
+        window.ajaxSubmit(f);
+      } else {
+        f.submit();
+      }
+    });
   }
 });
 
@@ -126,3 +144,123 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 window.fmtMoney = fmtMoney;
 window.initMoneyInput = initMoneyInput;
+
+/* ===== AJAX form submit =====
+   Đánh dấu form bằng `data-ajax`. Helper sẽ:
+     - chặn submit mặc định, POST qua fetch (Accept: application/json + X-Requested-With)
+     - khóa nút submit khi đang gửi
+     - 422: render lỗi validate dưới ô input (thẻ .field-err) và toast lỗi đầu tiên
+     - 200/JSON {ok, redirect?, reload?}: toast ok, điều hướng/reload theo response
+     - lỗi khác: toast lỗi mạng/server
+
+   Tuỳ chọn trên form:
+     data-no-toast      → không hiện toast khi success
+     data-reload        → reload trang sau khi success (ghi đè response.reload)
+*/
+function getCsrfToken(){
+  var el = document.querySelector('meta[name="csrf-token"]');
+  if (el) return el.getAttribute('content');
+  var inp = document.querySelector('input[name="_token"]');
+  return inp ? inp.value : '';
+}
+
+function clearFormErrors(form){
+  form.querySelectorAll('.field-err').forEach(function(n){ n.remove(); });
+  form.querySelectorAll('.has-err').forEach(function(n){ n.classList.remove('has-err'); });
+}
+
+function showFieldErrors(form, errors){
+  Object.keys(errors || {}).forEach(function(name){
+    var msg = Array.isArray(errors[name]) ? errors[name][0] : errors[name];
+    var field = form.querySelector('[name="' + name + '"]') || form.querySelector('[name="' + name + '[]"]');
+    if (!field) return;
+    field.classList.add('has-err');
+    var wrap = field.closest('.field') || field.parentNode;
+    var err = document.createElement('div');
+    err.className = 'field-err';
+    err.textContent = msg;
+    wrap.appendChild(err);
+  });
+}
+
+async function ajaxSubmit(form){
+  clearFormErrors(form);
+  var btn = form.querySelector('button[type=submit], [data-submit]');
+  var oldBtnText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.classList.add('is-loading'); }
+
+  var data = new FormData(form);
+  var method = (data.get('_method') || form.getAttribute('method') || 'POST').toUpperCase();
+  if (method !== 'POST' && method !== 'GET') {
+    // method spoofing: thực tế gửi POST + _method
+    data.set('_method', method);
+  }
+  var url = form.getAttribute('action') || window.location.href;
+
+  try {
+    var res = await fetch(url, {
+      method: 'POST',
+      body: data,
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': getCsrfToken(),
+      },
+    });
+
+    var ctype = res.headers.get('content-type') || '';
+    var body = ctype.indexOf('application/json') !== -1 ? await res.json() : null;
+
+    if (res.status === 422) {
+      showFieldErrors(form, body && body.errors ? body.errors : {});
+      var firstMsg = body && body.message ? body.message : 'Dữ liệu chưa hợp lệ';
+      if (window.toast) toast(firstMsg, 'error');
+      return false;
+    }
+
+    if (!res.ok) {
+      var emsg = (body && (body.message || body.error)) || ('Lỗi ' + res.status);
+      if (window.toast) toast(emsg, 'error');
+      return false;
+    }
+
+    var ok = body && body.ok ? body.ok : '';
+    if (ok && !form.hasAttribute('data-no-toast') && window.toast) toast(ok, 'success');
+
+    if (form.hasAttribute('data-reload') || (body && body.reload)) {
+      window.location.reload();
+      return true;
+    }
+    if (body && body.redirect) {
+      window.location.assign(body.redirect);
+      return true;
+    }
+    // mặc định: reload để hiển thị state mới
+    window.location.reload();
+    return true;
+  } catch (e) {
+    if (window.toast) toast('Lỗi mạng — vui lòng thử lại', 'error');
+    return false;
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); btn.innerHTML = oldBtnText; }
+  }
+}
+
+function shouldAjaxify(form){
+  if (!(form instanceof HTMLFormElement)) return false;
+  if (form.hasAttribute('data-no-ajax')) return false;
+  var method = (form.getAttribute('method') || 'GET').toUpperCase();
+  if (method === 'GET') return false; // filter forms vẫn submit native (đổi URL)
+  return true;
+}
+document.addEventListener('submit', function(e){
+  var form = e.target;
+  if (!shouldAjaxify(form)) return;
+  // Có data-confirm và chưa xác nhận → nhường cho confirm handler (đã preventDefault + gọi lại ajaxSubmit trong callback OK)
+  if (form.dataset.confirm && !form.dataset.confirmed) return;
+  e.preventDefault();
+  ajaxSubmit(form);
+});
+window.ajaxSubmit = ajaxSubmit;
+window.shouldAjaxify = shouldAjaxify;

@@ -6,13 +6,17 @@
     $rn === 'teacher.attendance' => 'attendance',
     $rn === 'teacher.fees' => 'fees',
     $rn === 'teacher.reports' => 'reports',
+    in_array($rn, ['teacher.settings.qr', 'teacher.settings.qr.update']) => 'settings-qr',
+    in_array($rn, ['teacher.lessons', 'teacher.lessons.save']) => 'lessons',
     $rn === 'parent.search' => 'p-search',
     $rn === 'parent.info' => 'p-info',
     $rn === 'parent.history' => 'p-history',
     default => ($active ?? ''),
 })
 <aside class="tside">
-  <div class="brand"><span class="mark">L</span> Lớp Tăng Lực</div>
+  <div class="brand"><span class="mark">L</span> Học Chưa?
+    <button type="button" class="navclose" aria-label="Đóng menu" onclick="toggleSidebar(false)">&times;</button>
+  </div>
 
   @auth
     @php($me = auth()->user())
@@ -22,7 +26,13 @@
       <div class="avatar">{{ $initials }}</div>
       <div>
         <div class="nm">{{ $me->name }}</div>
-        <div class="sb">{{ $me->role === 'super_admin' ? 'Quản trị hệ thống' : ($planName ? 'Gói '.$planName : 'Gói Free') }}</div>
+        @if ($me->role === 'super_admin')
+          <div class="sb">Quản trị hệ thống</div>
+        @elseif ($me->email === 'ninhtrang@gmail.com')
+          <div class="sb">Gói Yêu Anh</div>
+        @else
+          <div class="sb">{{ $planName ? 'Gói '.$planName : 'Trial' }}</div>
+        @endif
       </div>
     </div>
   @endauth
@@ -47,15 +57,17 @@
     <a href="{{ route('teacher.classes') }}"    class="{{ $active==='classes'    ? 'on':'' }}"><span class="ic">📚</span> Danh sách lớp</a>
     <a href="{{ route('teacher.students') }}"   class="{{ $active==='students'   ? 'on':'' }}"><span class="ic">🎓</span> Danh sách học sinh</a>
     <a href="{{ route('teacher.attendance') }}" class="{{ $active==='attendance' ? 'on':'' }}"><span class="ic">✅</span> Điểm danh</a>
+    <a href="{{ route('teacher.lessons') }}"    class="{{ $active==='lessons'    ? 'on':'' }}"><span class="ic">📚</span> Giáo án</a>
     <a href="{{ route('teacher.fees') }}"       class="{{ $active==='fees'       ? 'on':'' }}"><span class="ic">💰</span> Học phí &amp; công nợ</a>
     <a href="{{ route('teacher.reports') }}"    class="{{ $active==='reports'    ? 'on':'' }}"><span class="ic">📊</span> Báo cáo</a>
+    <a href="{{ route('teacher.settings.qr') }}" class="{{ $active==='settings-qr' ? 'on':'' }}"><span class="ic">🏦</span> QR chuyển khoản</a>
   </nav>
 
   <div class="group">👨‍👩‍👧 Phụ huynh · Mobile</div>
   <nav class="tnav">
     <a href="{{ route('parent.search') }}"               class="{{ $active==='p-search'  ? 'on':'' }}"><span class="ic">🔍</span> Trang tra cứu</a>
-    <a href="{{ route('parent.info', 'an-toan9') }}"      class="{{ $active==='p-info'    ? 'on':'' }}"><span class="ic">📄</span> Thông tin học sinh</a>
-    <a href="{{ route('parent.history', 'an-toan9') }}"   class="{{ $active==='p-history' ? 'on':'' }}"><span class="ic">🗓️</span> Lịch sử học (theo tuần)</a>
+{{--    <a href="{{ route('parent.info', 'an-toan9') }}"      class="{{ $active==='p-info'    ? 'on':'' }}"><span class="ic">📄</span> Thông tin học sinh</a>--}}
+{{--    <a href="{{ route('parent.history', 'an-toan9') }}"   class="{{ $active==='p-history' ? 'on':'' }}"><span class="ic">🗓️</span> Lịch sử học (theo tuần)</a>--}}
   </nav>
 
   @if (auth()->user()?->role === 'super_admin')
@@ -67,7 +79,7 @@
   @endif
 
   @auth
-  <form method="POST" action="{{ route('teacher.logout') }}" class="logout-form">
+  <form method="POST" action="{{ route('teacher.logout', [], false) }}" class="logout-form" data-no-toast>
     @csrf
     <button type="submit" class="logout-btn"><span class="ic">⎋</span> Đăng xuất</button>
   </form>

@@ -27,10 +27,10 @@ class LookupController extends Controller
 
         $student = Student::where('student_code', $code)->first();
         if (! $student) {
-            return back()->withErrors(['code' => 'Không tìm thấy học sinh với mã này.'])->onlyInput('code');
+            return $this->respondError($request, 'code', 'Không tìm thấy học sinh với mã này.');
         }
 
-        return redirect()->route('parent.info', $code);
+        return $this->respondOk($request, 'Đã tìm thấy', route('parent.info', $code));
     }
 
     /* Thông tin học sinh */
@@ -84,7 +84,7 @@ class LookupController extends Controller
         $balance = $student->balanceDue();
         $unpaidSessions = $price > 0 ? (int) round(max($balance, 0) / $price) : 0;
 
-        // Lịch cố định (gộp các lớp), sắp theo thứ
+        // Lịch cố định (gộp các lớp), sắp theo thứ — KHÔNG gồm buổi học bù (một lần)
         $schedules = $classes->flatMap(fn ($c) => $c->schedules->map(fn ($s) => (object) [
             'weekday' => (int) $s->weekday,
             'start' => Carbon::parse($s->start_time)->format('H:i'),
@@ -92,9 +92,40 @@ class LookupController extends Controller
             'class' => $c->name,
         ]))->sortBy('weekday')->values();
 
+        // Buổi học bù sắp tới (one-off, tách riêng khỏi lịch cố định)
+        $makeups = ClassSession::whereIn('class_id', $student->classStudents->pluck('class_id'))
+            ->where('type', 'makeup')
+            ->whereDate('date', '>=', now()->toDateString())
+            ->with(['classroom', 'makeupFor'])
+            ->orderBy('date')->orderBy('start_time')
+            ->get()
+            ->map(fn ($s) => (object) [
+                'date' => Carbon::parse($s->date),
+                'start' => $s->start_time ? Carbon::parse($s->start_time)->format('H:i') : '',
+                'end' => $s->end_time ? Carbon::parse($s->end_time)->format('H:i') : '',
+                'class' => $s->classroom?->name,
+                'forDate' => $s->makeupFor ? Carbon::parse($s->makeupFor->date) : null,
+            ]);
+
         // 3 nhận xét mới nhất của giáo viên
         $comments = $student->comments()
             ->orderByDesc('comment_date')->orderByDesc('id')->limit(3)->get();
+
+        // Giáo án tuần này (T2 → CN) — chỉ hiển thị ngày có title hoặc content
+        $wkStart = now()->startOfWeek()->toDateString();
+        $wkEnd = now()->endOfWeek()->toDateString();
+        $lessons = ClassSession::whereIn('class_id', $student->classStudents->pluck('class_id'))
+            ->whereBetween('date', [$wkStart, $wkEnd])
+            ->where(fn ($q) => $q->whereNotNull('title')->orWhereNotNull('content'))
+            ->orderBy('date')
+            ->get()
+            ->map(fn ($s) => (object) [
+                'id' => $s->id,
+                'date' => Carbon::parse($s->date),
+                'title' => $s->title,
+                'content' => $s->content,
+                'submitted' => (bool) $s->attendance_submitted_at,
+            ]);
 
         return [
             'student' => $student,
@@ -104,8 +135,10 @@ class LookupController extends Controller
             'price' => $price,
             'unpaidSessions' => $unpaidSessions,
             'schedules' => $schedules,
+            'makeups' => $makeups,
             'payments' => $student->payments,
             'comments' => $comments,
+            'lessons' => $lessons,
         ];
     }
 
@@ -114,18 +147,19 @@ class LookupController extends Controller
     {
         $classIds = $student->classStudents->pluck('class_id');
 
+        // Sessions grouped by date, sort theo giờ để hiển thị ca sớm trước
         $sessByDate = [];
-        foreach (ClassSession::whereIn('class_id', $classIds)->get() as $s) {
+        foreach (ClassSession::whereIn('class_id', $classIds)->orderBy('start_time')->get() as $s) {
             $sessByDate[Carbon::parse($s->date)->toDateString()][] = $s;
         }
-        $attByDate = [];
-        foreach ($student->studentSessions()->with('classSession')->get() as $a) {
-            $d = $a->classSession ? Carbon::parse($a->classSession->date)->toDateString() : null;
-            if ($d) {
-                $attByDate[$d] = $a->status;
-            }
+        // Attendance keyed theo class_session_id (không phải date) — mỗi ca có bản ghi riêng
+        $attBySession = [];
+        foreach ($student->studentSessions()->get() as $a) {
+            $attBySession[(int) $a->class_session_id] = $a->status;
         }
-        $schedWds = ClassSchedule::whereIn('class_id', $classIds)->pluck('weekday')->map(fn ($w) => (int) $w)->unique()->all();
+        // Số ca theo từng weekday để hiển thị "sắp học" đúng số lượng cho ngày tương lai
+        $wdCounts = ClassSchedule::whereIn('class_id', $classIds)
+            ->get()->groupBy(fn ($s) => (int) $s->weekday)->map->count()->all();
         $firstSched = ClassSchedule::whereIn('class_id', $classIds)->orderBy('start_time')->first();
         $time = $firstSched ? Carbon::parse($firstSched->start_time)->format('H:i') : '';
         $subj = optional($student->classStudents->first()?->classroom)->name ?? '';
@@ -134,35 +168,45 @@ class LookupController extends Controller
         $weeks = [];
         for ($w = -$back; $w <= $fwd; $w++) {
             $monday = now()->startOfWeek()->addWeeks($w)->startOfDay();
-            $days = $mo = $st = [];
+            $days = $mo = $st = $times = [];
             for ($i = 0; $i < 7; $i++) {
                 $day = $monday->copy()->addDays($i);
                 $ds = $day->toDateString();
                 $days[] = $day->format('d');
                 $mo[] = $day->format('m');
 
-                $status = null;
+                $statuses = [];
+                $daySlotTimes = [];
                 if (! empty($sessByDate[$ds])) {
-                    $sess = $sessByDate[$ds][0];
-                    $status = match ($sess->type) {
-                        'off' => 'off',
-                        'makeup' => 'makeup',
-                        default => match ($attByDate[$ds] ?? 'present') {
-                            'excused' => 'excused',
-                            'absent' => 'absent',
-                            default => 'present',
-                        },
-                    };
-                } elseif ($day->gt($today) && in_array($day->dayOfWeekIso, $schedWds, true)) {
-                    $status = 'study';
+                    foreach ($sessByDate[$ds] as $sess) {
+                        $statuses[] = match ($sess->type) {
+                            'off' => 'off',
+                            'makeup' => 'makeup',
+                            default => match ($attBySession[(int) $sess->id] ?? 'present') {
+                                'excused' => 'excused',
+                                'absent' => 'absent',
+                                default => 'present',
+                            },
+                        };
+                        $daySlotTimes[] = Carbon::parse($sess->start_time)->format('H:i');
+                    }
+                } elseif ($day->gt($today)) {
+                    $wd = $day->dayOfWeekIso;
+                    $n = (int) ($wdCounts[$wd] ?? 0);
+                    for ($k = 0; $k < $n; $k++) {
+                        $statuses[] = 'study';
+                    }
                 }
-                $st[] = $status;
+                // Rỗng → giữ null để giao diện render ô "không có buổi"
+                $st[] = empty($statuses) ? null : $statuses;
+                $times[] = $daySlotTimes;
             }
             $weeks[] = [
                 'label' => 'Tuần ' . $monday->format('d') . ' – ' . $monday->copy()->addDays(6)->format('d/m/Y'),
                 'days' => $days,
                 'mo' => $mo,
                 'st' => $st,
+                'times' => $times,
                 'time' => $time,
                 'subj' => $subj,
             ];

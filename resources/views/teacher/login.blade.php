@@ -3,7 +3,7 @@
 
 @section('body')
 <div class="login-wrap">
-  <form class="login-card" method="POST" action="{{ route('teacher.login') }}">
+  <form class="login-card" method="POST" action="{{ route('teacher.login', [], false) }}">
     @csrf
     <div class="mark">L</div>
     <h1>Đăng nhập</h1>
