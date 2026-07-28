@@ -12,20 +12,18 @@
 <div class="pbody">
   @php($qrUrl = optional($student->teacher)->qr_image_path ? asset('storage/'.$student->teacher->qr_image_path) : null)
 
-  {{-- Tổng nợ --}}
-  <div class="due-card">
-    <div class="due-total">💰 Tổng học phí chưa đóng</div>
-    @if ($balance > 0)
-      <div class="amt">{{ Money::vnd($balance) }}</div>
-      <div class="meta">{{ $unpaidSessions }} buổi chưa đóng × {{ Money::vnd($price) }}</div>
-    @else
-      <div class="amt">Đã đóng đủ</div>
-      <div class="meta">Không còn công nợ. Cảm ơn quý phụ huynh!</div>
-    @endif
-    @if ($qrUrl)
-      <button type="button" class="due-qr-btn" onclick="openTeacherQr()">Chuyển khoản qua QR</button>
-    @endif
+  {{-- Nhận xét của giáo viên (3 mới nhất) — lên đầu để phụ huynh thấy con học thế nào trước --}}
+  @if ($comments->isNotEmpty())
+  <div class="pcard">
+    <h4>📝 Nhận xét của giáo viên</h4>
+    @foreach ($comments as $c)
+      <div class="prow" style="display:block">
+        <div class="r" style="margin-bottom:2px">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</div>
+        <div style="white-space:pre-line">{{ $c->body }}</div>
+      </div>
+    @endforeach
   </div>
+  @endif
 
   @if ($qrUrl)
     {{-- Modal QR --}}
@@ -95,19 +93,6 @@
   </div>
   @endif
 
-  {{-- Nhận xét của giáo viên (3 mới nhất) --}}
-  @if ($comments->isNotEmpty())
-  <div class="pcard">
-    <h4>📝 Nhận xét của giáo viên</h4>
-    @foreach ($comments as $c)
-      <div class="prow" style="display:block">
-        <div class="r" style="margin-bottom:2px">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</div>
-        <div style="white-space:pre-line">{{ $c->body }}</div>
-      </div>
-    @endforeach
-  </div>
-  @endif
-
   {{-- Tuần này --}}
   <div class="pcard">
     <div class="pcard-head"><h4>🗓️ Tuần này</h4><a class="linklike" href="{{ route('parent.history', $slug) }}">Lịch sử →</a></div>
@@ -118,6 +103,23 @@
       <span><i class="dot" style="background:var(--red)"></i>Nghỉ</span>
       <span><i class="dot" style="background:var(--amber)"></i>Sắp học</span>
     </div>
+  </div>
+
+  {{-- Học phí (thu gọn — không đặt ở đầu để tránh cảm giác đòi nợ) --}}
+  <div class="due-card {{ $balance > 0 ? 'has-due' : 'no-due' }}">
+    <div class="due-info">
+      <div class="due-total">Học phí</div>
+      @if ($balance > 0)
+        <div class="amt">{{ Money::vnd($balance) }}</div>
+        <div class="meta">{{ $unpaidSessions }} buổi chưa đóng × {{ Money::vnd($price) }}</div>
+      @else
+        <div class="amt no-debt">Đã đóng đủ ✓</div>
+        <div class="meta">Cảm ơn quý phụ huynh!</div>
+      @endif
+    </div>
+    @if ($qrUrl && $balance > 0)
+      <button type="button" class="due-qr-btn" onclick="openTeacherQr()">Chuyển khoản qua QR</button>
+    @endif
   </div>
 
   {{-- Đóng tiền gần đây --}}
@@ -135,8 +137,8 @@
 
 @push('scripts')
 <style>
-  .due-qr-btn{margin-top:12px;width:100%;padding:11px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:13.5px;font-weight:600;border-radius:10px;cursor:pointer}
-  .due-qr-btn:hover{background:rgba(255,255,255,.28)}
+  .due-qr-btn{margin-top:12px;width:100%;padding:11px;background:var(--brand);border:0;color:#fff;font-size:13.5px;font-weight:600;border-radius:10px;cursor:pointer}
+  .due-qr-btn:hover{background:var(--brand-ink)}
   .qr-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;align-items:center;justify-content:center;padding:20px}
   .qr-modal.show{display:flex}
   .qr-modal-inner{background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 20px;text-align:center;position:relative}
