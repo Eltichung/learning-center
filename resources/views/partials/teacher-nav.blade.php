@@ -26,7 +26,11 @@
       <div class="avatar">{{ $initials }}</div>
       <div>
         <div class="nm">{{ $me->name }}</div>
-        <div class="sb">{{ $planName ? 'Gói '.$planName : 'Gói Yêu Anh' }}</div>
+          @if($me->email == 'ninhtrang@gmail.com')
+              <div class="sb">Gói Yêu Anh</div>
+          @else
+              <div class="sb">{{ $planName ? 'Gói '.$planName : 'Trial' }}</div>
+          @endif
       </div>
     </div>
   @endauth

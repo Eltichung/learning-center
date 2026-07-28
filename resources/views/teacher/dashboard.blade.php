@@ -7,14 +7,19 @@
 @php($wdShort = [1=>'T2',2=>'T3',3=>'T4',4=>'T5',5=>'T6',6=>'T7',7=>'CN'])
 @php($todayWd = now()->dayOfWeekIso)
 @php($wd = $wdMap[$todayWd])
-<div class="pagehead">
-{{--  <div><h1>Xin chào, {{ auth()->user()->name }} 👋</h1>--}}
-    <div><h1>Xin chào, công chúa của anh 👋</h1>
-    <p>{{ $wd }}, {{ now()->format('d/m/Y') }} — Hôm nay có {{ $todayClasses->count() }} buổi học</p></div>
-  <a class="btn primary" href="{{ route('teacher.attendance') }}">+ Điểm danh nhanh</a>
-</div>
-
-<div class="cards">
+@auth
+    @php($me = auth()->user())
+    <div class="pagehead">
+        @if($me->email == 'ninhtrang@gmail.com')
+            <div><h1>Xin chào, công chúa của anh 👋</h1>
+        @else
+             <div><h1>Xin chào, {{ auth()->user()->name }} 👋</h1>
+        @endif
+        <p>{{ $wd }}, {{ now()->format('d/m/Y') }} — Hôm nay có {{ $todayClasses->count() }} buổi học</p></div>
+      <a class="btn primary" href="{{ route('teacher.attendance') }}">+ Điểm danh nhanh</a>
+    </div>
+@endauth
+    <div class="cards">
   <div class="card"><div class="lbl">Lớp đang dạy</div><div class="val">{{ $classesActive }}</div><div class="sub">{{ $studentsCount }} học sinh</div></div>
   <div class="card"><div class="lbl">Buổi hôm nay</div><div class="val">{{ $todayClasses->count() }}</div><div class="sub">{{ $notDoneToday }} chưa điểm danh</div></div>
   <div class="card"><div class="lbl">Doanh thu tháng {{ now()->month }}</div><div class="val green">{{ Money::short($revenueMonth) }}</div><div class="sub">Tổng tiền đã tính theo buổi</div></div>

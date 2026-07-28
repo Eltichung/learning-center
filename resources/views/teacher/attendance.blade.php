@@ -57,17 +57,45 @@
           <input type="time" name="end_time" value="{{ optional($class->schedules->first())->end_time ? \Illuminate\Support\Carbon::parse($class->schedules->first()->end_time)->format('H:i') : '19:00' }}">
         </div>
       </div>
+      @php($hasPendingOff = $pendingOffs->isNotEmpty())
       <div class="field"><label>Loại buổi <span style="color:var(--red)">*</span></label>
-        <select name="type" required>
-          <option value="makeup" selected>Buổi bù</option>
-          <option value="boost">Buổi tăng cường</option>
+        <select name="type" id="ns-type" required>
+          <option value="makeup" {{ $hasPendingOff ? 'selected' : 'disabled' }}>Buổi bù{{ $hasPendingOff ? '' : ' (chưa có buổi nghỉ cần bù)' }}</option>
+          <option value="boost" {{ $hasPendingOff ? '' : 'selected' }}>Buổi tăng cường</option>
           <option value="regular">Buổi thường</option>
+        </select>
+      </div>
+      <div class="field ns-makeup-field" id="ns-makeup-field" {{ $hasPendingOff ? '' : 'hidden' }}>
+        <label>Bù cho buổi nghỉ <span style="color:var(--red)">*</span></label>
+        <select name="makeup_for_id" id="ns-makeup-for">
+          @foreach ($pendingOffs as $off)
+            <option value="{{ $off->id }}">
+              {{ \Illuminate\Support\Carbon::parse($off->date)->format('d/m/Y') }}
+              @if ($off->start_time) · {{ \Illuminate\Support\Carbon::parse($off->start_time)->format('H:i') }}–{{ \Illuminate\Support\Carbon::parse($off->end_time)->format('H:i') }}@endif
+              @if ($off->note) — {{ \Illuminate\Support\Str::limit($off->note, 40) }}@endif
+            </option>
+          @endforeach
         </select>
       </div>
     </div>
     <div class="mf"><button type="button" class="btn ghost" onclick="closeModal(this)">Huỷ</button><button type="submit" class="btn primary">Tạo buổi</button></div>
   </form>
 </div>
+<script>
+  (function(){
+    var t = document.getElementById('ns-type');
+    var f = document.getElementById('ns-makeup-field');
+    var s = document.getElementById('ns-makeup-for');
+    if (!t || !f) return;
+    function sync(){
+      var isMk = t.value === 'makeup';
+      f.hidden = ! isMk;
+      if (s) s.required = isMk;
+    }
+    t.addEventListener('change', sync);
+    sync();
+  })();
+</script>
 @endif
 
 @if ($sessions->isEmpty())
@@ -79,7 +107,9 @@
       @php($offNoMakeup = $s->type === 'off' && (int) $s->makeups_count === 0 && ! $s->no_makeup)
       <a class="tab {{ $session && $s->id === $session->id ? 'on' : '' }} {{ $offNoMakeup ? 'pending-makeup' : '' }}"
          href="{{ $base }}?class_id={{ $class->id }}&week={{ $weekStart->toDateString() }}&session_id={{ $s->id }}"
-         @if ($offNoMakeup) title="Buổi nghỉ chưa xếp lịch học bù" @endif>
+         @if ($offNoMakeup) title="Buổi nghỉ chưa xếp lịch học bù"
+         @elseif ($s->type === 'makeup' && $s->makeupFor) title="Bù cho buổi nghỉ {{ \Illuminate\Support\Carbon::parse($s->makeupFor->date)->format('d/m/Y') }}"
+         @endif>
         <div>
           {{ \Illuminate\Support\Carbon::parse($s->date)->format('d/m') }}
           @switch($s->type)

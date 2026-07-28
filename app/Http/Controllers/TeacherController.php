@@ -493,6 +493,7 @@ class TeacherController extends Controller
             $sessions = ClassSession::where('class_id', $class->id)
                 ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
                 ->withCount('makeups')
+                ->with('makeupFor')
                 ->orderBy('date')->orderBy('start_time')->get();
 
             $sessionId = (int) ($request->get('session_id') ?: $sessions->first()?->id);
@@ -511,9 +512,20 @@ class TeacherController extends Controller
         }
         $total = $rows->whereIn('status', StudentSession::BILLABLE)->sum('price');
 
+        // Buổi nghỉ chưa được xếp bù (dùng cho modal "+ Tạo buổi thủ công" khi chọn type=makeup)
+        $pendingOffs = collect();
+        if ($class) {
+            $pendingOffs = ClassSession::where('class_id', $class->id)
+                ->where('type', 'off')
+                ->where('no_makeup', false)
+                ->whereDoesntHave('makeups')
+                ->orderByDesc('date')->orderBy('start_time')
+                ->get();
+        }
+
         return view('teacher.attendance', compact(
             'classList', 'class', 'sessions', 'session', 'rows', 'total',
-            'weekStart', 'weekEnd', 'weekLabel', 'logs'
+            'weekStart', 'weekEnd', 'weekLabel', 'logs', 'pendingOffs'
         ));
     }
 
@@ -1253,8 +1265,24 @@ class TeacherController extends Controller
             'start_time' => ['nullable', 'date_format:H:i'],
             'end_time' => ['nullable', 'date_format:H:i'],
             'type' => ['nullable', 'in:regular,makeup,boost'],
+            'makeup_for_id' => ['nullable', 'integer', 'required_if:type,makeup'],
+        ], [
+            'makeup_for_id.required_if' => 'Chọn buổi nghỉ cần bù.',
         ]);
         $class = Classroom::where('teacher_id', $tid)->findOrFail($data['class_id']);
+
+        // Nếu là buổi bù → verify buổi nghỉ được chọn thuộc lớp này, đúng type off, chưa có bù
+        if (($data['type'] ?? null) === 'makeup') {
+            $off = ClassSession::where('id', $data['makeup_for_id'])
+                ->where('class_id', $class->id)
+                ->where('type', 'off')
+                ->where('no_makeup', false)
+                ->whereDoesntHave('makeups')
+                ->first();
+            if (! $off) {
+                return $this->respondError($request, 'makeup_for_id', 'Buổi nghỉ không hợp lệ hoặc đã được xếp bù.');
+            }
+        }
 
         $default = $class->schedules->first();
         $start = $data['start_time'] ?: (optional($default)->start_time ?: '17:30');
@@ -1282,6 +1310,7 @@ class TeacherController extends Controller
             'start_time' => $start,
             'end_time' => $end,
             'type' => $type,
+            'makeup_for_id' => $type === 'makeup' ? (int) $data['makeup_for_id'] : null,
         ]);
 
         return $this->respondOk(
