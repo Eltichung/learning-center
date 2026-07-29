@@ -30,6 +30,8 @@
           <div class="sb">Quản trị hệ thống</div>
         @elseif ($me->email === 'ninhtrang@gmail.com')
           <div class="sb">Gói Yêu Anh</div>
+        @elseif ($planName === 'Full VIP')
+          <div class="sb" style="color:#c39bd3;font-weight:700">👑 Full VIP</div>
         @else
           <div class="sb">{{ $planName ? 'Gói '.$planName : 'Trial' }}</div>
         @endif
@@ -61,6 +63,7 @@
     <a href="{{ route('teacher.fees') }}"       class="{{ $active==='fees'       ? 'on':'' }}"><span class="ic">💰</span> Học phí &amp; công nợ</a>
     <a href="{{ route('teacher.reports') }}"    class="{{ $active==='reports'    ? 'on':'' }}"><span class="ic">📊</span> Báo cáo</a>
     <a href="{{ route('teacher.settings.qr') }}" class="{{ $active==='settings-qr' ? 'on':'' }}"><span class="ic">🏦</span> QR chuyển khoản</a>
+    <a href="{{ route('billing.index') }}" class="{{ \Illuminate\Support\Str::startsWith((string) $rn, 'billing.') ? 'on' : '' }}"><span class="ic">💳</span> Gói / Nâng cấp</a>
   </nav>
 
   <div class="group">👨‍👩‍👧 Phụ huynh · Mobile</div>
@@ -75,6 +78,7 @@
     <nav class="tnav">
       <a href="{{ route('admin.dashboard') }}" class="{{ $rn === 'admin.dashboard' ? 'on' : '' }}"><span class="ic">📊</span> Tổng quan hệ thống</a>
       <a href="{{ route('admin.teachers') }}" class="{{ \Illuminate\Support\Str::startsWith((string) $rn, 'admin.teacher') ? 'on' : '' }}"><span class="ic">👨‍🏫</span> Quản lý giáo viên</a>
+      <a href="{{ route('admin.payments') }}" class="{{ \Illuminate\Support\Str::startsWith((string) $rn, 'admin.payment') ? 'on' : '' }}"><span class="ic">💳</span> Thanh toán</a>
     </nav>
   @endif
 

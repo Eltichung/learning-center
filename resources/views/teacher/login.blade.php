@@ -24,9 +24,8 @@
     <label class="checkrow"><input type="checkbox" name="remember" value="1"> Ghi nhớ đăng nhập</label>
 
     <button class="btn primary" style="width:100%;padding:12px" type="submit">Đăng nhập</button>
-    <div style="text-align:center;margin-top:14px;font-size:12.5px;color:var(--muted)">
-      Chưa có tài khoản?
-      <a href="{{ route('teacher.register') }}" style="color:var(--brand);font-weight:700;text-decoration:none">Đăng ký miễn phí</a>
+    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--muted)">
+      Cần tài khoản mới? Liên hệ quản trị viên.
     </div>
   </form>
 </div>

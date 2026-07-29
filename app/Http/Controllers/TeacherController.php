@@ -26,6 +26,38 @@ class TeacherController extends Controller
      * - Giáo viên: chính họ.
      * - Admin: giáo viên đang được chọn xem (bộ lọc), mặc định GV đầu tiên.
      */
+    /** Owner đang thao tác (theo tid). */
+    private function owner(): ?User
+    {
+        return User::find($this->tid());
+    }
+
+    /** Nếu vượt giới hạn số lớp của gói → trả response lỗi; ngược lại null. Admin luôn bypass. */
+    private function guardCanCreateClass(Request $request)
+    {
+        if (auth()->user()?->isSuperAdmin()) return null;
+        $owner = $this->owner();
+        if (! $owner || $owner->canCreateClass()) return null;
+
+        return $this->respondError($request, 'plan',
+            'Đã đạt giới hạn lớp của gói ('.($owner->currentPlan()->limits['classes'] ?? '?').'). Nâng cấp gói để tạo thêm.',
+            route('billing.index')
+        );
+    }
+
+    /** Nếu vượt giới hạn số học sinh của gói → trả response lỗi; ngược lại null. Admin bypass. */
+    private function guardCanAddStudent(Request $request)
+    {
+        if (auth()->user()?->isSuperAdmin()) return null;
+        $owner = $this->owner();
+        if (! $owner || $owner->canAddStudent()) return null;
+
+        return $this->respondError($request, 'plan',
+            'Đã đạt giới hạn học sinh của gói ('.($owner->currentPlan()->limits['students'] ?? '?').'). Nâng cấp gói để thêm.',
+            route('billing.index')
+        );
+    }
+
     private function tid(): int
     {
         $u = auth()->user();
@@ -1002,6 +1034,8 @@ class TeacherController extends Controller
     /* ===================== Thêm lớp ===================== */
     public function storeClass(Request $request)
     {
+        if ($block = $this->guardCanCreateClass($request)) return $block;
+
         $tid = $this->tid();
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -1109,6 +1143,8 @@ class TeacherController extends Controller
     /* ===================== Nhân bản lớp ===================== */
     public function duplicateClass(Request $request, int $id)
     {
+        if ($block = $this->guardCanCreateClass($request)) return $block;
+
         $tid = $this->tid();
         $class = Classroom::where('teacher_id', $tid)
             ->with(['schedules', 'classStudents'])->findOrFail($id);
@@ -1157,6 +1193,8 @@ class TeacherController extends Controller
     /* ===================== Thêm học sinh vào lớp ===================== */
     public function addStudentToClass(Request $request, int $id)
     {
+        if ($block = $this->guardCanAddStudent($request)) return $block;
+
         $tid = $this->tid();
         $class = Classroom::where('teacher_id', $tid)->findOrFail($id);
         $data = $request->validate([
@@ -1240,6 +1278,8 @@ class TeacherController extends Controller
     /* ===================== Thêm học sinh mới ===================== */
     public function storeStudent(Request $request)
     {
+        if ($block = $this->guardCanAddStudent($request)) return $block;
+
         $tid = $this->tid();
         $data = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],

@@ -3,9 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Classroom;
+use App\Models\Plan;
+use App\Models\PlanOrder;
 use App\Models\Student;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class AdminController extends Controller
@@ -56,9 +63,13 @@ class AdminController extends Controller
     /* ===================== Chi tiết / quản lý giáo viên ===================== */
     public function teacherShow(int $id)
     {
-        $teacher = User::withCount(['classes', 'students'])->findOrFail($id);
+        $teacher = User::withCount(['classes', 'students'])
+            ->with(['subscription.plan'])
+            ->findOrFail($id);
+        $plans = Plan::active()->orderBy('price')->get();
+        $recentOrders = PlanOrder::where('user_id', $teacher->id)->with('plan')->latest('id')->limit(5)->get();
 
-        return view('admin.teacher', compact('teacher'));
+        return view('admin.teacher', compact('teacher', 'plans', 'recentOrders'));
     }
 
     /** Khoá / mở tài khoản giáo viên. */
@@ -99,5 +110,139 @@ class AdminController extends Controller
         $teacher->update(['password' => $data['password']]); // tự hash nhờ cast 'hashed'
 
         return back()->with('ok', 'Đã đặt lại mật khẩu cho “' . $teacher->name . '”.');
+    }
+
+    /* ===================== Tạo tài khoản giáo viên mới ===================== */
+    public function createTeacher()
+    {
+        $plans = Plan::active()->orderBy('price')->get();
+
+        return view('admin.teacher-create', compact('plans'));
+    }
+
+    public function storeTeacher(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'confirmed', Password::min(6)],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'plan' => ['required', 'string', Rule::exists('plans', 'slug')],
+            'months' => ['nullable', 'integer', 'in:1,3,6,12'],
+        ]);
+
+        $plan = Plan::where('slug', $data['plan'])->firstOrFail();
+        $months = (int) ($data['months'] ?? 1);
+
+        DB::transaction(function () use ($data, $plan, $months, &$teacher) {
+            $teacher = User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'password' => $data['password'],
+                'phone' => $data['phone'] ?? null,
+                'role' => 'owner',
+                'status' => 'active',
+            ]);
+            $teacher->update(['tenant_id' => $teacher->id]);
+
+            Subscription::create([
+                'tenant_id' => $teacher->id,
+                'plan_id' => $plan->id,
+                'status' => $plan->slug === 'trial' ? 'trial' : 'active',
+                'started_at' => now()->toDateString(),
+                'current_period_end' => in_array($plan->slug, ['trial', 'vip'], true)
+                    ? null
+                    : now()->addMonths($months)->toDateString(),
+            ]);
+        });
+
+        return redirect()->route('admin.teacher', $teacher->id)
+            ->with('ok', 'Đã tạo tài khoản “'.$teacher->name.'” với gói '.$plan->name.'.');
+    }
+
+    /** Đổi gói cho GV (admin cấp thủ công, không thu tiền). */
+    public function setPlan(Request $request, int $id)
+    {
+        $teacher = User::where('role', 'owner')->findOrFail($id);
+        $data = $request->validate([
+            'plan' => ['required', 'string', Rule::exists('plans', 'slug')],
+            'months' => ['nullable', 'integer', 'in:1,3,6,12'],
+        ]);
+        $plan = Plan::where('slug', $data['plan'])->firstOrFail();
+        $months = (int) ($data['months'] ?? 1);
+
+        $sub = $teacher->subscription ?: new Subscription(['tenant_id' => $teacher->id]);
+        $sub->plan_id = $plan->id;
+        $sub->status = $plan->slug === 'trial' ? 'trial' : 'active';
+        $sub->started_at = $sub->started_at ?: now()->toDateString();
+        if (in_array($plan->slug, ['trial', 'vip'], true)) {
+            $sub->current_period_end = null;
+        } else {
+            $base = ($sub->current_period_end && Carbon::parse($sub->current_period_end)->isFuture())
+                ? Carbon::parse($sub->current_period_end)
+                : now();
+            $sub->current_period_end = $base->copy()->addMonths($months)->toDateString();
+        }
+        $sub->save();
+
+        return back()->with('ok', 'Đã đặt gói '.$plan->name.' cho “'.$teacher->name.'”.');
+    }
+
+    /* ===================== Duyệt thanh toán ===================== */
+    public function payments(Request $request)
+    {
+        $status = $request->get('status', 'pending');
+        $q = PlanOrder::with(['user', 'plan'])->latest('id');
+        if (in_array($status, PlanOrder::STATUSES, true)) {
+            $q->where('status', $status);
+        }
+        $orders = $q->paginate(20)->withQueryString();
+
+        $pendingCount = PlanOrder::where('status', 'pending')->count();
+
+        return view('admin.payments', compact('orders', 'status', 'pendingCount'));
+    }
+
+    public function approvePayment(int $id)
+    {
+        $order = PlanOrder::with(['user', 'plan'])->findOrFail($id);
+        if ($order->status !== 'pending') {
+            return back()->withErrors(['order' => 'Đơn không ở trạng thái chờ.']);
+        }
+
+        DB::transaction(function () use ($order) {
+            $order->update([
+                'status' => 'approved',
+                'approved_at' => now(),
+                'approved_by' => auth()->id(),
+            ]);
+
+            $sub = $order->user->subscription ?: new Subscription(['tenant_id' => $order->user_id]);
+            $sub->plan_id = $order->plan_id;
+            $sub->status = 'active';
+            $sub->started_at = $sub->started_at ?: now()->toDateString();
+            $base = ($sub->current_period_end && Carbon::parse($sub->current_period_end)->isFuture())
+                ? Carbon::parse($sub->current_period_end)
+                : now();
+            $sub->current_period_end = $base->copy()->addMonths((int) $order->months)->toDateString();
+            $sub->save();
+        });
+
+        return back()->with('ok', 'Đã duyệt đơn '.$order->code.' và kích hoạt gói.');
+    }
+
+    public function rejectPayment(Request $request, int $id)
+    {
+        $order = PlanOrder::findOrFail($id);
+        if ($order->status !== 'pending') {
+            return back()->withErrors(['order' => 'Đơn không ở trạng thái chờ.']);
+        }
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
+        $order->update([
+            'status' => 'rejected',
+            'rejected_reason' => $data['reason'] ?? null,
+        ]);
+
+        return back()->with('ok', 'Đã từ chối đơn '.$order->code.'.');
     }
 }

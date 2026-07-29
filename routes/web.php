@@ -47,16 +47,14 @@ Route::get('/manifest.json', function () {
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('teacher.login');
     Route::post('/login', [AuthController::class, 'login']);
-
-    Route::get('/register', [AuthController::class, 'showRegister'])->name('teacher.register');
-    Route::post('/register', [AuthController::class, 'register']);
+    // /register bị ẩn: chỉ admin tạo tài khoản trong /admin/users/create
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')->name('teacher.logout');
 
-/* ---------------- Khu giáo viên (admin) — yêu cầu đăng nhập ---------------- */
-Route::middleware('auth')->group(function () {
+/* ---------------- Khu giáo viên (admin) — yêu cầu đăng nhập + sub còn hạn cho hành động ghi ---------------- */
+Route::middleware(['auth', 'active.sub'])->group(function () {
     Route::get('/dashboard', [TeacherController::class, 'dashboard'])->name('teacher.dashboard');
 
     Route::get('/classes', [TeacherController::class, 'classes'])->name('teacher.classes');
@@ -104,15 +102,31 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/students/{id}/monthly', [TeacherController::class, 'studentMonthly'])->name('api.student.monthly');
 });
 
+/* ---------------- Mua gói (billing) — luôn cho vào, không cần active.sub ---------------- */
+Route::middleware('auth')->prefix('billing')->name('billing.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\BillingController::class, 'index'])->name('index');
+    Route::post('/order', [\App\Http\Controllers\BillingController::class, 'createOrder'])->name('order.create');
+    Route::post('/order/{code}/notify', [\App\Http\Controllers\BillingController::class, 'notifyPaid'])->name('order.notify');
+    Route::post('/order/{code}/cancel', [\App\Http\Controllers\BillingController::class, 'cancelOrder'])->name('order.cancel');
+});
+
 /* ---------------- Khu quản trị (super_admin) ---------------- */
 Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/view-as', [AdminController::class, 'setViewTeacher'])->name('viewAs');
     Route::get('/teachers', [AdminController::class, 'teachers'])->name('teachers');
+    Route::get('/teachers/create', [AdminController::class, 'createTeacher'])->name('teachers.create');
+    Route::post('/teachers', [AdminController::class, 'storeTeacher'])->name('teachers.store');
     Route::get('/teachers/{id}', [AdminController::class, 'teacherShow'])->name('teacher');
     Route::put('/teachers/{id}/status', [AdminController::class, 'toggleStatus'])->name('teacher.toggleStatus');
     Route::put('/teachers/{id}/role', [AdminController::class, 'changeRole'])->name('teacher.role');
     Route::put('/teachers/{id}/password', [AdminController::class, 'resetPassword'])->name('teacher.password');
+    Route::put('/teachers/{id}/plan', [AdminController::class, 'setPlan'])->name('teacher.plan');
+
+    // Duyệt thanh toán gói
+    Route::get('/payments', [AdminController::class, 'payments'])->name('payments');
+    Route::post('/payments/{id}/approve', [AdminController::class, 'approvePayment'])->name('payment.approve');
+    Route::post('/payments/{id}/reject', [AdminController::class, 'rejectPayment'])->name('payment.reject');
 });
 
 /* ---------------- Khu phụ huynh (công khai) ---------------- */

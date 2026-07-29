@@ -17,6 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn () => route('teacher.login'));
         $middleware->redirectUsersTo(fn () => auth()->user()?->role === 'super_admin'
             ? route('admin.dashboard') : route('teacher.dashboard'));
+
+        // Alias middleware kiểm tra subscription còn hạn (áp cho route ghi của GV)
+        $middleware->alias([
+            'active.sub' => \App\Http\Middleware\EnsureActiveSubscription::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Render JSON cho mọi request AJAX (wantsJson hoặc X-Requested-With),

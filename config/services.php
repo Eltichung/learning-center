@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'bank' => [
+        'code' => env('BANK_CODE', 'VCB'),
+        'account' => env('BANK_ACCOUNT', '0000000000'),
+        'name' => env('BANK_NAME', 'TEN CHU TAI KHOAN'),
+    ],
+
 ];

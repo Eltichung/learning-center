@@ -111,6 +111,10 @@ tr:last-child td{border-bottom:0}
 .chip.b{background:var(--blue-soft);color:var(--blue)}
 .chip.p{background:#f3e5f5;color:#6a1b9a}
 .chip.n{background:#eef0f3;color:var(--muted)}
+.plan-banner{border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.plan-banner.warn{background:#fff8e1;border:1px solid #f0c76e;color:#8a5a00}
+.plan-banner.err{background:#fdecec;border:1px solid #e7b3b3;color:#a02020}
+.plan-banner a{margin-left:auto;color:inherit;font-weight:700;text-decoration:underline}
 .money{font-variant-numeric:tabular-nums;font-weight:600}
 .stud{display:flex;align-items:center;gap:10px}
 .savatar{width:30px;height:30px;border-radius:8px;background:#eef0f3;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--muted)}
