@@ -27,7 +27,7 @@
   <div class="panel" style="border-color:#c39bd3;background:linear-gradient(135deg,#faf5ff,#f3e5f5)">
     <div class="pb" style="padding:20px;text-align:center">
       <div style="font-size:34px">👑</div>
-      <div style="font-size:20px;font-weight:800;margin:6px 0 4px">Bạn đang dùng gói Full VIP</div>
+      <div style="font-size:20px;font-weight:800;margin:6px 0 4px">Bạn đang dùng gói Yêu Anh</div>
       <div style="color:var(--muted);font-size:13.5px">Không giới hạn lớp · Không giới hạn học sinh · Cảm ơn bạn đã đồng hành 💜</div>
     </div>
   </div>

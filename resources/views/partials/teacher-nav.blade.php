@@ -31,7 +31,7 @@
         @elseif ($me->email === 'ninhtrang@gmail.com')
           <div class="sb">Gói Yêu Anh</div>
         @elseif ($planName === 'Full VIP')
-          <div class="sb" style="color:#c39bd3;font-weight:700">👑 Full VIP</div>
+          <div class="sb" style="color:#c39bd3;font-weight:700">👑 Yêu Anh</div>
         @else
           <div class="sb">{{ $planName ? 'Gói '.$planName : 'Trial' }}</div>
         @endif
