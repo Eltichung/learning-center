@@ -11,9 +11,10 @@ class Student extends Model
     protected $fillable = [
         'teacher_id', 'full_name', 'dob', 'school',
         'parent_phone', 'parent_contact', 'student_code', 'status',
+        'show_fees',
     ];
 
-    protected $casts = ['dob' => 'date'];
+    protected $casts = ['dob' => 'date', 'show_fees' => 'boolean'];
 
     public function teacher(): BelongsTo       { return $this->belongsTo(User::class, 'teacher_id'); }
     public function classStudents(): HasMany   { return $this->hasMany(ClassStudent::class); }

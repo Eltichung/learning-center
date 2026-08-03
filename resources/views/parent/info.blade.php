@@ -105,6 +105,7 @@
     </div>
   </div>
 
+  @if ($showFees ?? true)
   {{-- Học phí (thu gọn — không đặt ở đầu để tránh cảm giác đòi nợ) --}}
   <div class="due-card {{ $balance > 0 ? 'has-due' : 'no-due' }}">
     <div class="due-info">
@@ -131,6 +132,7 @@
       <div class="prow r">Chưa có lần đóng tiền nào.</div>
     @endforelse
   </div>
+  @endif
 
   <div style="text-align:center;color:var(--muted);font-size:11px;padding:8px 0 20px">Cập nhật bởi {{ $teacherName }} ·</div>
 </div>

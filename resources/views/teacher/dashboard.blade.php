@@ -16,15 +16,65 @@
              <div><h1>Xin chào, {{ auth()->user()->name }} 👋</h1>
         @endif
         <p>{{ $wd }}, {{ now()->format('d/m/Y') }} — Hôm nay có {{ $todayClasses->count() }} buổi học</p></div>
+
       <a class="btn primary" href="{{ route('teacher.attendance') }}">+ Điểm danh nhanh</a>
     </div>
 @endauth
     <div class="cards">
   <div class="card"><div class="lbl">Lớp đang dạy</div><div class="val">{{ $classesActive }}</div><div class="sub">{{ $studentsCount }} học sinh</div></div>
   <div class="card"><div class="lbl">Buổi hôm nay</div><div class="val">{{ $todayClasses->count() }}</div><div class="sub">{{ $notDoneToday }} chưa điểm danh</div></div>
-  <div class="card"><div class="lbl">Doanh thu tháng {{ now()->month }}</div><div class="val green">{{ Money::short($revenueMonth) }}</div><div class="sub">Tổng tiền đã tính theo buổi</div></div>
-  <div class="card"><div class="lbl">Đang nợ học phí</div><div class="val red">{{ Money::short($debtTotal) }}</div><div class="sub">{{ $debtorCount }} học sinh</div></div>
+
+  <div class="card money-card" data-money-key="revenue">
+    <button type="button" class="card-eye" onclick="toggleMoneyCard(this)" aria-label="Ẩn/Hiện doanh thu">
+      <svg class="eye-on" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg class="eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/><path d="M10.73 5.08A11 11 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+    </button>
+    <div class="lbl">Doanh thu tháng {{ now()->month }}</div>
+    <div class="val green"><span class="money-real">{{ Money::short($revenueMonth) }}</span><span class="money-mask">••••••</span></div>
+    <div class="sub">Tổng tiền đã tính theo buổi</div>
+  </div>
+
+  <div class="card money-card" data-money-key="debt">
+    <button type="button" class="card-eye" onclick="toggleMoneyCard(this)" aria-label="Ẩn/Hiện công nợ">
+      <svg class="eye-on" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg class="eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/><path d="M10.73 5.08A11 11 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+    </button>
+    <div class="lbl">Đang nợ học phí</div>
+    <div class="val red"><span class="money-real">{{ Money::short($debtTotal) }}</span><span class="money-mask">••••••</span></div>
+    <div class="sub"><span class="money-real">{{ $debtorCount }} học sinh</span><span class="money-mask">•• học sinh</span></div>
+  </div>
 </div>
+
+<style>
+  .money-card{position:relative}
+  .card-eye{position:absolute;top:12px;right:12px;background:transparent;border:0;cursor:pointer;padding:4px;border-radius:6px;color:var(--muted);display:inline-flex;align-items:center;opacity:.55;transition:opacity .15s}
+  .card-eye:hover{opacity:1;background:#f5f6f8}
+  .card-eye svg{display:block}
+  .card-eye .eye-off{display:none}
+  .money-card.masked .card-eye .eye-on{display:none}
+  .money-card.masked .card-eye .eye-off{display:inline-flex}
+  .money-card.masked .money-real{display:none}
+  .money-card:not(.masked) .money-mask{display:none}
+  .money-mask{letter-spacing:3px;font-variant-numeric:tabular-nums}
+</style>
+<script>
+  (function(){
+    // Mặc định là ẨN (masked). Chỉ khi user bấm mở thì lưu '0'.
+    function keyOf(el){ return 'lt_mask_' + el.dataset.moneyKey; }
+    function isMasked(el){
+      var v = localStorage.getItem(keyOf(el));
+      return v === null ? true : v === '1';
+    }
+    function apply(el){ el.classList.toggle('masked', isMasked(el)); }
+    window.toggleMoneyCard = function(btn){
+      var card = btn.closest('.money-card');
+      var cur = isMasked(card);
+      localStorage.setItem(keyOf(card), cur ? '0' : '1');
+      apply(card);
+    };
+    document.querySelectorAll('.money-card').forEach(apply);
+  })();
+</script>
 <div class="panel">
     <div class="ph"><h3>Buổi học hôm nay</h3><a class="btn ghost sm" href="{{ route('teacher.classes') }}">Xem tất cả lớp</a></div>
     <div class="pb">

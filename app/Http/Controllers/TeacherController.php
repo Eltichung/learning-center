@@ -933,6 +933,20 @@ class TeacherController extends Controller
         return $this->respondOk($request, $msg);
     }
 
+    /** Bật/tắt hiển thị học phí (card học phí + đóng tiền gần đây) trên trang PWA phụ huynh. */
+    public function toggleShowFees(Request $request, int $id)
+    {
+        $tid = $this->tid();
+        $student = Student::where('teacher_id', $tid)->findOrFail($id);
+        $student->update(['show_fees' => ! $student->show_fees]);
+
+        $msg = $student->show_fees
+            ? 'Đã bật hiển thị học phí trên trang PH của "'.$student->full_name.'".'
+            : 'Đã ẩn học phí trên trang PH của "'.$student->full_name.'".';
+
+        return $this->respondOk($request, $msg);
+    }
+
     /* ===================== Ghi nhận đóng tiền ===================== */
     public function storePayment(Request $request)
     {

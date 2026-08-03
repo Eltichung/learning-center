@@ -28,7 +28,7 @@
 <div class="panel"><div class="pb">
   <div class="tablewrap">
   <table>
-    <thead><tr><th>Học sinh</th><th>Lớp</th><th>SĐT phụ huynh</th><th>Mã tra cứu</th><th>Công nợ</th><th></th></tr></thead>
+    <thead><tr><th>Học sinh</th><th>Lớp</th><th>SĐT phụ huynh</th><th>Mã tra cứu</th><th>Công nợ</th><th>Hiện học phí PH</th><th></th></tr></thead>
     <tbody>
       @forelse ($students as $row)
         <tr>
@@ -54,10 +54,24 @@
             @if ($row->balance > 0)<span class="chip r">−{{ Money::vnd($row->balance) }}</span>
             @else<span class="chip g">Đã đóng</span>@endif
           </td>
+          <td>
+            <form method="POST" action="{{ route('teacher.students.toggleShowFees', $row->student->id) }}" style="display:inline">
+              @csrf @method('PUT')
+              <button type="submit"
+                      class="chip {{ $row->student->show_fees ? 'g' : 'n' }}"
+                      style="border:0;cursor:pointer"
+                      data-confirm="{{ $row->student->show_fees
+                          ? 'Ẩn ô học phí trên trang PH của '.$row->student->full_name.'?'
+                          : 'Bật lại hiển thị học phí cho '.$row->student->full_name.'?' }}"
+                      title="{{ $row->student->show_fees ? 'Đang hiện — bấm để ẩn' : 'Đang ẩn — bấm để hiện' }}">
+                {{ $row->student->show_fees ? '👁 Hiện' : '🚫 Ẩn' }}
+              </button>
+            </form>
+          </td>
           <td style="text-align:right"><a class="btn ghost sm" href="{{ route('teacher.student', $row->student->id) }}">Chi tiết</a></td>
         </tr>
       @empty
-        <tr><td colspan="6" class="r" style="padding:18px 16px">Không có học sinh phù hợp bộ lọc.</td></tr>
+        <tr><td colspan="7" class="r" style="padding:18px 16px">Không có học sinh phù hợp bộ lọc.</td></tr>
       @endforelse
     </tbody>
   </table>
