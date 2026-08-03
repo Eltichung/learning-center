@@ -323,6 +323,7 @@ class TeacherController extends Controller
         $classId = (int) $request->get('class_id');
         $payStatus = $request->get('pay_status'); // paid | unpaid
         $status = $request->has('status') ? $request->get('status') : 'active'; // active | inactive | '' (tất cả)
+        $feeVisibility = $request->get('fee_visibility'); // shown | hidden | '' (tất cả)
         $q = trim((string) $request->get('q'));
 
         $query = Student::where('teacher_id', $tid)->with(['classStudents.classroom']);
@@ -331,6 +332,11 @@ class TeacherController extends Controller
         }
         if ($status === 'active' || $status === 'inactive') {
             $query->where('status', $status);
+        }
+        if ($feeVisibility === 'shown') {
+            $query->where('show_fees', true);
+        } elseif ($feeVisibility === 'hidden') {
+            $query->where('show_fees', false);
         }
         if ($q !== '') {
             $query->where(fn ($x) => $x->where('full_name', 'like', "%{$q}%")->orWhere('student_code', 'like', "%{$q}%"));
@@ -369,7 +375,7 @@ class TeacherController extends Controller
 
         $classList = Classroom::where('teacher_id', $tid)->orderBy('id')->get();
 
-        return view('teacher.students', compact('students', 'classList', 'classId', 'status', 'payStatus', 'q'));
+        return view('teacher.students', compact('students', 'classList', 'classId', 'status', 'payStatus', 'feeVisibility', 'q'));
     }
 
     /* ===================== Hồ sơ học sinh ===================== */
