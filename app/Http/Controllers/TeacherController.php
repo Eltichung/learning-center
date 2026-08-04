@@ -282,6 +282,17 @@ class TeacherController extends Controller
     /* ===================== Danh sách lớp ===================== */
     public function classes(Request $request)
     {
+        return view('teacher.classes', $this->buildClassesData($request));
+    }
+
+    /** Fragment: bảng danh sách lớp (AJAX refetch). */
+    public function classesPartial(Request $request)
+    {
+        return view('teacher.partials.classes-list', $this->buildClassesData($request));
+    }
+
+    private function buildClassesData(Request $request): array
+    {
         $tid = $this->tid();
         $q = trim((string) $request->get('q'));
         $grade = (int) $request->get('grade');
@@ -312,13 +323,25 @@ class TeacherController extends Controller
         if (in_array($status, ['active', 'paused', 'ended'], true)) {
             $query->where('status', $status);
         }
-        $classes = $query->orderBy('id')->paginate(10)->withQueryString();
+        $classes = $query->orderBy('id')->paginate(10)
+            ->withPath(route('teacher.classes'))->appends($request->query());
 
-        return view('teacher.classes', compact('classes', 'activeCount', 'q', 'grade', 'type', 'status'));
+        return compact('classes', 'activeCount', 'q', 'grade', 'type', 'status');
     }
 
     /* ===================== Chi tiết lớp ===================== */
     public function classShow(int $id, Request $request)
+    {
+        return view('teacher.class-detail', $this->buildClassShowData($id, $request));
+    }
+
+    /** Fragment: thân trang chi tiết lớp (AJAX refetch). */
+    public function classShowPartial(int $id, Request $request)
+    {
+        return view('teacher.partials.class-detail-body', $this->buildClassShowData($id, $request));
+    }
+
+    private function buildClassShowData(int $id, Request $request): array
     {
         $tid = $this->tid();
         $class = Classroom::where('teacher_id', $tid)->with('schedules')
@@ -357,13 +380,29 @@ class TeacherController extends Controller
         // Giá mặc định của lớp: ưu tiên giá lưu trên lớp, rồi tới giá HS hiện có, cuối cùng 120k
         $classDefaultPrice = (int) ($class->default_price ?: ($class->classStudents()->value('price_per_session') ?: 120000));
 
-        return view('teacher.class-detail', compact(
+        return compact(
             'class', 'students', 'taught', 'offs', 'makeups', 'period', 'periodLabel', 'sessions', 'classDefaultPrice'
-        ));
+        );
     }
 
     /* ===================== Danh sách học sinh ===================== */
     public function students(Request $request)
+    {
+        $data = $this->buildStudentsData($request);
+
+        return view('teacher.students', $data);
+    }
+
+    /** Fragment chỉ trả về bảng danh sách — dùng cho AJAX refetch (không kèm layout). */
+    public function studentsPartial(Request $request)
+    {
+        $data = $this->buildStudentsData($request);
+
+        return view('teacher.partials.students-list', $data);
+    }
+
+    /** Build data cho cả students() và studentsPartial(). */
+    private function buildStudentsData(Request $request): array
     {
         $tid = $this->tid();
         $balances = $this->balances($tid);
@@ -412,16 +451,27 @@ class TeacherController extends Controller
         $students = new \Illuminate\Pagination\LengthAwarePaginator(
             $students->forPage($page, $perPage)->values(),
             $total, $perPage, $page,
-            ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(), 'query' => request()->query()]
+            ['path' => route('teacher.students'), 'query' => $request->query()]
         );
 
         $classList = Classroom::where('teacher_id', $tid)->orderBy('id')->get();
 
-        return view('teacher.students', compact('students', 'classList', 'classId', 'status', 'payStatus', 'q'));
+        return compact('students', 'classList', 'classId', 'status', 'payStatus', 'q');
     }
 
     /* ===================== Hồ sơ học sinh ===================== */
     public function studentShow(int $id)
+    {
+        return view('teacher.student', $this->buildStudentShowData($id));
+    }
+
+    /** Fragment: thân trang hồ sơ học sinh (AJAX refetch). */
+    public function studentShowPartial(int $id)
+    {
+        return view('teacher.partials.student-body', $this->buildStudentShowData($id));
+    }
+
+    private function buildStudentShowData(int $id): array
     {
         $tid = $this->tid();
         $student = Student::where('teacher_id', $tid)
@@ -463,10 +513,10 @@ class TeacherController extends Controller
         // Nhật ký bật/tắt hoạt động, mới nhất trước
         $statusLogs = $student->statusLogs()->with('user')->latest('id')->get();
 
-        return view('teacher.student', compact(
+        return compact(
             'student', 'enrollments', 'balance', 'unpaidSessions', 'grade', 'primaryPrice', 'prefix',
             'attendance', 'attSummary', 'comments', 'statusLogs'
-        ));
+        );
     }
 
     /** Thêm nhận xét cho học sinh (lưu theo ngày). */
@@ -501,6 +551,17 @@ class TeacherController extends Controller
 
     /* ===================== Điểm danh ===================== */
     public function attendance(Request $request)
+    {
+        return view('teacher.attendance', $this->buildAttendanceData($request));
+    }
+
+    /** Fragment: thân trang điểm danh (AJAX refetch). */
+    public function attendancePartial(Request $request)
+    {
+        return view('teacher.partials.attendance-body', $this->buildAttendanceData($request));
+    }
+
+    private function buildAttendanceData(Request $request): array
     {
         $tid = $this->tid();
         $classList = Classroom::where('teacher_id', $tid)->where('status', 'active')
@@ -571,10 +632,10 @@ class TeacherController extends Controller
                 ->get();
         }
 
-        return view('teacher.attendance', compact(
+        return compact(
             'classList', 'class', 'sessions', 'session', 'rows', 'total',
             'weekStart', 'weekEnd', 'weekLabel', 'logs', 'pendingOffs'
-        ));
+        );
     }
 
     /** Lưu điểm danh: cập nhật student_sessions, ghi submitted_at + log lịch sử */
@@ -826,6 +887,17 @@ class TeacherController extends Controller
     /* ===================== Học phí & công nợ ===================== */
     public function fees(Request $request)
     {
+        return view('teacher.fees', $this->buildFeesData($request));
+    }
+
+    /** Fragment: cards + bảng học phí (AJAX refetch). */
+    public function feesPartial(Request $request)
+    {
+        return view('teacher.partials.fees-body', $this->buildFeesData($request));
+    }
+
+    private function buildFeesData(Request $request): array
+    {
         $tid = $this->tid();
 
         $collectedMonth = (int) Payment::where('teacher_id', $tid)
@@ -874,9 +946,9 @@ class TeacherController extends Controller
 
         $classList = Classroom::where('teacher_id', $tid)->orderBy('id')->get();
 
-        return view('teacher.fees', compact(
+        return compact(
             'collectedMonth', 'outstanding', 'debtorCount', 'rows', 'classList', 'classId', 'status', 'q'
-        ));
+        );
     }
 
     /* ===================== Chi tiết nợ theo tháng (AJAX) ===================== */
@@ -1384,6 +1456,17 @@ class TeacherController extends Controller
     /** Trang giáo án tuần cho 1 lớp */
     public function lessonsIndex(Request $request)
     {
+        return view('teacher.lessons', $this->buildLessonsData($request));
+    }
+
+    /** Fragment: grid giáo án tuần (AJAX refetch). */
+    public function lessonsPartial(Request $request)
+    {
+        return view('teacher.partials.lessons-body', $this->buildLessonsData($request));
+    }
+
+    private function buildLessonsData(Request $request): array
+    {
         $tid = $this->tid();
         $classList = Classroom::where('teacher_id', $tid)->where('status', 'active')
             ->with('schedules')->orderBy('id')->get();
@@ -1422,7 +1505,7 @@ class TeacherController extends Controller
             }
         }
 
-        return view('teacher.lessons', compact('classList', 'class', 'weekStart', 'weekEnd', 'days'));
+        return compact('classList', 'class', 'weekStart', 'weekEnd', 'days');
     }
 
     /** Batch save giáo án cả tuần: pre-create session nếu ngày đó chưa có */
@@ -1532,6 +1615,17 @@ class TeacherController extends Controller
     /* ===================== Báo cáo ===================== */
     public function reports(Request $request)
     {
+        return view('teacher.reports', $this->buildReportsData($request));
+    }
+
+    /** Fragment: cards + bảng báo cáo (AJAX refetch). */
+    public function reportsPartial(Request $request)
+    {
+        return view('teacher.partials.reports-body', $this->buildReportsData($request));
+    }
+
+    private function buildReportsData(Request $request): array
+    {
         $tid = $this->tid();
 
         // Filter tháng (YYYY-MM) + lớp
@@ -1595,10 +1689,10 @@ class TeacherController extends Controller
             ->whereYear('paid_at', $month->year)->whereMonth('paid_at', $month->month)->sum('amount');
         $cardOwed = (int) $scopeIds->sum(fn ($id) => max(0, (int) ($balances[$id] ?? 0)));
 
-        return view('teacher.reports', compact(
+        return compact(
             'report', 'classList', 'classId', 'monthStr', 'month',
             'cardCharged', 'cardCollected', 'cardOwed'
-        ));
+        );
     }
 
     /* ===================== Helpers ===================== */

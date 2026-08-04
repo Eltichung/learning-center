@@ -31,3 +31,5 @@ document.addEventListener('click', function(e){
 });
 
 document.addEventListener('DOMContentLoaded', attRecalc);
+// Sau khi refetch fragment (SPA), tính lại tổng tiền cho bảng mới
+document.addEventListener('lt:refetched', attRecalc);

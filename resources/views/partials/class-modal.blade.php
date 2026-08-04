@@ -1,5 +1,6 @@
 <div class="modal-backdrop" id="m-class">
-  <form class="modal" id="class-form" method="POST" action="{{ route('teacher.classes.store', [], false) }}" style="width:820px;max-width:100%">
+  <form class="modal" id="class-form" method="POST" action="{{ route('teacher.classes.store', [], false) }}" style="width:820px;max-width:100%"
+        @if (! empty($classRefetch)) data-refetch="{{ $classRefetch }}" data-hide-modal-on-success @endif>
     @csrf
     <input type="hidden" name="_method" id="cf-method" value="POST">
     <div class="mh"><h3 id="cf-title">Tạo lớp mới</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>

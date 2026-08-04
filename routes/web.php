@@ -58,23 +58,28 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
     Route::get('/dashboard', [TeacherController::class, 'dashboard'])->name('teacher.dashboard');
 
     Route::get('/classes', [TeacherController::class, 'classes'])->name('teacher.classes');
+    Route::get('/classes/partial', [TeacherController::class, 'classesPartial'])->name('teacher.classes.partial');
     Route::post('/classes', [TeacherController::class, 'storeClass'])->name('teacher.classes.store');
     Route::put('/classes/{id}', [TeacherController::class, 'updateClass'])->name('teacher.classes.update');
     Route::post('/classes/{id}/duplicate', [TeacherController::class, 'duplicateClass'])->name('teacher.classes.duplicate');
     Route::get('/classes/{id}', [TeacherController::class, 'classShow'])->name('teacher.class');
+    Route::get('/classes/{id}/partial', [TeacherController::class, 'classShowPartial'])->name('teacher.class.partial');
     Route::post('/classes/{id}/students', [TeacherController::class, 'addStudentToClass'])->name('teacher.class.addStudent');
     Route::put('/classes/{id}/students/{studentId}/price', [TeacherController::class, 'updateClassStudentPrice'])->name('teacher.class.student.price');
     Route::get('/classes/{id}/students/{studentId}/price-history', [TeacherController::class, 'classStudentPriceHistory'])->name('teacher.class.student.priceHistory');
 
     Route::get('/students', [TeacherController::class, 'students'])->name('teacher.students');
+    Route::get('/students/partial', [TeacherController::class, 'studentsPartial'])->name('teacher.students.partial');
     Route::post('/students', [TeacherController::class, 'storeStudent'])->name('teacher.students.store');
     Route::put('/students/{id}', [TeacherController::class, 'updateStudent'])->name('teacher.students.update');
     Route::put('/students/{id}/status', [TeacherController::class, 'toggleStudentStatus'])->name('teacher.students.toggleStatus');
     Route::get('/students/{id}', [TeacherController::class, 'studentShow'])->name('teacher.student');
+    Route::get('/students/{id}/partial', [TeacherController::class, 'studentShowPartial'])->name('teacher.student.partial');
     Route::post('/students/{id}/comments', [TeacherController::class, 'storeComment'])->name('teacher.student.comments.store');
     Route::delete('/students/{id}/comments/{commentId}', [TeacherController::class, 'deleteComment'])->name('teacher.student.comments.delete');
 
     Route::get('/attendance', [TeacherController::class, 'attendance'])->name('teacher.attendance');
+    Route::get('/attendance/partial', [TeacherController::class, 'attendancePartial'])->name('teacher.attendance.partial');
     Route::post('/attendance/{session}', [TeacherController::class, 'submitAttendance'])->name('teacher.attendance.submit');
     Route::post('/attendance/{session}/off', [TeacherController::class, 'markSessionOff'])->name('teacher.attendance.off');
     Route::post('/attendance/{session}/unoff', [TeacherController::class, 'unmarkSessionOff'])->name('teacher.attendance.unoff');
@@ -84,6 +89,7 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
 
     // Giáo án
     Route::get('/lessons', [TeacherController::class, 'lessonsIndex'])->name('teacher.lessons');
+    Route::get('/lessons/partial', [TeacherController::class, 'lessonsPartial'])->name('teacher.lessons.partial');
     Route::post('/lessons', [TeacherController::class, 'lessonsBatchSave'])->name('teacher.lessons.save');
     Route::put('/sessions/{session}/lesson', [TeacherController::class, 'updateSessionLesson'])->name('teacher.session.lesson');
     Route::delete('/sessions/{session}/lesson', [TeacherController::class, 'clearSessionLesson'])->name('teacher.session.lesson.clear');
@@ -91,7 +97,9 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
     Route::post('/payments', [TeacherController::class, 'storePayment'])->name('teacher.payments.store');
 
     Route::get('/fees', [TeacherController::class, 'fees'])->name('teacher.fees');
+    Route::get('/fees/partial', [TeacherController::class, 'feesPartial'])->name('teacher.fees.partial');
     Route::get('/reports', [TeacherController::class, 'reports'])->name('teacher.reports');
+    Route::get('/reports/partial', [TeacherController::class, 'reportsPartial'])->name('teacher.reports.partial');
 
     // Cài đặt QR chuyển khoản của giáo viên
     Route::get('/settings/qr', [TeacherController::class, 'qrSettings'])->name('teacher.settings.qr');

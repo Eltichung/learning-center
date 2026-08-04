@@ -29,6 +29,7 @@
   </script>
 </head>
 <body class="@yield('bodyClass')">
+  <div class="lt-loader" id="lt-loader"></div>
   @yield('body')
   @stack('scripts')
 </body>

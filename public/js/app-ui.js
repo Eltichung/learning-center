@@ -183,11 +183,69 @@ function showFieldErrors(form, errors){
   });
 }
 
+/* ===== Top loader bar (progress mảnh trên đầu trang) =====
+   Show trước khi fetch, hide sau khi xong. Đồng thời đếm số request để tránh
+   nhiều fetch chồng nhau bị tắt loader sớm. */
+var LT_LOAD_COUNT = 0;
+function showLoader(){
+  LT_LOAD_COUNT++;
+  var el = document.getElementById('lt-loader');
+  if (el) el.classList.add('show');
+}
+function hideLoader(){
+  LT_LOAD_COUNT = Math.max(0, LT_LOAD_COUNT - 1);
+  if (LT_LOAD_COUNT === 0) {
+    var el = document.getElementById('lt-loader');
+    if (el) el.classList.remove('show');
+  }
+}
+window.showLoader = showLoader;
+window.hideLoader = hideLoader;
+
+/* ===== refetchInto: refetch HTML fragment vào container =====
+   Container có data-partial-url (hoặc truyền url thẳng). Server trả HTML thuần,
+   JS thay innerHTML. */
+async function refetchInto(target){
+  var el = typeof target === 'string' ? document.querySelector(target) : target;
+  if (!el) return false;
+  var url = el.dataset.partialUrl || location.href;
+  el.classList.add('is-loading');
+  showLoader();
+  try {
+    var res = await fetch(url, {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    if (!res.ok) return false;
+    el.innerHTML = await res.text();
+    // Cho trang tự re-init JS phụ thuộc DOM mới (bảng tính tiền, money-input, ...)
+    document.dispatchEvent(new CustomEvent('lt:refetched', { detail: { container: el } }));
+    el.querySelectorAll('.money-input[data-target]').forEach(function(n){
+      if (window.initMoneyInput) window.initMoneyInput(n);
+    });
+    return true;
+  } catch (e) {
+    return false;
+  } finally {
+    el.classList.remove('is-loading');
+    hideLoader();
+  }
+}
+window.refetchInto = refetchInto;
+
+/* Đóng modal của 1 form (form nằm trong .modal-backdrop) */
+function closeFormModal(form){
+  var mod = form.closest('.modal-backdrop');
+  if (mod) mod.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
 async function ajaxSubmit(form){
   clearFormErrors(form);
   var btn = form.querySelector('button[type=submit], [data-submit]');
   var oldBtnText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.classList.add('is-loading'); }
+  showLoader();
 
   var data = new FormData(form);
   var method = (data.get('_method') || form.getAttribute('method') || 'POST').toUpperCase();
@@ -228,22 +286,45 @@ async function ajaxSubmit(form){
     var ok = body && body.ok ? body.ok : '';
     if (ok && !form.hasAttribute('data-no-toast') && window.toast) toast(ok, 'success');
 
+    // Form đánh dấu inline behavior (refetch/hide modal/reset) → làm inline, BỎ QUA body.redirect từ server
+    var hasInlineBehavior = form.dataset.refetch
+      || form.hasAttribute('data-hide-modal-on-success')
+      || form.hasAttribute('data-reset-on-success');
+
     if (form.hasAttribute('data-reload') || (body && body.reload)) {
       window.location.reload();
       return true;
     }
-    if (body && body.redirect) {
+
+    if (!hasInlineBehavior && body && body.redirect) {
       window.location.assign(body.redirect);
       return true;
     }
-    // mặc định: reload để hiển thị state mới
-    window.location.reload();
+
+    // Refetch fragment nếu form đánh dấu
+    var refetchSel = form.dataset.refetch || (body && body.refetch);
+    if (refetchSel) {
+      var sels = String(refetchSel).split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+      await Promise.all(sels.map(function(s){ return refetchInto(s); }));
+    }
+
+    // Đóng modal chứa form
+    if (form.hasAttribute('data-hide-modal-on-success') || (body && body.hideModal)) {
+      closeFormModal(form);
+    }
+
+    // Reset form sau success
+    if (form.hasAttribute('data-reset-on-success')) {
+      form.reset();
+    }
+
     return true;
   } catch (e) {
     if (window.toast) toast('Lỗi mạng — vui lòng thử lại', 'error');
     return false;
   } finally {
     if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); btn.innerHTML = oldBtnText; }
+    hideLoader();
   }
 }
 
@@ -251,16 +332,96 @@ function shouldAjaxify(form){
   if (!(form instanceof HTMLFormElement)) return false;
   if (form.hasAttribute('data-no-ajax')) return false;
   var method = (form.getAttribute('method') || 'GET').toUpperCase();
-  if (method === 'GET') return false; // filter forms vẫn submit native (đổi URL)
+  // GET form được ajaxify nếu có data-refetch (filter live) — ngược lại submit native
+  if (method === 'GET') return form.hasAttribute('data-refetch');
   return true;
 }
+
+/* AJAX filter cho form GET: build query từ FormData, pushState + refetchInto */
+async function ajaxFilterGet(form){
+  var action = form.getAttribute('action') || location.pathname;
+  var actionUrl = new URL(action, location.origin);
+  var fd = new FormData(form);
+  fd.forEach(function(v, k){
+    if (v === '' || v === null || v === undefined) actionUrl.searchParams.delete(k);
+    else actionUrl.searchParams.set(k, v);
+  });
+  // Cập nhật URL trên address bar (giữ path của form action, không phải partial)
+  var newQuery = actionUrl.searchParams.toString();
+  history.pushState({}, '', actionUrl.pathname + (newQuery ? '?' + newQuery : ''));
+
+  // Refetch container: giữ partial base URL, thay query
+  var el = document.querySelector(form.dataset.refetch);
+  if (!el) return;
+  var base = (el.dataset.partialUrl || '').split('?')[0];
+  el.dataset.partialUrl = base + (newQuery ? '?' + newQuery : '');
+  await refetchInto(el);
+}
+window.ajaxFilterGet = ajaxFilterGet;
+
 document.addEventListener('submit', function(e){
   var form = e.target;
   if (!shouldAjaxify(form)) return;
-  // Có data-confirm và chưa xác nhận → nhường cho confirm handler (đã preventDefault + gọi lại ajaxSubmit trong callback OK)
+  // Có data-confirm và chưa xác nhận → nhường cho confirm handler
   if (form.dataset.confirm && !form.dataset.confirmed) return;
   e.preventDefault();
-  ajaxSubmit(form);
+  var method = (form.getAttribute('method') || 'GET').toUpperCase();
+  if (method === 'GET') ajaxFilterGet(form);
+  else ajaxSubmit(form);
 });
 window.ajaxSubmit = ajaxSubmit;
 window.shouldAjaxify = shouldAjaxify;
+
+/* ===== SPA navigate: <a data-refetch="#sel"> =====
+   Điều hướng nội bộ không reload: pushState + refetch fragment.
+   Container đích phải có data-partial-url (base URL của endpoint fragment). */
+async function ajaxNavigate(url, selector, push){
+  var el = document.querySelector(selector);
+  if (!el) { window.location.assign(url); return; }
+  var u = new URL(url, location.origin);
+  if (push !== false) history.pushState({ refetch: selector }, '', u.pathname + u.search);
+
+  var base = (el.dataset.partialUrl || '').split('?')[0];
+  if (!base) { window.location.assign(url); return; }
+  el.dataset.partialUrl = base + (u.search || '');
+  await refetchInto(el);
+}
+window.ajaxNavigate = ajaxNavigate;
+
+document.addEventListener('click', function(e){
+  var a = e.target.closest('a[data-refetch]');
+  if (!a) return;
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
+  if (a.target && a.target !== '_self') return;
+  var href = a.getAttribute('href');
+  if (!href || href.charAt(0) === '#' || /^(https?:)?\/\//.test(href) && new URL(href, location.origin).origin !== location.origin) return;
+  e.preventDefault();
+  ajaxNavigate(a.href, a.dataset.refetch);
+});
+
+/* Select có data-refetch + data-nav-param: đổi option → điều hướng AJAX */
+document.addEventListener('change', function(e){
+  var sel = e.target;
+  if (!(sel instanceof HTMLSelectElement)) return;
+  if (!sel.dataset.refetch || !sel.dataset.navParam) return;
+  var u = new URL(sel.dataset.navBase || location.pathname, location.origin);
+  // giữ các param hiện có trên URL, chỉ thay param của select
+  new URL(location.href).searchParams.forEach(function(v, k){ u.searchParams.set(k, v); });
+  if (sel.value === '') u.searchParams.delete(sel.dataset.navParam);
+  else u.searchParams.set(sel.dataset.navParam, sel.value);
+  // reset các param phụ thuộc (vd đổi lớp thì bỏ session_id)
+  (sel.dataset.navReset || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean)
+    .forEach(function(k){ u.searchParams.delete(k); });
+  ajaxNavigate(u.toString(), sel.dataset.refetch);
+});
+
+/* Back/forward của browser: refetch lại fragment tương ứng */
+window.addEventListener('popstate', function(e){
+  var sel = (e.state && e.state.refetch) || null;
+  if (!sel) { window.location.reload(); return; }
+  var el = document.querySelector(sel);
+  if (!el) { window.location.reload(); return; }
+  var base = (el.dataset.partialUrl || '').split('?')[0];
+  el.dataset.partialUrl = base + location.search;
+  refetchInto(el);
+});
