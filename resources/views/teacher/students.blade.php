@@ -60,15 +60,17 @@
             @else<span class="chip g">Đã đóng</span>@endif
           </td>
           <td>
-            <button type="button"
-                    class="switch fee-toggle {{ $row->student->show_fees ? 'on' : '' }}"
-                    role="switch"
-                    aria-checked="{{ $row->student->show_fees ? 'true' : 'false' }}"
-                    data-url="{{ route('teacher.students.toggleShowFees', $row->student->id) }}"
-                    data-state="{{ $row->student->show_fees ? '1' : '0' }}"
-                    title="{{ $row->student->show_fees ? 'Đang hiện học phí trên PWA — bấm để ẩn' : 'Đang ẩn học phí trên PWA — bấm để hiện' }}">
-              <span class="switch-knob"></span>
-            </button>
+            <form method="POST" action="{{ route('teacher.students.toggleShowFees', $row->student->id, false) }}"
+                  data-optimistic-toggle data-no-reload data-no-toast style="margin:0">
+              @csrf @method('PUT')
+              <button type="submit"
+                      class="switch {{ $row->student->show_fees ? 'on' : '' }}"
+                      role="switch"
+                      aria-checked="{{ $row->student->show_fees ? 'true' : 'false' }}"
+                      title="Bật/tắt hiển thị học phí trên trang phụ huynh">
+                <span class="switch-knob"></span>
+              </button>
+            </form>
           </td>
           <td style="text-align:right"><a class="btn ghost sm" href="{{ route('teacher.student', $row->student->id) }}">Chi tiết</a></td>
         </tr>
@@ -118,50 +120,7 @@ function copyLookup(url, el){
     fail();
   }
 }
-// Toggle show_fees qua AJAX — switch inline, không confirm, không reload
-document.addEventListener('click', function(e){
-  var btn = e.target.closest('.fee-toggle');
-  if (!btn || btn.disabled) return;
-
-  // Optimistic UI: toggle ngay, rollback nếu server báo lỗi
-  var prev = btn.dataset.state === '1';
-  var next = !prev;
-  btn.dataset.state = next ? '1' : '0';
-  btn.classList.toggle('on', next);
-  btn.setAttribute('aria-checked', next ? 'true' : 'false');
-  btn.disabled = true;
-
-  var fd = new FormData();
-  fd.append('_token', document.querySelector('meta[name=csrf-token]').content);
-  fd.append('_method', 'PUT');
-
-  fetch(btn.dataset.url, {
-    method: 'POST',
-    body: fd,
-    credentials: 'same-origin',
-    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-  })
-  .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
-  .then(function(res){
-    if (!res.ok) {
-      // rollback
-      btn.dataset.state = prev ? '1' : '0';
-      btn.classList.toggle('on', prev);
-      btn.setAttribute('aria-checked', prev ? 'true' : 'false');
-      if (window.toast) toast((res.data && res.data.message) || 'Lỗi', 'error');
-      return;
-    }
-    btn.title = next ? 'Đang hiện học phí trên PWA — bấm để ẩn' : 'Đang ẩn học phí trên PWA — bấm để hiện';
-  })
-  .catch(function(){
-    // rollback nếu lỗi mạng
-    btn.dataset.state = prev ? '1' : '0';
-    btn.classList.toggle('on', prev);
-    btn.setAttribute('aria-checked', prev ? 'true' : 'false');
-    if (window.toast) toast('Lỗi mạng', 'error');
-  })
-  .finally(function(){ btn.disabled = false; });
-});
+// Toggle show_fees: dùng chung ajaxSubmit (form data-optimistic-toggle data-no-reload)
 
 // Chọn lớp -> tự fill đơn giá mặc định của lớp đó
 function fillClassPrice(sel){

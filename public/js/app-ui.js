@@ -187,7 +187,22 @@ async function ajaxSubmit(form){
   clearFormErrors(form);
   var btn = form.querySelector('button[type=submit], [data-submit]');
   var oldBtnText = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.classList.add('is-loading'); }
+
+  // Toggle switch: lật trạng thái ngay (optimistic), rollback nếu lỗi.
+  // Không hiện spinner "is-loading" trên switch cho đỡ giật.
+  var toggle = form.hasAttribute('data-optimistic-toggle') ? form.querySelector('.switch') : null;
+  var toggleWas = toggle ? toggle.classList.contains('on') : null;
+  if (toggle) {
+    toggle.classList.toggle('on', !toggleWas);
+    toggle.setAttribute('aria-checked', (!toggleWas).toString());
+  }
+  if (btn) { btn.disabled = true; if (!toggle) btn.classList.add('is-loading'); }
+
+  var rollbackToggle = function () {
+    if (!toggle) return;
+    toggle.classList.toggle('on', toggleWas);
+    toggle.setAttribute('aria-checked', toggleWas.toString());
+  };
 
   var data = new FormData(form);
   var method = (data.get('_method') || form.getAttribute('method') || 'POST').toUpperCase();
@@ -213,6 +228,7 @@ async function ajaxSubmit(form){
     var body = ctype.indexOf('application/json') !== -1 ? await res.json() : null;
 
     if (res.status === 422) {
+      rollbackToggle();
       showFieldErrors(form, body && body.errors ? body.errors : {});
       var firstMsg = body && body.message ? body.message : 'Dữ liệu chưa hợp lệ';
       if (window.toast) toast(firstMsg, 'error');
@@ -220,6 +236,7 @@ async function ajaxSubmit(form){
     }
 
     if (!res.ok) {
+      rollbackToggle();
       var emsg = (body && (body.message || body.error)) || ('Lỗi ' + res.status);
       if (window.toast) toast(emsg, 'error');
       return false;
@@ -228,6 +245,10 @@ async function ajaxSubmit(form){
     var ok = body && body.ok ? body.ok : '';
     if (ok && !form.hasAttribute('data-no-toast') && window.toast) toast(ok, 'success');
 
+    // data-no-reload: giữ nguyên trang (dùng cho toggle/switch — state đã lật optimistic)
+    if (form.hasAttribute('data-no-reload')) {
+      return true;
+    }
     if (form.hasAttribute('data-reload') || (body && body.reload)) {
       window.location.reload();
       return true;
@@ -240,6 +261,7 @@ async function ajaxSubmit(form){
     window.location.reload();
     return true;
   } catch (e) {
+    rollbackToggle();
     if (window.toast) toast('Lỗi mạng — vui lòng thử lại', 'error');
     return false;
   } finally {

@@ -4,7 +4,7 @@
     <div class="mh"><h3>Ghi nhận đóng tiền</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
     <div class="mb">
       <div class="field"><label>Học sinh <span style="color:var(--red)">*</span></label>
-        <div class="ssel" data-url="{{ route('api.students.search') }}" id="pay-ssel">
+        <div class="ssel" data-url="{{ route('api.students.search', [], false) }}" id="pay-ssel">
           <input type="hidden" name="student_id" id="pay-student-id">
           <input class="ssel-input" id="pay-student-input" placeholder="Gõ tên / mã học sinh..." autocomplete="off">
           <div class="ssel-list"></div>
