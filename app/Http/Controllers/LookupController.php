@@ -139,6 +139,7 @@ class LookupController extends Controller
             'payments' => $student->payments,
             'comments' => $comments,
             'lessons' => $lessons,
+            'showFees' => (bool) ($student->show_fees ?? true),
         ];
     }
 

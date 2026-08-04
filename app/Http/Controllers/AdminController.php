@@ -55,9 +55,12 @@ class AdminController extends Controller
             $query->where('status', $status);
         }
 
-        $teachers = $query->orderByDesc('id')->paginate(10)->withQueryString();
+        $teachers = $query->orderByDesc('id')->paginate(10)
+            ->withPath(route('admin.teachers'))->appends($request->query());
 
-        return view('admin.teachers', compact('teachers', 'q', 'status'));
+        return $request->boolean('partial')
+            ? view('admin.partials.teachers-list', compact('teachers'))
+            : view('admin.teachers', compact('teachers', 'q', 'status'));
     }
 
     /* ===================== Chi tiết / quản lý giáo viên ===================== */
@@ -72,18 +75,30 @@ class AdminController extends Controller
         return view('admin.teacher', compact('teacher', 'plans', 'recentOrders'));
     }
 
+    /** Fragment: thân trang chi tiết GV (AJAX refetch). */
+    public function teacherShowPartial(int $id)
+    {
+        $teacher = User::withCount(['classes', 'students'])
+            ->with(['subscription.plan'])
+            ->findOrFail($id);
+        $plans = Plan::active()->orderBy('price')->get();
+        $recentOrders = PlanOrder::where('user_id', $teacher->id)->with('plan')->latest('id')->limit(5)->get();
+
+        return view('admin.partials.teacher-body', compact('teacher', 'plans', 'recentOrders'));
+    }
+
     /** Khoá / mở tài khoản giáo viên. */
-    public function toggleStatus(int $id)
+    public function toggleStatus(Request $request, int $id)
     {
         $teacher = User::findOrFail($id);
         if ($teacher->id === auth()->id()) {
-            return back()->withErrors(['email' => 'Không thể tự khoá tài khoản của chính mình.']);
+            return $this->respondError($request, 'email', 'Không thể tự khoá tài khoản của chính mình.');
         }
 
         $teacher->status = $teacher->status === 'locked' ? 'active' : 'locked';
         $teacher->save();
 
-        return back()->with('ok', $teacher->status === 'locked'
+        return $this->respondOk($request, $teacher->status === 'locked'
             ? 'Đã khoá tài khoản “' . $teacher->name . '”.'
             : 'Đã mở khoá tài khoản “' . $teacher->name . '”.');
     }
@@ -93,13 +108,13 @@ class AdminController extends Controller
     {
         $teacher = User::findOrFail($id);
         if ($teacher->id === auth()->id()) {
-            return back()->withErrors(['email' => 'Không thể tự đổi quyền của chính mình.']);
+            return $this->respondError($request, 'email', 'Không thể tự đổi quyền của chính mình.');
         }
 
         $data = $request->validate(['role' => ['required', 'in:owner,super_admin']]);
         $teacher->update(['role' => $data['role']]);
 
-        return back()->with('ok', 'Đã đổi quyền “' . $teacher->name . '” thành ' . $data['role'] . '.');
+        return $this->respondOk($request, 'Đã đổi quyền “' . $teacher->name . '” thành ' . $data['role'] . '.');
     }
 
     /** Đặt lại mật khẩu cho giáo viên. */
@@ -109,7 +124,7 @@ class AdminController extends Controller
         $data = $request->validate(['password' => ['required', 'confirmed', Password::min(6)]]);
         $teacher->update(['password' => $data['password']]); // tự hash nhờ cast 'hashed'
 
-        return back()->with('ok', 'Đã đặt lại mật khẩu cho “' . $teacher->name . '”.');
+        return $this->respondOk($request, 'Đã đặt lại mật khẩu cho “' . $teacher->name . '”.');
     }
 
     /* ===================== Tạo tài khoản giáo viên mới ===================== */
@@ -185,7 +200,7 @@ class AdminController extends Controller
         }
         $sub->save();
 
-        return back()->with('ok', 'Đã đặt gói '.$plan->name.' cho “'.$teacher->name.'”.');
+        return $this->respondOk($request, 'Đã đặt gói '.$plan->name.' cho “'.$teacher->name.'”.');
     }
 
     /* ===================== Duyệt thanh toán ===================== */
@@ -200,14 +215,16 @@ class AdminController extends Controller
 
         $pendingCount = PlanOrder::where('status', 'pending')->count();
 
-        return view('admin.payments', compact('orders', 'status', 'pendingCount'));
+        return $request->boolean('partial')
+            ? view('admin.partials.payments-list', compact('orders', 'pendingCount'))
+            : view('admin.payments', compact('orders', 'status', 'pendingCount'));
     }
 
-    public function approvePayment(int $id)
+    public function approvePayment(Request $request, int $id)
     {
         $order = PlanOrder::with(['user', 'plan'])->findOrFail($id);
         if ($order->status !== 'pending') {
-            return back()->withErrors(['order' => 'Đơn không ở trạng thái chờ.']);
+            return $this->respondError($request, 'order', 'Đơn không ở trạng thái chờ.');
         }
 
         DB::transaction(function () use ($order) {
@@ -228,14 +245,14 @@ class AdminController extends Controller
             $sub->save();
         });
 
-        return back()->with('ok', 'Đã duyệt đơn '.$order->code.' và kích hoạt gói.');
+        return $this->respondOk($request, 'Đã duyệt đơn '.$order->code.' và kích hoạt gói.');
     }
 
     public function rejectPayment(Request $request, int $id)
     {
         $order = PlanOrder::findOrFail($id);
         if ($order->status !== 'pending') {
-            return back()->withErrors(['order' => 'Đơn không ở trạng thái chờ.']);
+            return $this->respondError($request, 'order', 'Đơn không ở trạng thái chờ.');
         }
         $data = $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
         $order->update([
@@ -243,6 +260,6 @@ class AdminController extends Controller
             'rejected_reason' => $data['reason'] ?? null,
         ]);
 
-        return back()->with('ok', 'Đã từ chối đơn '.$order->code.'.');
+        return $this->respondOk($request, 'Đã từ chối đơn '.$order->code.'.');
     }
 }

@@ -410,6 +410,7 @@ class TeacherController extends Controller
         $classId = (int) $request->get('class_id');
         $payStatus = $request->get('pay_status'); // paid | unpaid
         $status = $request->has('status') ? $request->get('status') : 'active'; // active | inactive | '' (tất cả)
+        $feeVisibility = $request->get('fee_visibility'); // shown | hidden | '' (tất cả)
         $q = trim((string) $request->get('q'));
 
         $query = Student::where('teacher_id', $tid)->with(['classStudents.classroom']);
@@ -418,6 +419,11 @@ class TeacherController extends Controller
         }
         if ($status === 'active' || $status === 'inactive') {
             $query->where('status', $status);
+        }
+        if ($feeVisibility === 'shown') {
+            $query->where('show_fees', true);
+        } elseif ($feeVisibility === 'hidden') {
+            $query->where('show_fees', false);
         }
         if ($q !== '') {
             $query->where(fn ($x) => $x->where('full_name', 'like', "%{$q}%")->orWhere('student_code', 'like', "%{$q}%"));
@@ -456,7 +462,7 @@ class TeacherController extends Controller
 
         $classList = Classroom::where('teacher_id', $tid)->orderBy('id')->get();
 
-        return compact('students', 'classList', 'classId', 'status', 'payStatus', 'q');
+        return compact('students', 'classList', 'classId', 'status', 'payStatus', 'feeVisibility', 'q');
     }
 
     /* ===================== Hồ sơ học sinh ===================== */
@@ -1053,6 +1059,20 @@ class TeacherController extends Controller
         return $this->respondOk($request, $msg);
     }
 
+    /** Bật/tắt hiển thị học phí (card học phí + đóng tiền gần đây) trên trang PWA phụ huynh. */
+    public function toggleShowFees(Request $request, int $id)
+    {
+        $tid = $this->tid();
+        $student = Student::where('teacher_id', $tid)->findOrFail($id);
+        $student->update(['show_fees' => ! $student->show_fees]);
+
+        $msg = $student->show_fees
+            ? 'Đã bật hiển thị học phí trên trang PH của "'.$student->full_name.'".'
+            : 'Đã ẩn học phí trên trang PH của "'.$student->full_name.'".';
+
+        return $this->respondOk($request, $msg);
+    }
+
     /* ===================== Ghi nhận đóng tiền ===================== */
     public function storePayment(Request $request)
     {
@@ -1582,6 +1602,12 @@ class TeacherController extends Controller
     public function qrSettings()
     {
         return view('teacher.settings-qr', ['me' => auth()->user()]);
+    }
+
+    /** Fragment: form + preview QR (AJAX refetch). */
+    public function qrSettingsPartial()
+    {
+        return view('teacher.partials.settings-qr-body', ['me' => auth()->user()]);
     }
 
     public function updateQrSettings(Request $request)

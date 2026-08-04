@@ -1,7 +1,7 @@
 @use('App\Support\Money')
 <div class="tablewrap">
 <table>
-  <thead><tr><th>Học sinh</th><th>Lớp</th><th>SĐT phụ huynh</th><th>Mã tra cứu</th><th>Công nợ</th><th></th></tr></thead>
+  <thead><tr><th>Học sinh</th><th>Lớp</th><th>SĐT phụ huynh</th><th>Mã tra cứu</th><th>Công nợ</th><th>Hiện học phí PH</th><th></th></tr></thead>
   <tbody>
     @forelse ($students as $row)
       <tr>
@@ -27,10 +27,21 @@
           @if ($row->balance > 0)<span class="chip r">−{{ Money::vnd($row->balance) }}</span>
           @else<span class="chip g">Đã đóng</span>@endif
         </td>
+        <td>
+          <button type="button"
+                  class="switch fee-toggle {{ $row->student->show_fees ? 'on' : '' }}"
+                  role="switch"
+                  aria-checked="{{ $row->student->show_fees ? 'true' : 'false' }}"
+                  data-url="{{ route('teacher.students.toggleShowFees', $row->student->id) }}"
+                  data-state="{{ $row->student->show_fees ? '1' : '0' }}"
+                  title="{{ $row->student->show_fees ? 'Đang hiện học phí trên PWA — bấm để ẩn' : 'Đang ẩn học phí trên PWA — bấm để hiện' }}">
+            <span class="switch-knob"></span>
+          </button>
+        </td>
         <td style="text-align:right"><a class="btn ghost sm" href="{{ route('teacher.student', $row->student->id) }}">Chi tiết</a></td>
       </tr>
     @empty
-      <tr><td colspan="6" class="r" style="padding:18px 16px">Không có học sinh phù hợp bộ lọc.</td></tr>
+      <tr><td colspan="7" class="r" style="padding:18px 16px">Không có học sinh phù hợp bộ lọc.</td></tr>
     @endforelse
   </tbody>
 </table>

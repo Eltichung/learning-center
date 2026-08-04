@@ -73,6 +73,7 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
     Route::post('/students', [TeacherController::class, 'storeStudent'])->name('teacher.students.store');
     Route::put('/students/{id}', [TeacherController::class, 'updateStudent'])->name('teacher.students.update');
     Route::put('/students/{id}/status', [TeacherController::class, 'toggleStudentStatus'])->name('teacher.students.toggleStatus');
+    Route::put('/students/{id}/show-fees', [TeacherController::class, 'toggleShowFees'])->name('teacher.students.toggleShowFees');
     Route::get('/students/{id}', [TeacherController::class, 'studentShow'])->name('teacher.student');
     Route::get('/students/{id}/partial', [TeacherController::class, 'studentShowPartial'])->name('teacher.student.partial');
     Route::post('/students/{id}/comments', [TeacherController::class, 'storeComment'])->name('teacher.student.comments.store');
@@ -103,6 +104,7 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
 
     // Cài đặt QR chuyển khoản của giáo viên
     Route::get('/settings/qr', [TeacherController::class, 'qrSettings'])->name('teacher.settings.qr');
+    Route::get('/settings/qr/partial', [TeacherController::class, 'qrSettingsPartial'])->name('teacher.settings.qr.partial');
     Route::post('/settings/qr', [TeacherController::class, 'updateQrSettings'])->name('teacher.settings.qr.update');
 
     // AJAX
@@ -126,6 +128,7 @@ Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group
     Route::get('/teachers/create', [AdminController::class, 'createTeacher'])->name('teachers.create');
     Route::post('/teachers', [AdminController::class, 'storeTeacher'])->name('teachers.store');
     Route::get('/teachers/{id}', [AdminController::class, 'teacherShow'])->name('teacher');
+    Route::get('/teachers/{id}/partial', [AdminController::class, 'teacherShowPartial'])->name('teacher.partial');
     Route::put('/teachers/{id}/status', [AdminController::class, 'toggleStatus'])->name('teacher.toggleStatus');
     Route::put('/teachers/{id}/role', [AdminController::class, 'changeRole'])->name('teacher.role');
     Route::put('/teachers/{id}/password', [AdminController::class, 'resetPassword'])->name('teacher.password');
