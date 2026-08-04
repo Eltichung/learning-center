@@ -28,15 +28,17 @@
           @else<span class="chip g">Đã đóng</span>@endif
         </td>
         <td>
-          <button type="button"
-                  class="switch fee-toggle {{ $row->student->show_fees ? 'on' : '' }}"
-                  role="switch"
-                  aria-checked="{{ $row->student->show_fees ? 'true' : 'false' }}"
-                  data-url="{{ route('teacher.students.toggleShowFees', $row->student->id) }}"
-                  data-state="{{ $row->student->show_fees ? '1' : '0' }}"
-                  title="{{ $row->student->show_fees ? 'Đang hiện học phí trên PWA — bấm để ẩn' : 'Đang ẩn học phí trên PWA — bấm để hiện' }}">
-            <span class="switch-knob"></span>
-          </button>
+          <form method="POST" action="{{ route('teacher.students.toggleShowFees', $row->student->id, false) }}"
+                data-optimistic-toggle data-no-reload data-no-toast style="margin:0">
+            @csrf @method('PUT')
+            <button type="submit"
+                    class="switch {{ $row->student->show_fees ? 'on' : '' }}"
+                    role="switch"
+                    aria-checked="{{ $row->student->show_fees ? 'true' : 'false' }}"
+                    title="{{ $row->student->show_fees ? 'Đang hiện học phí trên PWA — bấm để ẩn' : 'Đang ẩn học phí trên PWA — bấm để hiện' }}">
+              <span class="switch-knob"></span>
+            </button>
+          </form>
         </td>
         <td style="text-align:right"><a class="btn ghost sm" href="{{ route('teacher.student', $row->student->id) }}">Chi tiết</a></td>
       </tr>

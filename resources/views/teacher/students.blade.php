@@ -74,50 +74,7 @@ function copyLookup(url, el){
     fail();
   }
 }
-// Toggle show_fees qua AJAX — switch inline, không confirm, không reload
-document.addEventListener('click', function(e){
-  var btn = e.target.closest('.fee-toggle');
-  if (!btn || btn.disabled) return;
-
-  // Optimistic UI: toggle ngay, rollback nếu server báo lỗi
-  var prev = btn.dataset.state === '1';
-  var next = !prev;
-  btn.dataset.state = next ? '1' : '0';
-  btn.classList.toggle('on', next);
-  btn.setAttribute('aria-checked', next ? 'true' : 'false');
-  btn.disabled = true;
-
-  var fd = new FormData();
-  fd.append('_token', document.querySelector('meta[name=csrf-token]').content);
-  fd.append('_method', 'PUT');
-
-  fetch(btn.dataset.url, {
-    method: 'POST',
-    body: fd,
-    credentials: 'same-origin',
-    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-  })
-  .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
-  .then(function(res){
-    if (!res.ok) {
-      // rollback
-      btn.dataset.state = prev ? '1' : '0';
-      btn.classList.toggle('on', prev);
-      btn.setAttribute('aria-checked', prev ? 'true' : 'false');
-      if (window.toast) toast((res.data && res.data.message) || 'Lỗi', 'error');
-      return;
-    }
-    btn.title = next ? 'Đang hiện học phí trên PWA — bấm để ẩn' : 'Đang ẩn học phí trên PWA — bấm để hiện';
-  })
-  .catch(function(){
-    // rollback nếu lỗi mạng
-    btn.dataset.state = prev ? '1' : '0';
-    btn.classList.toggle('on', prev);
-    btn.setAttribute('aria-checked', prev ? 'true' : 'false');
-    if (window.toast) toast('Lỗi mạng', 'error');
-  })
-  .finally(function(){ btn.disabled = false; });
-});
+// Toggle show_fees: dùng chung ajaxSubmit (form data-optimistic-toggle data-no-reload)
 
 // Chọn lớp -> tự fill đơn giá mặc định của lớp đó
 function fillClassPrice(sel){
