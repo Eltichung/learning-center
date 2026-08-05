@@ -165,9 +165,11 @@ class AdminController extends Controller
                 'plan_id' => $plan->id,
                 'status' => $plan->slug === 'trial' ? 'trial' : 'active',
                 'started_at' => now()->toDateString(),
-                'current_period_end' => in_array($plan->slug, ['trial', 'vip'], true)
-                    ? null
-                    : now()->addMonths($months)->toDateString(),
+                'current_period_end' => match ($plan->slug) {
+                    'vip' => null,                                        // VIP vô hạn
+                    'trial' => now()->addMonths(2)->toDateString(),       // Trial free 2 tháng
+                    default => now()->addMonths($months)->toDateString(), // gói trả phí
+                },
             ]);
         });
 
@@ -190,8 +192,10 @@ class AdminController extends Controller
         $sub->plan_id = $plan->id;
         $sub->status = $plan->slug === 'trial' ? 'trial' : 'active';
         $sub->started_at = $sub->started_at ?: now()->toDateString();
-        if (in_array($plan->slug, ['trial', 'vip'], true)) {
-            $sub->current_period_end = null;
+        if ($plan->slug === 'vip') {
+            $sub->current_period_end = null;                              // VIP vô hạn
+        } elseif ($plan->slug === 'trial') {
+            $sub->current_period_end = now()->addMonths(2)->toDateString(); // Trial free 2 tháng
         } else {
             $base = ($sub->current_period_end && Carbon::parse($sub->current_period_end)->isFuture())
                 ? Carbon::parse($sub->current_period_end)

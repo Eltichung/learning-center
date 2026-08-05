@@ -14,14 +14,20 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'email', 'phone', 'password',
         'role', 'tenant_id', 'account_prefix', 'status',
-        'qr_image_path',
+        'qr_image_path', 'last_backup_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
     {
-        return ['password' => 'hashed'];
+        return ['password' => 'hashed', 'last_backup_at' => 'datetime'];
+    }
+
+    /** Đã sao lưu dữ liệu trong hôm nay chưa (theo giờ VN)? */
+    public function backedUpToday(): bool
+    {
+        return $this->last_backup_at !== null && $this->last_backup_at->isToday();
     }
 
     // Một giáo viên có nhiều lớp / học sinh / thanh toán
@@ -41,8 +47,8 @@ class User extends Authenticatable
     {
         $sub = $this->subscription;
         if ($sub && $sub->plan) {
-            // Trial/VIP luôn xem là "còn hạn"; các plan trả phí phải còn ngày.
-            if (in_array($sub->plan->slug, ['trial', 'vip'], true) || $this->subscriptionActive()) {
+            // VIP luôn còn hạn; Trial + gói trả phí phải còn ngày (current_period_end).
+            if ($sub->plan->slug === 'vip' || $this->subscriptionActive()) {
                 return $sub->plan;
             }
         }
@@ -57,8 +63,8 @@ class User extends Authenticatable
         if (! $sub || ! $sub->plan) {
             return true; // chưa có sub → treat như trial mặc định
         }
-        if (in_array($sub->plan->slug, ['trial', 'vip'], true)) {
-            return true;
+        if ($sub->plan->slug === 'vip') {
+            return true; // chỉ VIP là vô hạn; Trial nay có hạn 2 tháng
         }
         if (! $sub->current_period_end) {
             return false;
@@ -71,8 +77,8 @@ class User extends Authenticatable
     public function subscriptionDaysLeft(): ?int
     {
         $sub = $this->subscription;
-        if (! $sub || ! $sub->plan || in_array($sub->plan->slug, ['trial', 'vip'], true)) {
-            return null;
+        if (! $sub || ! $sub->plan || $sub->plan->slug === 'vip') {
+            return null; // VIP vô hạn; Trial nay cũng đếm ngày còn lại như gói trả phí
         }
         if (! $sub->current_period_end) {
             return null;

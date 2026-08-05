@@ -89,6 +89,19 @@ a{color:inherit}
 .tnav a:hover{background:#1e212a;color:#fff}
 .tnav a.on{background:var(--brand);color:#fff;font-weight:600}
 .tnav .ic{width:18px;text-align:center}
+/* Menu 2 cấp (Cài đặt) */
+.tnav-group{margin-bottom:2px}
+.tnav-group>summary{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:13.5px;color:#cbd2e0;cursor:pointer;list-style:none;-webkit-user-select:none;user-select:none}
+.tnav-group>summary::-webkit-details-marker{display:none}
+.tnav-group>summary::after{content:'▸';margin-left:auto;font-size:11px;opacity:.65;transition:transform .15s}
+.tnav-group[open]>summary::after{transform:rotate(90deg)}
+.tnav-group>summary:hover{background:#1e212a;color:#fff}
+.tnav-group>summary.on{color:#fff;font-weight:600}
+.tnav-group>summary .ic{width:18px;text-align:center}
+.tnav-sub{margin:2px 0 2px 24px;display:flex;flex-direction:column;gap:2px}
+.tnav-sub a{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;color:#cbd2e0;text-decoration:none}
+.tnav-sub a:hover{background:#1e212a;color:#fff}
+.tnav-sub a.on{background:var(--brand);color:#fff;font-weight:600}
 .tmain{padding:26px 30px}
 .pagehead{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px}
 .pagehead h1{font-size:20px;margin:0}

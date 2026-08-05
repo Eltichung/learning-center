@@ -15,7 +15,7 @@ class PlanSeeder extends Seeder
                 'slug' => 'trial',
                 'name' => 'Dùng thử',
                 'price' => 0,
-                'limits' => ['classes' => 1, 'students' => 5],
+                'limits' => ['classes' => 1, 'students' => 10],
                 'is_public' => true,
             ],
             [

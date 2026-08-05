@@ -15,8 +15,9 @@
     <p>
       Đang dùng: <b>{{ $current->name }}</b>
       @if ($current->slug === 'vip')<span class="chip p" style="margin-left:6px">👑 Gói đặc biệt</span>@endif
-      @if ($sub && $sub->current_period_end && ! in_array($current->slug, ['trial','vip']))
-        · Hạn dùng đến {{ \Illuminate\Support\Carbon::parse($sub->current_period_end)->format('d/m/Y') }}
+      @if ($sub && $sub->current_period_end && $current->slug !== 'vip')
+        · {{ $current->slug === 'trial' ? 'Dùng thử miễn phí đến' : 'Hạn dùng đến' }}
+        {{ \Illuminate\Support\Carbon::parse($sub->current_period_end)->format('d/m/Y') }}
       @endif
       · Đổi gói bất cứ lúc nào, huỷ ngang không mất phí.
     </p>
@@ -56,12 +57,12 @@
     'sub' => 'Vừa đủ để cảm giác trước khi cam kết',
     'perDay' => null,
     'feats' => [
-      '👥 1 lớp · 5 học sinh',
-      '⏰ Không giới hạn thời gian, xài mãi',
+      '👥 1 lớp · 10 học sinh',
+      '🎁 Miễn phí 2 tháng đầu',
       '💯 Đầy đủ chức năng cốt lõi',
       '📱 Có PWA cho phụ huynh',
     ],
-    'footer' => 'Đủ để mở 1 lớp gia sư 1-1 hoặc nhóm 3-5 em.',
+    'footer' => 'Đủ để mở 1 lớp gia sư 1-1 hoặc nhóm tới 10 em, dùng thử 2 tháng.',
   ],
   'plus' => [
     'tagline' => 'GV dạy thêm tại nhà',

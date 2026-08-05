@@ -7,6 +7,7 @@
     $rn === 'teacher.fees' => 'fees',
     $rn === 'teacher.reports' => 'reports',
     in_array($rn, ['teacher.settings.qr', 'teacher.settings.qr.update']) => 'settings-qr',
+    in_array($rn, ['teacher.settings.backup', 'teacher.settings.backup.download']) => 'settings-backup',
     in_array($rn, ['teacher.lessons', 'teacher.lessons.save']) => 'lessons',
     $rn === 'parent.search' => 'p-search',
     $rn === 'parent.info' => 'p-info',
@@ -62,8 +63,16 @@
     <a href="{{ route('teacher.lessons') }}"    class="{{ $active==='lessons'    ? 'on':'' }}"><span class="ic">📚</span> Giáo án</a>
     <a href="{{ route('teacher.fees') }}"       class="{{ $active==='fees'       ? 'on':'' }}"><span class="ic">💰</span> Học phí &amp; công nợ</a>
     <a href="{{ route('teacher.reports') }}"    class="{{ $active==='reports'    ? 'on':'' }}"><span class="ic">📊</span> Báo cáo</a>
-    <a href="{{ route('teacher.settings.qr') }}" class="{{ $active==='settings-qr' ? 'on':'' }}"><span class="ic">🏦</span> QR chuyển khoản</a>
-    <a href="{{ route('billing.index') }}" class="{{ \Illuminate\Support\Str::startsWith((string) $rn, 'billing.') ? 'on' : '' }}"><span class="ic">💳</span> Gói / Nâng cấp</a>
+    @php($billingActive = \Illuminate\Support\Str::startsWith((string) $rn, 'billing.'))
+    @php($settingsOpen = in_array($active, ['settings-qr', 'settings-backup']) || $billingActive)
+    <details class="tnav-group" {{ $settingsOpen ? 'open' : '' }}>
+      <summary class="{{ $settingsOpen ? 'on' : '' }}"><span class="ic">⚙️</span> Cài đặt</summary>
+      <div class="tnav-sub">
+        <a href="{{ route('teacher.settings.qr') }}" class="{{ $active==='settings-qr' ? 'on':'' }}">🏦 QR chuyển khoản</a>
+        <a href="{{ route('teacher.settings.backup') }}" class="{{ $active==='settings-backup' ? 'on':'' }}">💾 Sao lưu dữ liệu</a>
+        <a href="{{ route('billing.index') }}" class="{{ $billingActive ? 'on':'' }}">💳 Gói / Nâng cấp</a>
+      </div>
+    </details>
   </nav>
 
   <div class="group">👨‍👩‍👧 Phụ huynh · Mobile</div>

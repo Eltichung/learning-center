@@ -13,6 +13,7 @@ use App\Models\Student;
 use App\Models\StudentComment;
 use App\Models\StudentSession;
 use App\Models\User;
+use App\Support\Csv;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -1636,6 +1637,211 @@ class TeacherController extends Controller
         }
 
         return $this->respondOk($request, 'Đã lưu cài đặt QR chuyển khoản.', route('teacher.settings.qr'));
+    }
+
+    /* ===================== Sao lưu dữ liệu ===================== */
+
+    /** Trang "Sao lưu": giới thiệu + nút tải (giới hạn 1 lần/ngày). */
+    public function backupSettings()
+    {
+        $me = auth()->user();
+
+        return view('teacher.settings-backup', [
+            'me' => $me,
+            'backedUpToday' => $me->backedUpToday(),
+            'lastBackupAt' => $me->last_backup_at,
+        ]);
+    }
+
+    /** Tải toàn bộ dữ liệu của giáo viên: 1 file .zip gồm nhiều CSV. Giới hạn 1 lần/ngày. */
+    public function exportBackup()
+    {
+        $me = auth()->user();
+
+        // Giới hạn: mỗi tài khoản chỉ tải 1 lần/ngày (reset 00:00 giờ VN).
+        if ($me->backedUpToday()) {
+            return redirect()->route('teacher.settings.backup')
+                ->with('error', 'Hôm nay bạn đã sao lưu lúc ' . $me->last_backup_at->format('H:i')
+                    . '. Có thể tải lại từ 00:00 ngày mai.');
+        }
+
+        $tid = $this->tid();
+
+        $students = Student::where('teacher_id', $tid)->orderBy('full_name')->get();
+        $studentIds = $students->pluck('id');
+
+        $classes = Classroom::where('teacher_id', $tid)->with('schedules')->orderBy('id')->get();
+        $classIds = $classes->pluck('id');
+        $classNameById = $classes->mapWithKeys(fn ($c) => [$c->id => $c->name]);
+
+        // hoc-sinh.csv
+        $csvStudents = Csv::toString(
+            ['Mã tra cứu', 'Họ tên', 'SĐT phụ huynh', 'Kênh liên lạc', 'Trường', 'Trạng thái', 'Hiện học phí PH', 'Ngày tạo'],
+            $students->map(fn ($s) => [
+                $s->student_code, $s->full_name, $s->parent_phone, $s->parent_contact, $s->school,
+                $s->status === 'active' ? 'Hoạt động' : 'Ngừng',
+                $s->show_fees ? 'Có' : 'Không',
+                optional($s->created_at)->format('d/m/Y'),
+            ])
+        );
+
+        // lop-hoc.csv
+        $csvClasses = Csv::toString(
+            ['Tên lớp', 'Khối', 'Loại', 'Trạng thái', 'Đơn giá mặc định', 'Lịch cố định', 'Khai giảng', 'Kết thúc'],
+            $classes->map(fn ($c) => [
+                $c->name, $c->grade, $c->typeLabel(), $c->statusLabel(), (int) $c->default_price,
+                $c->scheduleLabel(),
+                optional($c->start_date)->format('d/m/Y'),
+                optional($c->ended_at)->format('d/m/Y'),
+            ])
+        );
+
+        // ghi-danh.csv
+        $enrollments = ClassStudent::whereIn('class_id', $classIds)->with('student')->orderBy('class_id')->get();
+        $csvEnroll = Csv::toString(
+            ['Mã HS', 'Tên HS', 'Lớp', 'Đơn giá/buổi', 'Trạng thái', 'Ngày vào', 'Ngày rời'],
+            $enrollments->map(fn ($e) => [
+                optional($e->student)->student_code, optional($e->student)->full_name,
+                $classNameById[$e->class_id] ?? '',
+                (int) $e->price_per_session,
+                $e->status ?: '',
+                optional($e->joined_at)->format('d/m/Y'),
+                optional($e->left_at)->format('d/m/Y'),
+            ])
+        );
+
+        // buoi-hoc.csv
+        $sessions = ClassSession::whereIn('class_id', $classIds)->with('makeupFor')
+            ->orderBy('class_id')->orderBy('date')->get();
+        $csvSessions = Csv::toString(
+            ['Lớp', 'Ngày', 'Giờ', 'Loại', 'Bù cho ngày', 'Đã chốt điểm danh', 'Ghi chú'],
+            $sessions->map(fn ($ss) => [
+                $classNameById[$ss->class_id] ?? '',
+                optional($ss->date)->format('d/m/Y'),
+                ($ss->start_time && $ss->end_time) ? ($ss->start_time . '–' . $ss->end_time) : '',
+                $this->sessionTypeLabel($ss->type),
+                optional(optional($ss->makeupFor)->date)->format('d/m/Y'),
+                $ss->attendance_submitted_at ? 'Có' : '—',
+                $ss->note,
+            ])
+        );
+
+        // diem-danh.csv
+        $studSessions = StudentSession::whereIn('student_id', $studentIds)
+            ->with(['classSession.classroom', 'student'])->get()
+            ->sortBy(fn ($x) => optional(optional($x->classSession)->date)->toDateString())->values();
+        $csvAtt = Csv::toString(
+            ['Mã HS', 'Tên HS', 'Lớp', 'Ngày', 'Trạng thái', 'Tiền buổi'],
+            $studSessions->map(fn ($x) => [
+                optional($x->student)->student_code, optional($x->student)->full_name,
+                optional(optional($x->classSession)->classroom)->name,
+                optional(optional($x->classSession)->date)->format('d/m/Y'),
+                $this->attStatusLabel($x->status),
+                (int) $x->amount,
+            ])
+        );
+
+        // thanh-toan.csv
+        $payments = Payment::where('teacher_id', $tid)->with('student')->orderByDesc('paid_at')->get();
+        $csvPay = Csv::toString(
+            ['Mã HS', 'Tên HS', 'Số tiền', 'Hình thức', 'Ngày đóng', 'Ghi chú'],
+            $payments->map(fn ($p) => [
+                optional($p->student)->student_code, optional($p->student)->full_name,
+                (int) $p->amount,
+                $p->method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản',
+                optional($p->paid_at)->format('d/m/Y'),
+                $p->note,
+            ])
+        );
+
+        // nhan-xet.csv
+        $comments = StudentComment::where('teacher_id', $tid)->with('student')->orderByDesc('comment_date')->get();
+        $csvComments = Csv::toString(
+            ['Mã HS', 'Tên HS', 'Ngày', 'Nội dung'],
+            $comments->map(fn ($c) => [
+                optional($c->student)->student_code, optional($c->student)->full_name,
+                optional($c->comment_date)->format('d/m/Y'),
+                $c->body,
+            ])
+        );
+
+        // cong-no.csv
+        $balances = $this->balances($tid);
+        $chargedMap = StudentSession::whereIn('student_id', $studentIds)
+            ->selectRaw('student_id, SUM(amount) amt')->groupBy('student_id')->pluck('amt', 'student_id');
+        $paidMap = Payment::where('teacher_id', $tid)
+            ->selectRaw('student_id, SUM(amount) amt')->groupBy('student_id')->pluck('amt', 'student_id');
+        $csvDebt = Csv::toString(
+            ['Mã HS', 'Tên HS', 'Tổng đã học', 'Đã đóng', 'Còn nợ'],
+            $students->map(fn ($s) => [
+                $s->student_code, $s->full_name,
+                (int) ($chargedMap[$s->id] ?? 0),
+                (int) ($paidMap[$s->id] ?? 0),
+                (int) ($balances[$s->id] ?? 0),
+            ])
+        );
+
+        $today = now()->format('d/m/Y H:i');
+        $readme = "SAO LƯU DỮ LIỆU — Học Chưa?\n"
+            . 'Giáo viên: ' . auth()->user()->name . "\n"
+            . "Ngày xuất: {$today}\n\n"
+            . "Các file:\n"
+            . "- hoc-sinh.csv    : danh sách học sinh\n"
+            . "- lop-hoc.csv     : lớp học + lịch cố định\n"
+            . "- ghi-danh.csv    : học sinh thuộc lớp nào + đơn giá\n"
+            . "- buoi-hoc.csv    : các buổi học\n"
+            . "- diem-danh.csv   : lịch sử điểm danh\n"
+            . "- thanh-toan.csv  : lịch sử đóng tiền\n"
+            . "- nhan-xet.csv    : nhận xét học sinh\n"
+            . "- cong-no.csv     : tổng hợp công nợ\n\n"
+            . "File CSV mã hoá UTF-8, phân tách bằng dấu ';' — mở trực tiếp bằng Excel.\n";
+
+        // Đóng gói .zip (ext-zip)
+        $zip = new \ZipArchive();
+        $tmp = tempnam(sys_get_temp_dir(), 'backup_');
+        $zip->open($tmp, \ZipArchive::OVERWRITE);
+        $zip->addFromString('hoc-sinh.csv', $csvStudents);
+        $zip->addFromString('lop-hoc.csv', $csvClasses);
+        $zip->addFromString('ghi-danh.csv', $csvEnroll);
+        $zip->addFromString('buoi-hoc.csv', $csvSessions);
+        $zip->addFromString('diem-danh.csv', $csvAtt);
+        $zip->addFromString('thanh-toan.csv', $csvPay);
+        $zip->addFromString('nhan-xet.csv', $csvComments);
+        $zip->addFromString('cong-no.csv', $csvDebt);
+        $zip->addFromString('README.txt', $readme);
+        $zip->close();
+
+        // Ghi mốc sao lưu gần nhất (để giới hạn 1 lần/ngày) — chỉ sau khi tạo zip thành công.
+        $me->update(['last_backup_at' => now()]);
+
+        $prefix = $me->account_prefix ?: 'hocchua';
+        $fname = 'sao-luu_' . $prefix . '_' . now()->format('Y-m-d') . '.zip';
+
+        return response()->download($tmp, $fname, ['Content-Type' => 'application/zip'])->deleteFileAfterSend(true);
+    }
+
+    /** Nhãn tiếng Việt cho loại buổi học. */
+    private function sessionTypeLabel(?string $t): string
+    {
+        return match ($t) {
+            'regular' => 'Thường',
+            'makeup' => 'Học bù',
+            'boost' => 'Tăng cường',
+            'off' => 'Nghỉ',
+            default => (string) $t,
+        };
+    }
+
+    /** Nhãn tiếng Việt cho trạng thái điểm danh. */
+    private function attStatusLabel(?string $s): string
+    {
+        return match ($s) {
+            'present' => 'Có mặt',
+            'makeup' => 'Học bù',
+            'excused' => 'Có phép',
+            'absent' => 'Vắng',
+            default => (string) $s,
+        };
     }
 
     /* ===================== Báo cáo ===================== */

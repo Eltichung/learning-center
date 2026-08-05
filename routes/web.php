@@ -112,6 +112,12 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
     Route::get('/api/students/{id}/monthly', [TeacherController::class, 'studentMonthly'])->name('api.student.monthly');
 });
 
+/* ---------------- Cài đặt: Sao lưu dữ liệu — cho tải kể cả khi gói hết hạn (data portability) ---------------- */
+Route::middleware('auth')->group(function () {
+    Route::get('/settings/backup', [TeacherController::class, 'backupSettings'])->name('teacher.settings.backup');
+    Route::get('/settings/backup/download', [TeacherController::class, 'exportBackup'])->name('teacher.settings.backup.download');
+});
+
 /* ---------------- Mua gói (billing) — luôn cho vào, không cần active.sub ---------------- */
 Route::middleware('auth')->prefix('billing')->name('billing.')->group(function () {
     Route::get('/', [\App\Http\Controllers\BillingController::class, 'index'])->name('index');
