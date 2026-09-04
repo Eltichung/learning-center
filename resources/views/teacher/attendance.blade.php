@@ -12,13 +12,22 @@
       @endif
     </p>
   </div>
-  @if ($session && $session->type !== 'off')
-    @if ($session->attendance_submitted_at)
-      <span class="r" style="font-size:12.5px;color:var(--muted)" title="Bỏ điểm danh trước nếu muốn báo nghỉ">Đã điểm danh — không thể báo nghỉ</span>
-    @else
-      <button type="button" class="btn ghost" onclick="openOffModal('{{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}')">🔴 Báo cả lớp nghỉ</button>
+  <div style="display:flex;gap:8px;align-items:center">
+    @if ($session && $session->type !== 'off')
+      @if ($session->attendance_submitted_at)
+        <span class="r" style="font-size:12.5px;color:var(--muted)" title="Bỏ điểm danh trước nếu muốn báo nghỉ">Đã điểm danh — không thể báo nghỉ</span>
+      @else
+        <button type="button" class="btn ghost" onclick="openOffModal('{{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}')">🔴 Báo cả lớp nghỉ</button>
+      @endif
     @endif
-  @endif
+    @if ($session && ! $session->attendance_submitted_at)
+      <form method="POST" action="{{ route('teacher.sessions.delete', $session->id, false) }}"
+            data-confirm="Xóa buổi {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }} khỏi lịch? Chỉ xóa được buổi chưa điểm danh." style="display:inline;margin:0">
+        @csrf @method('DELETE')
+        <button type="submit" class="btn ghost" style="color:var(--red)">🗑 Xóa buổi</button>
+      </form>
+    @endif
+  </div>
 </div>
 
 <div class="filterbar">
@@ -115,7 +124,7 @@
           @switch($s->type)
             @case('boost') ( Tăng cường ) @break
             @case('makeup') ( Bù ) @break
-            @case('off') ( Nghỉ ){!! $offNoMakeup ? ' ⚠' : '' !!} @break
+            @case('off') ( {{ $s->offLabel() }} ){!! $offNoMakeup ? ' ⚠' : '' !!} @break
           @endswitch
           @if ($s->attendance_submitted_at)<span class="dot-done">✓</span>@endif
         </div>
@@ -284,6 +293,12 @@
     <div class="mh"><h3>Báo cả lớp nghỉ</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
     <div class="mb">
       <div class="note" style="margin-top:0">Buổi <b id="off-date"></b> sẽ được đánh dấu <b>nghỉ</b> — cả lớp không bị tính tiền buổi này.</div>
+      <div class="field"><label>Loại nghỉ</label>
+        <div style="display:flex;gap:18px;padding-top:2px">
+            <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;cursor:pointer"><input type="radio" name="off_kind" value="normal" checked><p style="min-width:100px"> Nghỉ thường </p></label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;cursor:pointer"><input type="radio" name="off_kind" value="holiday"> <p style="min-width:100px">Nghỉ lễ</p></label>
+        </div>
+      </div>
       <div class="field"><label>Lý do nghỉ (tuỳ chọn)</label>
         <input name="reason" placeholder="VD: Cô bận việc, nghỉ lễ..." autocomplete="off"></div>
       <div class="field"><label>Ngày học bù (tuỳ chọn)</label>

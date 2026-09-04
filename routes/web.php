@@ -77,6 +77,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/attendance/{session}/makeup', [TeacherController::class, 'addMakeup'])->name('teacher.attendance.makeup');
     Route::post('/attendance/{session}/no-makeup', [TeacherController::class, 'toggleNoMakeup'])->name('teacher.attendance.noMakeup');
     Route::post('/sessions', [TeacherController::class, 'createSession'])->name('teacher.sessions.create');
+    Route::delete('/sessions/{session}', [TeacherController::class, 'deleteSession'])->name('teacher.sessions.delete');
 
     // Giáo án
     Route::get('/lessons', [TeacherController::class, 'lessonsIndex'])->name('teacher.lessons');
