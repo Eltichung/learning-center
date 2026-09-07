@@ -1,7 +1,7 @@
 // Service worker tối giản cho PWA LớpThêm.
 // Chiến lược: cache-first cho file tĩnh (css/js/ảnh/font), network-first cho HTML
 // để không bao giờ hiện dữ liệu cũ hay trang của người khác.
-const CACHE = 'hocchua-v4';
+const CACHE = 'hocchua-v5';
 // Chỉ precache asset tĩnh — manifest.json bây giờ do Laravel trả về động, để network-first
 const PRECACHE = [
   '/favicon.svg',

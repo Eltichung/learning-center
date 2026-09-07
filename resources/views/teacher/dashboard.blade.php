@@ -88,7 +88,7 @@
                     <td>{{ $row->class->name }}@if ($row->boost)<span class="chip p" style="margin-left:6px;font-size:11px">Tăng cường</span>@elseif ($row->makeup)<span class="chip b" style="margin-left:6px;font-size:11px">Bù</span>@endif</td>
                     <td>{{ $row->count }} học sinh</td>
                     <td>
-                        @if ($row->off)<span class="chip r">Nghỉ</span>
+                        @if ($row->off)<span class="chip r">{{ $row->holiday ? 'Nghỉ lễ' : 'Nghỉ' }}</span>
                         @elseif ($row->done)<span class="chip g">Đã điểm danh</span>
                         @else<span class="chip a">Chưa điểm danh</span>@endif
                     </td>
@@ -196,6 +196,7 @@
                                     @switch($it->type)
                                         @case('boost')<span class="tkb-chip p">Tăng cường</span>@break
                                         @case('makeup')<span class="tkb-chip b">Bù</span>@break
+                                        @case('off')@if ($it->session && $it->session->off_kind === 'holiday')<span style="background:var(--amber-soft);color:var(--amber);font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">Nghỉ lễ</span>@endif @break
                                     @endswitch
                                 </div>
                                 <div class="s">{{ $it->classroom->class_students_count }} học sinh</div>
