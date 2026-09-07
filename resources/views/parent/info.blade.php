@@ -12,7 +12,26 @@
 <div class="pbody">
   @php($qrUrl = optional($student->teacher)->qr_image_path ? asset('storage/'.$student->teacher->qr_image_path) : null)
 
-  {{-- Nhận xét của giáo viên (3 mới nhất) — lên đầu để phụ huynh thấy con học thế nào trước --}}
+  @if ($showFees ?? true)
+  {{-- Học phí — đưa lên đầu tiên theo yêu cầu --}}
+  <div class="due-card {{ $balance > 0 ? 'has-due' : 'no-due' }}">
+    <div class="due-info">
+      <div class="due-total">Học phí</div>
+      @if ($balance > 0)
+        <div class="amt">{{ Money::vnd($balance) }}</div>
+        <div class="meta">{{ $unpaidSessions }} buổi chưa đóng × {{ Money::vnd($price) }}</div>
+      @else
+        <div class="amt no-debt">Đã đóng đủ ✓</div>
+        <div class="meta">Cảm ơn quý phụ huynh!</div>
+      @endif
+    </div>
+    @if ($qrUrl && $balance > 0)
+      <button type="button" class="due-qr-btn" onclick="openTeacherQr()">Chuyển khoản qua QR</button>
+    @endif
+  </div>
+  @endif
+
+  {{-- Nhận xét của giáo viên (3 mới nhất) --}}
   @if ($comments->isNotEmpty())
   <div class="pcard">
     <h4>📝 Nhận xét của giáo viên</h4>
@@ -106,23 +125,6 @@
   </div>
 
   @if ($showFees ?? true)
-  {{-- Học phí (thu gọn — không đặt ở đầu để tránh cảm giác đòi nợ) --}}
-  <div class="due-card {{ $balance > 0 ? 'has-due' : 'no-due' }}">
-    <div class="due-info">
-      <div class="due-total">Học phí</div>
-      @if ($balance > 0)
-        <div class="amt">{{ Money::vnd($balance) }}</div>
-        <div class="meta">{{ $unpaidSessions }} buổi chưa đóng × {{ Money::vnd($price) }}</div>
-      @else
-        <div class="amt no-debt">Đã đóng đủ ✓</div>
-        <div class="meta">Cảm ơn quý phụ huynh!</div>
-      @endif
-    </div>
-    @if ($qrUrl && $balance > 0)
-      <button type="button" class="due-qr-btn" onclick="openTeacherQr()">Chuyển khoản qua QR</button>
-    @endif
-  </div>
-
   {{-- Đóng tiền gần đây --}}
   <div class="pcard">
     <div class="pcard-head"><h4>🧾 Đóng tiền gần đây</h4><a class="linklike" href="{{ route('parent.history', $slug) }}">Tất cả →</a></div>

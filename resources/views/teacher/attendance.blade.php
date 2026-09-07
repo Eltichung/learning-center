@@ -13,14 +13,14 @@
     </p>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
-    @if ($session && $session->type !== 'off')
+    @if ($session && ! $session->trashed() && $session->type !== 'off')
       @if ($session->attendance_submitted_at)
         <span class="r" style="font-size:12.5px;color:var(--muted)" title="Bỏ điểm danh trước nếu muốn báo nghỉ">Đã điểm danh — không thể báo nghỉ</span>
       @else
         <button type="button" class="btn ghost" onclick="openOffModal('{{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}')">🔴 Báo cả lớp nghỉ</button>
       @endif
     @endif
-    @if ($session && ! $session->attendance_submitted_at)
+    @if ($session && ! $session->trashed() && ! $session->attendance_submitted_at)
       <form method="POST" action="{{ route('teacher.sessions.delete', $session->id, false) }}"
             data-confirm="Xóa buổi {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }} khỏi lịch? Chỉ xóa được buổi chưa điểm danh." style="display:inline;margin:0">
         @csrf @method('DELETE')
@@ -114,7 +114,9 @@
   <div class="tabs">
     @foreach ($sessions as $s)
       @php($offNoMakeup = $s->type === 'off' && (int) $s->makeups_count === 0 && ! $s->no_makeup)
+      @php($isTrashed = $s->trashed())
       <a class="tab {{ $session && $s->id === $session->id ? 'on' : '' }} {{ $offNoMakeup ? 'pending-makeup' : '' }}"
+         @if ($isTrashed) style="opacity:.55" @endif
          href="{{ $base }}?class_id={{ $class->id }}&week={{ $weekStart->toDateString() }}&session_id={{ $s->id }}"
          @if ($offNoMakeup) title="Buổi nghỉ chưa xếp lịch học bù"
          @elseif ($s->type === 'makeup' && $s->makeupFor) title="Bù cho buổi nghỉ {{ \Illuminate\Support\Carbon::parse($s->makeupFor->date)->format('d/m/Y') }}"
@@ -127,6 +129,7 @@
             @case('off') ( {{ $s->offLabel() }} ){!! $offNoMakeup ? ' ⚠' : '' !!} @break
           @endswitch
           @if ($s->attendance_submitted_at)<span class="dot-done">✓</span>@endif
+          @if ($isTrashed)<span style="color:var(--red);font-size:11px;font-weight:700"> 🗑 đã xóa</span>@endif
         </div>
         @if ($s->start_time && $s->end_time)
           <div class="tab-time">{{ \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') }}–{{ \Illuminate\Support\Carbon::parse($s->end_time)->format('H:i') }}</div>
@@ -135,7 +138,15 @@
     @endforeach
   </div>
 
-  @if ($session && $session->type !== 'off')
+  @if ($session && $session->trashed())
+    <div class="note" style="background:var(--red-soft);color:var(--red)">
+      🗑 Buổi {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}@if ($session->start_time) · {{ \Illuminate\Support\Carbon::parse($session->start_time)->format('H:i') }}–{{ \Illuminate\Support\Carbon::parse($session->end_time)->format('H:i') }}@endif đã bị <b>xóa</b>. Khôi phục để dùng lại (điểm danh / tính tiền).
+    </div>
+    <form method="POST" action="{{ route('teacher.sessions.restore', $session->id, false) }}" style="margin-top:6px">
+      @csrf
+      <button type="submit" class="btn primary">↩ Khôi phục buổi</button>
+    </form>
+  @elseif ($session && $session->type !== 'off')
     <div class="note">💡 Mặc định tất cả <b>Có mặt</b>. Có mặt / học bù / <b>vắng không phép</b> đều tính <b>1 buổi</b> theo đơn giá. Chỉ <b>vắng có phép</b> được miễn. Sửa người vắng rồi Lưu.</div>
 
     <div class="att-cols">

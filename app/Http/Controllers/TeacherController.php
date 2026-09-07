@@ -491,14 +491,26 @@ class TeacherController extends Controller
                 if ($day->gt($genLimit)) {
                     continue;
                 }
-                // Key theo (class_id, date, start_time) để hỗ trợ nhiều ca / ngày.
-                ClassSession::firstOrCreate(
-                    ['class_id' => $class->id, 'date' => $day->toDateString(), 'start_time' => $sc->start_time],
-                    ['end_time' => $sc->end_time, 'type' => 'regular']
-                );
+                // Key theo (class_id, date, start_time). Dùng withTrashed để KHÔNG tái sinh
+                // buổi đã xóa mềm (giữ nguyên trạng thái "đã xóa" để GV khôi phục).
+                $exists = ClassSession::withTrashed()
+                    ->where('class_id', $class->id)
+                    ->whereDate('date', $day->toDateString())
+                    ->where('start_time', $sc->start_time)
+                    ->exists();
+                if (! $exists) {
+                    ClassSession::create([
+                        'class_id' => $class->id,
+                        'date' => $day->toDateString(),
+                        'start_time' => $sc->start_time,
+                        'end_time' => $sc->end_time,
+                        'type' => 'regular',
+                    ]);
+                }
             }
 
-            $sessions = ClassSession::where('class_id', $class->id)
+            $sessions = ClassSession::withTrashed()
+                ->where('class_id', $class->id)
                 ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
                 ->withCount('makeups')
                 ->with('makeupFor')
@@ -728,6 +740,29 @@ class TeacherController extends Controller
         });
 
         return $this->respondOk($request, 'Đã xóa buổi ' . $date . '.', $redirectUrl);
+    }
+
+    /** Khôi phục buổi học đã xóa mềm. */
+    public function restoreSession(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::withTrashed()
+            ->whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->findOrFail($sessionId);
+
+        if ($session->trashed()) {
+            $session->restore();
+        }
+
+        return $this->respondOk(
+            $request,
+            'Đã khôi phục buổi ' . Carbon::parse($session->date)->format('d/m/Y') . '.',
+            route('teacher.attendance', [
+                'class_id' => $session->class_id,
+                'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
+                'session_id' => $session->id,
+            ])
+        );
     }
 
     /** Thêm buổi học bù cho một buổi đã báo nghỉ (xếp lịch bù sau khi nghỉ) */
