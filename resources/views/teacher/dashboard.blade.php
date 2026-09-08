@@ -88,7 +88,7 @@
                     <td>{{ $row->class->name }}@if ($row->boost)<span class="chip p" style="margin-left:6px;font-size:11px">Tăng cường</span>@elseif ($row->makeup)<span class="chip b" style="margin-left:6px;font-size:11px">Bù</span>@endif</td>
                     <td>{{ $row->count }} học sinh</td>
                     <td>
-                        @if ($row->off)<span class="chip r">Nghỉ</span>
+                        @if ($row->off)<span class="chip r">{{ $row->holiday ? 'Nghỉ lễ' : 'Nghỉ' }}</span>
                         @elseif ($row->done)<span class="chip g">Đã điểm danh</span>
                         @else<span class="chip a">Chưa điểm danh</span>@endif
                     </td>
@@ -173,39 +173,8 @@
 <div class="panel">
     <div class="ph"><h3>Thời khóa biểu tuần</h3><a class="btn ghost sm" href="{{ route('teacher.classes') }}">Quản lý lịch</a></div>
     <div class="pb">
-        <div class="tkb-wrap">
-            <div class="tkb">
-                @foreach (range(1,7) as $d)
-                    @php($dayDate = \Illuminate\Support\Carbon::parse($weekDates[$d]))
-                    <div class="tkb-col{{ $d === $todayWd ? ' today' : '' }}">
-                        <div class="tkb-day">{{ $wdShort[$d] }} · {{ $dayDate->format('d/m') }}</div>
-                        @forelse ($weekSlots[$d] as $it)
-                            @php($isDone = $it->session && $it->session->attendance_submitted_at)
-                            @php($isOff = $it->type === 'off')
-                            <a class="tkb-slot {{ $isDone ? 'is-done' : '' }} {{ $isOff ? 'is-off' : '' }}" href="{{ route('teacher.class', $it->class_id) }}">
-                                <div class="t">
-                                    <span>{{ \Illuminate\Support\Carbon::parse($it->start_time)->format('H:i') }} – {{ \Illuminate\Support\Carbon::parse($it->end_time)->format('H:i') }}</span>
-                                    @if ($isOff)
-                                        <span class="tkb-ic x" title="Đã nghỉ">✕</span>
-                                    @elseif ($isDone)
-                                        <span class="tkb-ic v" title="Đã điểm danh">✓</span>
-                                    @endif
-                                </div>
-                                <div class="c">
-                                    <span class="c-name">{{ $it->classroom->name }}</span>
-                                    @switch($it->type)
-                                        @case('boost')<span class="tkb-chip p">Tăng cường</span>@break
-                                        @case('makeup')<span class="tkb-chip b">Bù</span>@break
-                                    @endswitch
-                                </div>
-                                <div class="s">{{ $it->classroom->class_students_count }} học sinh</div>
-                            </a>
-                        @empty
-                            <div class="tkb-empty">—</div>
-                        @endforelse
-                    </div>
-                @endforeach
-            </div>
+        <div id="dash-tkb" data-partial-url="{{ route('teacher.dashboard.tkb', ['week' => $weekDates[1]]) }}">
+          @include('teacher.partials.dashboard-tkb', compact('weekSlots','weekDates'))
         </div>
     </div>
 </div>

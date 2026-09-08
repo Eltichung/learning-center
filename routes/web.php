@@ -56,6 +56,7 @@ Route::post('/logout', [AuthController::class, 'logout'])
 /* ---------------- Khu giáo viên (admin) — yêu cầu đăng nhập + sub còn hạn cho hành động ghi ---------------- */
 Route::middleware(['auth', 'active.sub'])->group(function () {
     Route::get('/dashboard', [TeacherController::class, 'dashboard'])->name('teacher.dashboard');
+    Route::get('/dashboard/tkb', [TeacherController::class, 'dashboardTkb'])->name('teacher.dashboard.tkb');
 
     Route::get('/classes', [TeacherController::class, 'classes'])->name('teacher.classes');
     Route::get('/classes/partial', [TeacherController::class, 'classesPartial'])->name('teacher.classes.partial');
@@ -87,6 +88,8 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
     Route::post('/attendance/{session}/makeup', [TeacherController::class, 'addMakeup'])->name('teacher.attendance.makeup');
     Route::post('/attendance/{session}/no-makeup', [TeacherController::class, 'toggleNoMakeup'])->name('teacher.attendance.noMakeup');
     Route::post('/sessions', [TeacherController::class, 'createSession'])->name('teacher.sessions.create');
+    Route::delete('/sessions/{session}', [TeacherController::class, 'deleteSession'])->name('teacher.sessions.delete');
+    Route::post('/sessions/{session}/restore', [TeacherController::class, 'restoreSession'])->name('teacher.sessions.restore');
 
     // Giáo án
     Route::get('/lessons', [TeacherController::class, 'lessonsIndex'])->name('teacher.lessons');
@@ -115,6 +118,7 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
 /* ---------------- Cài đặt: Sao lưu dữ liệu — cho tải kể cả khi gói hết hạn (data portability) ---------------- */
 Route::middleware('auth')->group(function () {
     Route::get('/settings/backup', [TeacherController::class, 'backupSettings'])->name('teacher.settings.backup');
+    Route::get('/settings/backup/partial', [TeacherController::class, 'backupSettingsPartial'])->name('teacher.settings.backup.partial');
     Route::get('/settings/backup/download', [TeacherController::class, 'exportBackup'])->name('teacher.settings.backup.download');
 });
 

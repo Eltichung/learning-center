@@ -37,6 +37,13 @@ class LookupController extends Controller
     public function show(string $slug)
     {
         $student = $this->resolve($slug);
+
+        // Đếm lượt phụ huynh tra cứu (bỏ qua khi chính GV đang đăng nhập mở preview).
+        // increment() = 1 UPDATE atomic, an toàn khi nhiều PH mở cùng lúc.
+        if (! auth()->check()) {
+            $student->increment('lookup_count', 1, ['last_viewed_at' => now()]);
+        }
+
         $info = $this->studentInfo($student);
         $weeks = $this->buildWeeks($student, 1, 1);
 

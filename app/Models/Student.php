@@ -14,7 +14,7 @@ class Student extends Model
         'show_fees',
     ];
 
-    protected $casts = ['dob' => 'date', 'show_fees' => 'boolean'];
+    protected $casts = ['dob' => 'date', 'show_fees' => 'boolean', 'last_viewed_at' => 'datetime'];
 
     public function teacher(): BelongsTo       { return $this->belongsTo(User::class, 'teacher_id'); }
     public function classStudents(): HasMany   { return $this->hasMany(ClassStudent::class); }

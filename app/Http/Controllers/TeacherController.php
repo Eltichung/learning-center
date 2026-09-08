@@ -150,6 +150,7 @@ class TeacherController extends Controller
                         'count' => $c->class_students_count,
                         'done' => (bool) ($session && $session->attendance_submitted_at),
                         'off' => (bool) ($session && $session->type === 'off'),
+                        'holiday' => (bool) ($session && $session->type === 'off' && $session->off_kind === 'holiday'),
                         'makeup' => (bool) ($session && $session->type === 'makeup'),
                         'boost' => (bool) ($session && $session->type === 'boost'),
                         'session_id' => $session?->id,
@@ -164,6 +165,7 @@ class TeacherController extends Controller
                         'count' => $c->class_students_count,
                         'done' => (bool) $session->attendance_submitted_at,
                         'off' => $session->type === 'off',
+                        'holiday' => $session->type === 'off' && $session->off_kind === 'holiday',
                         'makeup' => $session->type === 'makeup',
                         'boost' => $session->type === 'boost',
                         'session_id' => $session->id,
@@ -205,8 +207,31 @@ class TeacherController extends Controller
             ->get();
         $missedAttendanceCount = $missedAttendance->count();
 
-        // Thời khóa biểu tuần: gộp lịch cố định + buổi tạo thủ công trong tuần
-        $weekDates = collect(range(1, 7))->mapWithKeys(fn ($d) => [$d => now()->startOfWeek()->addDays($d - 1)->toDateString()]);
+        // Thời khóa biểu tuần — đổi tuần qua ?week (fragment #dash-tkb refetch)
+        $weekStart = request('week') ? Carbon::parse(request('week'))->startOfWeek() : now()->startOfWeek();
+        ['weekSlots' => $weekSlots, 'weekDates' => $weekDates] = $this->buildWeekSlots($tid, $weekStart);
+
+        return view('teacher.dashboard', compact(
+            'classesActive', 'studentsCount', 'todayClasses',
+            'revenueMonth', 'debtTotal', 'debtorCount', 'notDoneToday',
+            'pendingMakeups', 'pendingMakeupCount',
+            'missedAttendance', 'missedAttendanceCount',
+            'weekSlots', 'weekDates'
+        ));
+    }
+
+    /** Fragment TKB tuần (đổi tuần qua ?week) — refetch #dash-tkb trên dashboard, không reload cả trang. */
+    public function dashboardTkb(Request $request)
+    {
+        $weekStart = $request->get('week') ? Carbon::parse($request->get('week'))->startOfWeek() : now()->startOfWeek();
+
+        return view('teacher.partials.dashboard-tkb', $this->buildWeekSlots($this->tid(), $weekStart));
+    }
+
+    /** Dựng dữ liệu TKB tuần (weekSlots + weekDates) cho 1 tuần bất kỳ — dùng chung dashboard() + dashboardTkb(). */
+    private function buildWeekSlots(int $tid, Carbon $weekStart): array
+    {
+        $weekDates = collect(range(1, 7))->mapWithKeys(fn ($d) => [$d => $weekStart->copy()->addDays($d - 1)->toDateString()]);
         $fmtTime = fn ($t) => Carbon::parse($t)->format('H:i:s');
 
         $scheduleRows = ClassSchedule::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid)->where('status', 'active'))
@@ -222,17 +247,14 @@ class TeacherController extends Controller
             ->with(['classroom' => fn ($q) => $q->withCount('classStudents')])
             ->get();
 
-        // Set key (class_id|weekday|H:i:s) của các schedule cố định để detect session ad-hoc
         $schedKeySet = $scheduleRows->mapWithKeys(fn ($sc) => [
             $sc->class_id.'|'.$sc->weekday.'|'.$fmtTime($sc->start_time) => true,
         ]);
 
-        // Map session theo (class_id|date|H:i:s) để tra trạng thái điểm danh/nghỉ cho slot lịch cố định
         $weekSessionMap = $weekSessions->keyBy(
             fn ($s) => $s->class_id.'|'.Carbon::parse($s->date)->toDateString().'|'.$fmtTime($s->start_time)
         );
 
-        // Với mỗi ngày trong tuần: gom slot lịch cố định + slot ad-hoc, sort theo giờ
         $weekSlots = collect(range(1, 7))->mapWithKeys(function ($d) use ($scheduleRows, $weekSessions, $schedKeySet, $weekSessionMap, $weekDates, $fmtTime) {
             $items = collect();
 
@@ -271,13 +293,7 @@ class TeacherController extends Controller
             return [$d => $items->sortBy(fn ($i) => $fmtTime($i->start_time))->values()];
         });
 
-        return view('teacher.dashboard', compact(
-            'classesActive', 'studentsCount', 'todayClasses',
-            'revenueMonth', 'debtTotal', 'debtorCount', 'notDoneToday',
-            'pendingMakeups', 'pendingMakeupCount',
-            'missedAttendance', 'missedAttendanceCount',
-            'weekSlots', 'weekDates'
-        ));
+        return compact('weekSlots', 'weekDates', 'weekStart');
     }
 
     /* ===================== Danh sách lớp ===================== */
@@ -599,14 +615,26 @@ class TeacherController extends Controller
                 if ($day->gt($genLimit)) {
                     continue;
                 }
-                // Key theo (class_id, date, start_time) để hỗ trợ nhiều ca / ngày.
-                ClassSession::firstOrCreate(
-                    ['class_id' => $class->id, 'date' => $day->toDateString(), 'start_time' => $sc->start_time],
-                    ['end_time' => $sc->end_time, 'type' => 'regular']
-                );
+                // Key theo (class_id, date, start_time). Dùng withTrashed để KHÔNG tái sinh
+                // buổi đã xóa mềm (giữ nguyên trạng thái "đã xóa" để GV khôi phục).
+                $exists = ClassSession::withTrashed()
+                    ->where('class_id', $class->id)
+                    ->whereDate('date', $day->toDateString())
+                    ->where('start_time', $sc->start_time)
+                    ->exists();
+                if (! $exists) {
+                    ClassSession::create([
+                        'class_id' => $class->id,
+                        'date' => $day->toDateString(),
+                        'start_time' => $sc->start_time,
+                        'end_time' => $sc->end_time,
+                        'type' => 'regular',
+                    ]);
+                }
             }
 
-            $sessions = ClassSession::where('class_id', $class->id)
+            $sessions = ClassSession::withTrashed()
+                ->where('class_id', $class->id)
                 ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
                 ->withCount('makeups')
                 ->with('makeupFor')
@@ -727,6 +755,7 @@ class TeacherController extends Controller
         }
 
         $data = $request->validate([
+            'off_kind' => ['nullable', 'in:normal,holiday'],
             'reason' => ['nullable', 'string', 'max:255'],
             'makeup_date' => ['nullable', 'date'],
             'start_time' => ['nullable', 'date_format:H:i'],
@@ -753,6 +782,7 @@ class TeacherController extends Controller
 
             $session->update([
                 'type' => 'off',
+                'off_kind' => $data['off_kind'] ?? 'normal',
                 'note' => $data['reason'] ?? $session->note,
                 'attendance_submitted_at' => null,
             ]);
@@ -807,6 +837,55 @@ class TeacherController extends Controller
             $request,
             'Đã hoàn tác — buổi ' . Carbon::parse($session->date)->format('d/m/Y') . ' trở lại buổi học bình thường.',
             $redirectUrl
+        );
+    }
+
+    /** Xóa mềm một buổi học. Chỉ cho xóa khi CHƯA điểm danh (tránh mất tiền đã chốt). */
+    public function deleteSession(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->findOrFail($sessionId);
+
+        $redirectUrl = route('teacher.attendance', [
+            'class_id' => $session->class_id,
+            'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
+        ]);
+
+        if ($session->attendance_submitted_at) {
+            return $this->respondError($request, 'delete', 'Buổi này đã điểm danh — bỏ điểm danh trước khi xóa.', $redirectUrl);
+        }
+
+        $date = Carbon::parse($session->date)->format('d/m/Y');
+        DB::transaction(function () use ($session) {
+            // Dọn mọi bản ghi điểm danh lỡ có (để buổi không còn trong mọi thống kê)
+            StudentSession::where('class_session_id', $session->id)->delete();
+            $session->delete(); // xóa mềm (deleted_at)
+        });
+
+        return $this->respondOk($request, 'Đã xóa buổi ' . $date . '.', $redirectUrl);
+    }
+
+    /** Khôi phục buổi học đã xóa mềm. */
+    public function restoreSession(Request $request, int $sessionId)
+    {
+        $tid = $this->tid();
+        $session = ClassSession::withTrashed()
+            ->whereHas('classroom', fn ($q) => $q->where('teacher_id', $tid))
+            ->findOrFail($sessionId);
+
+        if ($session->trashed()) {
+            $session->restore();
+        }
+
+        return $this->respondOk(
+            $request,
+            'Đã khôi phục buổi ' . Carbon::parse($session->date)->format('d/m/Y') . '.',
+            route('teacher.attendance', [
+                'class_id' => $session->class_id,
+                'week' => Carbon::parse($session->date)->startOfWeek()->toDateString(),
+                'session_id' => $session->id,
+            ])
         );
     }
 
@@ -1644,13 +1723,24 @@ class TeacherController extends Controller
     /** Trang "Sao lưu": giới thiệu + nút tải (giới hạn 1 lần/ngày). */
     public function backupSettings()
     {
+        return view('teacher.settings-backup', $this->backupData());
+    }
+
+    /** Fragment: nội dung trang Sao lưu (AJAX refetch). */
+    public function backupSettingsPartial()
+    {
+        return view('teacher.partials.settings-backup-body', $this->backupData());
+    }
+
+    private function backupData(): array
+    {
         $me = auth()->user();
 
-        return view('teacher.settings-backup', [
+        return [
             'me' => $me,
             'backedUpToday' => $me->backedUpToday(),
             'lastBackupAt' => $me->last_backup_at,
-        ]);
+        ];
     }
 
     /** Tải toàn bộ dữ liệu của giáo viên: 1 file .zip gồm nhiều CSV. Giới hạn 1 lần/ngày. */
@@ -1935,6 +2025,7 @@ class TeacherController extends Controller
         return StudentSession::query()
             ->join('class_sessions', 'student_sessions.class_session_id', '=', 'class_sessions.id')
             ->join('classes', 'class_sessions.class_id', '=', 'classes.id')
+            ->whereNull('class_sessions.deleted_at') // bỏ qua buổi đã xóa mềm
             ->where('classes.teacher_id', $tid);
     }
 

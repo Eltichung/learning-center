@@ -8,13 +8,23 @@
       @endif
     </p>
   </div>
-  @if ($session && $session->type !== 'off')
-    @if ($session->attendance_submitted_at)
-      <span class="r" style="font-size:12.5px;color:var(--muted)" title="Bỏ điểm danh trước nếu muốn báo nghỉ">Đã điểm danh — không thể báo nghỉ</span>
-    @else
-      <button type="button" class="btn ghost" onclick="openOffModal('{{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}')">🔴 Báo cả lớp nghỉ</button>
+  <div style="display:flex;gap:8px;align-items:center">
+    @if ($session && ! $session->trashed() && $session->type !== 'off')
+      @if ($session->attendance_submitted_at)
+        <span class="r" style="font-size:12.5px;color:var(--muted)" title="Bỏ điểm danh trước nếu muốn báo nghỉ">Đã điểm danh — không thể báo nghỉ</span>
+      @else
+        <button type="button" class="btn ghost" onclick="openOffModal('{{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}')">🔴 Báo cả lớp nghỉ</button>
+      @endif
     @endif
-  @endif
+    @if ($session && ! $session->trashed() && ! $session->attendance_submitted_at)
+      <form method="POST" action="{{ route('teacher.sessions.delete', $session->id, false) }}"
+            data-confirm="Xóa buổi {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }} khỏi lịch? Chỉ xóa được buổi chưa điểm danh."
+            data-refetch="#att-body" style="display:inline;margin:0">
+        @csrf @method('DELETE')
+        <button type="submit" class="btn ghost" style="color:var(--red)">🗑 Xóa buổi</button>
+      </form>
+    @endif
+  </div>
 </div>
 
 <div class="filterbar">
@@ -102,7 +112,9 @@
   <div class="tabs">
     @foreach ($sessions as $s)
       @php($offNoMakeup = $s->type === 'off' && (int) $s->makeups_count === 0 && ! $s->no_makeup)
+      @php($isTrashed = $s->trashed())
       <a class="tab {{ $session && $s->id === $session->id ? 'on' : '' }} {{ $offNoMakeup ? 'pending-makeup' : '' }}"
+         @if ($isTrashed) style="opacity:.55" @endif
          href="{{ $base }}?class_id={{ $class->id }}&week={{ $weekStart->toDateString() }}&session_id={{ $s->id }}"
          data-refetch="#att-body"
          @if ($offNoMakeup) title="Buổi nghỉ chưa xếp lịch học bù"
@@ -113,9 +125,10 @@
           @switch($s->type)
             @case('boost') ( Tăng cường ) @break
             @case('makeup') ( Bù ) @break
-            @case('off') ( Nghỉ ){!! $offNoMakeup ? ' ⚠' : '' !!} @break
+            @case('off') ( {{ $s->offLabel() }} ){!! $offNoMakeup ? ' ⚠' : '' !!} @break
           @endswitch
           @if ($s->attendance_submitted_at)<span class="dot-done">✓</span>@endif
+          @if ($isTrashed)<span style="color:var(--red);font-size:11px;font-weight:700"> 🗑 đã xóa</span>@endif
         </div>
         @if ($s->start_time && $s->end_time)
           <div class="tab-time">{{ \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') }}–{{ \Illuminate\Support\Carbon::parse($s->end_time)->format('H:i') }}</div>
@@ -124,7 +137,15 @@
     @endforeach
   </div>
 
-  @if ($session && $session->type !== 'off')
+  @if ($session && $session->trashed())
+    <div class="note" style="background:var(--red-soft);color:var(--red)">
+      🗑 Buổi {{ \Illuminate\Support\Carbon::parse($session->date)->format('d/m/Y') }}@if ($session->start_time) · {{ \Illuminate\Support\Carbon::parse($session->start_time)->format('H:i') }}–{{ \Illuminate\Support\Carbon::parse($session->end_time)->format('H:i') }}@endif đã bị <b>xóa</b>. Khôi phục để dùng lại (điểm danh / tính tiền).
+    </div>
+    <form method="POST" action="{{ route('teacher.sessions.restore', $session->id, false) }}" data-refetch="#att-body" style="margin-top:6px">
+      @csrf
+      <button type="submit" class="btn primary">↩ Khôi phục buổi</button>
+    </form>
+  @elseif ($session && $session->type !== 'off')
     <div class="note">💡 Mặc định tất cả <b>Có mặt</b>. Có mặt / học bù / <b>vắng không phép</b> đều tính <b>1 buổi</b> theo đơn giá. Chỉ <b>vắng có phép</b> được miễn. Sửa người vắng rồi Lưu.</div>
 
     <div class="att-cols">
@@ -284,6 +305,12 @@
     <div class="mh"><h3>Báo cả lớp nghỉ</h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
     <div class="mb">
       <div class="note" style="margin-top:0">Buổi <b id="off-date"></b> sẽ được đánh dấu <b>nghỉ</b> — cả lớp không bị tính tiền buổi này.</div>
+      <div class="field"><label>Loại nghỉ</label>
+        <div style="display:flex;gap:18px;padding-top:2px">
+          <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;cursor:pointer"><input type="radio" name="off_kind" value="normal" checked> Nghỉ thường</label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;cursor:pointer"><input type="radio" name="off_kind" value="holiday"> Nghỉ lễ</label>
+        </div>
+      </div>
       <div class="field"><label>Lý do nghỉ (tuỳ chọn)</label>
         <input name="reason" placeholder="VD: Cô bận việc, nghỉ lễ..." autocomplete="off"></div>
       <div class="field"><label>Ngày học bù (tuỳ chọn)</label>
