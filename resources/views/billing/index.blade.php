@@ -97,7 +97,7 @@
     @php($isBest = $p->slug === 'pro')
     @php($c = $copy[$p->slug] ?? null)
     <div class="plan-card {{ $isCurrent ? 'is-current' : '' }} {{ $isBest ? 'is-best' : '' }}">
-      @if ($isBest)<div class="plan-badge">🔥 Lựa chọn nhiều nhất</div>@endif
+      @if ($isBest)<div class="plan-badge" style="color:black;background: antiquewhite;">🔥 Lựa chọn nhiều nhất</div>@endif
       <div class="plan-name">{{ $p->name }}</div>
       @if ($c)<div class="plan-tagline">{{ $c['tagline'] }}</div>@endif
       <div class="plan-price">
