@@ -21,7 +21,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js', {scope: '/'})
+        navigator.serviceWorker.register('/sw.js?v={{ filemtime(public_path('sw.js')) }}', {scope: '/'})
           .then(function(reg){ reg.update(); console.log('SW registered:', reg.scope); })
           .catch(function(err){ console.error('SW register failed:', err); if (window.toast) toast('SW lỗi: '+err.message, 'error'); });
       });
