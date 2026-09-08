@@ -14,7 +14,7 @@
     <h1>💳 Chọn gói vừa với lớp của bạn</h1>
     <p>
       Đang dùng: <b>{{ $current->name }}</b>
-      @if ($current->slug === 'vip')<span class="chip p" style="margin-left:6px">👑 Gói đặc biệt</span>@endif
+      @if (in_array($current->slug, ['vip', 'yeu-anh'], true))<span class="chip p" style="margin-left:6px">👑 Gói đặc biệt</span>@endif
       @if ($sub && $sub->current_period_end && $current->slug !== 'vip')
         · {{ $current->slug === 'trial' ? 'Dùng thử miễn phí đến' : 'Hạn dùng đến' }}
         {{ \Illuminate\Support\Carbon::parse($sub->current_period_end)->format('d/m/Y') }}
@@ -24,7 +24,7 @@
   </div>
 </div>
 
-@if ($current->slug === 'vip')
+@if (in_array($current->slug, ['vip', 'yeu-anh'], true))
   <div class="panel" style="border-color:#c39bd3;background:linear-gradient(135deg,#faf5ff,#f3e5f5)">
     <div class="pb" style="padding:20px;text-align:center">
       <div style="font-size:34px">👑</div>

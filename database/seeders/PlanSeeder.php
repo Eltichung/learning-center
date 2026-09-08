@@ -39,6 +39,13 @@ class PlanSeeder extends Seeder
                 'limits' => ['classes' => null, 'students' => null], // null = không giới hạn
                 'is_public' => false,
             ],
+            [
+                'slug' => 'yeu-anh',
+                'name' => 'Yêu Anh',
+                'price' => 0,
+                'limits' => ['classes' => null, 'students' => null], // không giới hạn
+                'is_public' => false, // gói riêng, không mua/không hiện công khai
+            ],
         ];
 
         foreach ($plans as $p) {

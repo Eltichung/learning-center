@@ -45,6 +45,11 @@ class User extends Authenticatable
     /** Plan hiện tại (theo subscription còn hạn); fallback Trial. */
     public function currentPlan(): Plan
     {
+        // Tài khoản "Gói Yêu Anh" (ninhtrang) — luôn dùng gói riêng 'yeu-anh' (private, không giới hạn).
+        if ($this->email === 'ninhtrang@gmail.com') {
+            return Plan::where('slug', 'yeu-anh')->firstOrFail();
+        }
+
         $sub = $this->subscription;
         if ($sub && $sub->plan) {
             // VIP luôn còn hạn; Trial + gói trả phí phải còn ngày (current_period_end).
