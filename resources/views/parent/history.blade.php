@@ -30,12 +30,12 @@
         <div class="lg-box">
           <div class="lg-head" style="color:var(--muted)"><span class="d" style="background:var(--muted)"></span>Không có buổi</div>
           <div class="lg-item"><i class="lgi lgi-off">–</i><span class="lg-t">nghỉ</span></div>
-          <div class="lg-item"><i class="lgi lgi-study">•</i><span class="lg-t">Sắp học</span></div>
+          <div class="lg-item"><i class="lgi lgi-holiday">⚑</i><span class="lg-t">Nghỉ lễ</span></div>
           <div class="lg-item muted"><i class="lgi lgi-none"></i><span class="lg-t">Không có lịch<span class="n">Ô mờ</span></span></div>
         </div>
         <div class="lg-box">
-          <div class="lg-head" style="color:var(--amber)"><span class="d" style="background:var(--amber)"></span>Đặc biệt</div>
-          <div class="lg-item"><i class="lgi lgi-holiday">⚑</i><span class="lg-t">Nghỉ lễ</span></div>
+          <div class="lg-head" style="color:var(--blue)"><span class="d" style="background:var(--blue)"></span>Sắp tới</div>
+          <div class="lg-item"><i class="lgi lgi-study">•</i><span class="lg-t">Sắp học<span class="n">Chưa diễn ra</span></span></div>
         </div>
       </div>
     </div>

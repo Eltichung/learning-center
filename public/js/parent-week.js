@@ -41,7 +41,7 @@ function badgeStyle(st){
     case 'absent':  return 'background:var(--red-soft);color:var(--red)';
     case 'excused': return 'background:#fff;color:var(--red);border:1px solid #e0a3a3';
     case 'off':     return 'background:#eef0f3;color:var(--muted)';
-    case 'study':   return 'background:#fff;color:#9aa0aa;border:1px dashed #cfd3da';
+    case 'study':   return 'background:var(--blue-soft);color:var(--blue)';
     case 'holiday': return 'background:var(--amber-soft);color:var(--amber);border:1px solid var(--amber)';
     default:        return 'background:var(--red-soft);color:var(--red)';
   }
