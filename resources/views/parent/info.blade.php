@@ -131,7 +131,7 @@
         </div>
         <div class="lg-box">
           <div class="lg-head" style="color:var(--muted)"><span class="d" style="background:var(--muted)"></span>Không có buổi</div>
-          <div class="lg-item"><i class="lgi lgi-off">–</i><span class="lg-t">Cô cho nghỉ</span></div>
+          <div class="lg-item"><i class="lgi lgi-off">–</i><span class="lg-t">Buổi nghỉ</span></div>
           <div class="lg-item"><i class="lgi lgi-study">•</i><span class="lg-t">Sắp học</span></div>
           <div class="lg-item muted"><i class="lgi lgi-none"></i><span class="lg-t">Không có lịch<span class="n">Ô mờ</span></span></div>
         </div>
