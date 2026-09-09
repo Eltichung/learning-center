@@ -307,8 +307,8 @@
       <div class="note" style="margin-top:0">Buổi <b id="off-date"></b> sẽ được đánh dấu <b>nghỉ</b> — cả lớp không bị tính tiền buổi này.</div>
       <div class="field"><label>Loại nghỉ</label>
         <div style="display:flex;gap:18px;padding-top:2px">
-          <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;cursor:pointer"><input type="radio" name="off_kind" value="normal" checked> Nghỉ thường</label>
-          <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;cursor:pointer"><input type="radio" name="off_kind" value="holiday"> Nghỉ lễ</label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;cursor:pointer"><input type="radio" name="off_kind" value="normal" checked> <p style="min-width:100px">Nghỉ thường</p></label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;cursor:pointer"><input type="radio" name="off_kind" value="holiday"> <p style="min-width:100px">Nghỉ lễ</p></label>
         </div>
       </div>
       <div class="field"><label>Lý do nghỉ (tuỳ chọn)</label>

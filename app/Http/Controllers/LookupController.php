@@ -188,7 +188,7 @@ class LookupController extends Controller
                 if (! empty($sessByDate[$ds])) {
                     foreach ($sessByDate[$ds] as $sess) {
                         $statuses[] = match ($sess->type) {
-                            'off' => 'off',
+                            'off' => ($sess->off_kind === 'holiday' ? 'holiday' : 'off'),
                             'makeup' => 'makeup',
                             default => match ($attBySession[(int) $sess->id] ?? 'present') {
                                 'excused' => 'excused',

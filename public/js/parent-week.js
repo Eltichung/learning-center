@@ -4,11 +4,12 @@
 const WD = ['T2','T3','T4','T5','T6','T7','CN'];
 const STATUS = {
   present:{ic:'✓',cls:'present',lab:'Có mặt'},
-  absent :{ic:'✕',cls:'off',lab:'Vắng không phép'},
-  excused:{ic:'△',cls:'off',lab:'Vắng phép'},
-  off    :{ic:'✕',cls:'off',lab:'Nghỉ'},
-  makeup :{ic:'↻',cls:'makeup',lab:'Học bù'},
-  study  :{ic:'•',cls:'study',lab:'Sắp học'}
+  makeup :{ic:'↻',cls:'makeup', lab:'Học bù'},
+  absent :{ic:'✕',cls:'absent', lab:'Vắng không phép'},
+  excused:{ic:'△',cls:'excused',lab:'Vắng có phép'},
+  off    :{ic:'–',cls:'off',    lab:'Nghỉ'},
+  holiday:{ic:'⚑',cls:'holiday',lab:'Nghỉ lễ'},
+  study  :{ic:'•',cls:'study',  lab:'Sắp học'}
 };
 
 const DEMO_WEEKS = [
@@ -26,11 +27,24 @@ let wIdx = (typeof window.LT_WEEK_INDEX === 'number') ? window.LT_WEEK_INDEX : 1
 
 /* Chuẩn hoá st cũ (string|null) và mới (array|null) về array */
 function stArr(v){ return v == null ? [] : (Array.isArray(v) ? v : [v]); }
-/* Priority chọn màu ô khi có nhiều ca: off > absent > excused > makeup > present > study */
+/* Priority chọn màu ô khi có nhiều ca: vắng nổi trước, rồi nghỉ/lễ, rồi học, cuối là sắp học */
 function pickCls(arr){
-  const order = ['off','absent','excused','makeup','present','study'];
+  const order = ['absent','excused','off','holiday','makeup','present','study'];
   for (const key of order){ if (arr.includes(key)) return STATUS[key].cls; }
   return 'none';
+}
+/* Style chip trạng thái ở bảng "Chi tiết buổi học" — khớp màu với ô lưới */
+function badgeStyle(st){
+  switch(st){
+    case 'present':
+    case 'makeup':  return 'background:var(--green-soft);color:var(--green)';
+    case 'absent':  return 'background:var(--red-soft);color:var(--red)';
+    case 'excused': return 'background:#fff;color:var(--red);border:1px solid #e0a3a3';
+    case 'off':     return 'background:#eef0f3;color:var(--muted)';
+    case 'study':   return 'background:#fff;color:#9aa0aa;border:1px dashed #cfd3da';
+    case 'holiday': return 'background:var(--amber-soft);color:var(--amber);border:1px solid var(--amber)';
+    default:        return 'background:var(--red-soft);color:var(--red)';
+  }
 }
 
 function cellHtml(wd, date, st){
@@ -46,6 +60,17 @@ function renderThisWeek(){
   const g = document.getElementById('thisweek-grid');
   if(g) g.innerHTML = gridHtml(WEEKS[wIdx] || WEEKS[0]);
 }
+
+/* Ẩn/hiện bảng chú thích màu */
+function toggleLegend(btn){
+  const w = btn.closest('.weeklegend-wrap');
+  if(!w) return;
+  const open = w.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  const lbl = btn.querySelector('.lbl');
+  if(lbl) lbl.textContent = open ? 'Ẩn chú thích màu' : 'Xem chú thích màu';
+}
+window.toggleLegend = toggleLegend;
 
 function renderHistory(){
   const w = WEEKS[wIdx];
@@ -63,17 +88,12 @@ function renderHistory(){
     const dayTimes = (w.times && w.times[i]) ? w.times[i] : [];
     arr.forEach(function(st, k){
       const s = STATUS[st];
-      const color = st==='present' ? 'var(--green-soft);color:var(--green)' :
-                    st==='makeup'  ? 'var(--blue-soft);color:var(--blue)' :
-                    st==='study'   ? 'var(--amber-soft);color:var(--amber)' :
-                    st==='excused' ? 'var(--amber-soft);color:var(--amber)' :
-                                     'var(--red-soft);color:var(--red)';
       const t = dayTimes[k] || w.time;
       det += '<div class="prow"><div>'+WD[i]+' '+d+(mo?'/'+mo:'')+'<div class="r">'+
-             (st==='off' ? 'Nghỉ lễ/cô bận' : (t?t+' · ':'')+subj)+'</div></div>'+
-             '<span class="badge" style="background:'+color+'">'+s.lab+'</span></div>';
+             (st==='holiday' ? 'Nghỉ lễ' : st==='off' ? 'Cô cho nghỉ' : (t?t+' · ':'')+subj)+'</div></div>'+
+             '<span class="badge" style="'+badgeStyle(st)+'">'+s.lab+'</span></div>';
       if(st==='present'||st==='makeup') np++;
-      else if(st==='off') no++;
+      else if(st==='off'||st==='holiday') no++;
       else if(st==='absent') nbAbsent++;
       else if(st==='excused') nbExcused++;
     });

@@ -116,11 +116,30 @@
   <div class="pcard">
     <div class="pcard-head"><h4>🗓️ Tuần này</h4><a class="linklike" href="{{ route('parent.history', $slug) }}">Lịch sử →</a></div>
     <div class="weekgrid" id="thisweek-grid"></div>
-    <div class="weeklegend">
-      <span><i class="dot" style="background:var(--green)"></i>Có mặt</span>
-      <span><i class="dot" style="background:var(--blue)"></i>Học bù</span>
-      <span><i class="dot" style="background:var(--red)"></i>Nghỉ</span>
-      <span><i class="dot" style="background:var(--amber)"></i>Sắp học</span>
+    <div class="weeklegend-wrap">
+      <button type="button" class="legend-toggle" onclick="toggleLegend(this)" aria-expanded="false"><span class="lbl">Xem chú thích màu</span><span class="caret">▾</span></button>
+      <div class="weeklegend-grid">
+        <div class="lg-box">
+          <div class="lg-head" style="color:var(--green)"><span class="d" style="background:var(--green)"></span>Đã học</div>
+          <div class="lg-item"><i class="lgi lgi-present">✓</i><span class="lg-t">Có mặt</span></div>
+          <div class="lg-item"><i class="lgi lgi-makeup">↻</i><span class="lg-t">Học bù</span></div>
+        </div>
+        <div class="lg-box">
+          <div class="lg-head" style="color:var(--red)"><span class="d" style="background:var(--red)"></span>Vắng</div>
+          <div class="lg-item"><i class="lgi lgi-absent">✕</i><span class="lg-t">Không phép<span class="n">Tính tiền</span></span></div>
+          <div class="lg-item"><i class="lgi lgi-excused">△</i><span class="lg-t">Có phép<span class="n">Được miễn</span></span></div>
+        </div>
+        <div class="lg-box">
+          <div class="lg-head" style="color:var(--muted)"><span class="d" style="background:var(--muted)"></span>Không có buổi</div>
+          <div class="lg-item"><i class="lgi lgi-off">–</i><span class="lg-t">Cô cho nghỉ</span></div>
+          <div class="lg-item"><i class="lgi lgi-study">•</i><span class="lg-t">Sắp học</span></div>
+          <div class="lg-item muted"><i class="lgi lgi-none"></i><span class="lg-t">Không có lịch<span class="n">Ô mờ</span></span></div>
+        </div>
+        <div class="lg-box">
+          <div class="lg-head" style="color:var(--amber)"><span class="d" style="background:var(--amber)"></span>Đặc biệt</div>
+          <div class="lg-item"><i class="lgi lgi-holiday">⚑</i><span class="lg-t">Nghỉ lễ</span></div>
+        </div>
+      </div>
     </div>
   </div>
 
