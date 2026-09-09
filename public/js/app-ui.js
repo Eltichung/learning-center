@@ -85,6 +85,58 @@ document.addEventListener('submit', function(e){
   }
 });
 
+/* ----- Popup nâng cấp gói (khi chạm giới hạn) -----
+   data: {kind, unit, plan, used, max, upgrade_url, next:{name,classes,students}|null} */
+function upRoom(v, unit){ return (v === null || v === undefined) ? ('không giới hạn ' + unit) : (v + ' ' + unit); }
+function showUpgradeModal(data){
+  data = data || {};
+  var unit = data.unit || (data.kind === 'classes' ? 'lớp' : 'học sinh');
+  var plan = data.plan || 'hiện tại';
+  var used = (data.used != null ? data.used : '?');
+  var max  = (data.max  != null ? data.max  : '?');
+  var url  = data.upgrade_url || '/billing';
+  var next = data.next;
+
+  var msg, hint;
+  if (next && next.name) {
+    msg = 'Bạn đang sử dụng <b>' + used + '/' + max + ' ' + unit + '</b>. Nâng cấp lên <b class="up">'
+        + next.name + '</b> để mở rộng giới hạn và tiếp tục sử dụng.';
+    hint = 'Với <b class="up">' + next.name + '</b>, bạn có thể quản lý tối đa <b class="up">'
+        + upRoom(next.classes, 'lớp') + '</b> và <b class="up">' + upRoom(next.students, 'học sinh') + '</b>.';
+  } else {
+    msg = 'Bạn đang sử dụng <b>' + used + '/' + max + ' ' + unit + '</b>. Liên hệ với chúng tôi để mở rộng giới hạn.';
+    hint = '';
+  }
+
+  var bd = document.getElementById('lt-upgrade');
+  if (!bd){
+    bd = document.createElement('div');
+    bd.id = 'lt-upgrade';
+    bd.className = 'modal-backdrop up-backdrop';
+    document.body.appendChild(bd);
+  }
+  bd.innerHTML =
+      '<div class="modal upgrade">'
+    +   '<button type="button" class="up-x" aria-label="Đóng" onclick="closeModal(this)">&times;</button>'
+    +   '<div class="up-body">'
+    +     '<div class="up-icon">👑</div>'
+    +     '<h3 class="up-title">Bạn đã đạt giới hạn gói ' + plan + '</h3>'
+    +     '<p class="up-msg">' + msg + '</p>'
+    +     '<div class="up-usage">'
+    +       '<div class="up-usage-row"><span>' + used + ' / ' + max + ' ' + unit + ' đang sử dụng</span></div>'
+    +       '<div class="up-bar"><div class="up-bar-fill"></div></div>'
+    +       (hint ? '<div class="up-hint">' + hint + '</div>' : '')
+    +     '</div>'
+    +     '<div class="up-actions">'
+    +       '<button type="button" class="btn ghost" onclick="closeModal(this)">Để sau</button>'
+    +       '<a class="btn primary" href="' + url + '">Nâng cấp gói ngay →</a>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
+  bd.classList.add('show');
+}
+window.showUpgradeModal = showUpgradeModal;
+
 /* ----- Searchable select (AJAX) -----
    <div class="ssel" data-url="/api/...">
      <input type="hidden" name="student_id">
@@ -286,6 +338,11 @@ async function ajaxSubmit(form){
 
     if (res.status === 422) {
       rollbackToggle();
+      // Chạm giới hạn gói → popup nâng cấp (không dùng toast/field-err)
+      if (body && body.code === 'plan_limit') {
+        if (window.showUpgradeModal) showUpgradeModal(body);
+        return false;
+      }
       showFieldErrors(form, body && body.errors ? body.errors : {});
       var firstMsg = body && body.message ? body.message : 'Dữ liệu chưa hợp lệ';
       if (window.toast) toast(firstMsg, 'error');

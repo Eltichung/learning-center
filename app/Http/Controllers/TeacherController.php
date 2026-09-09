@@ -9,6 +9,7 @@ use App\Models\ClassSession;
 use App\Models\ClassStudent;
 use App\Models\ClassStudentPriceLog;
 use App\Models\Payment;
+use App\Models\Plan;
 use App\Models\Student;
 use App\Models\StudentComment;
 use App\Models\StudentSession;
@@ -40,10 +41,7 @@ class TeacherController extends Controller
         $owner = $this->owner();
         if (! $owner || $owner->canCreateClass()) return null;
 
-        return $this->respondError($request, 'plan',
-            'Đã đạt giới hạn lớp của gói ('.($owner->currentPlan()->limits['classes'] ?? '?').'). Nâng cấp gói để tạo thêm.',
-            route('billing.index')
-        );
+        return $this->planLimitResponse($request, $owner, 'classes');
     }
 
     /** Nếu vượt giới hạn số học sinh của gói → trả response lỗi; ngược lại null. Admin bypass. */
@@ -53,10 +51,49 @@ class TeacherController extends Controller
         $owner = $this->owner();
         if (! $owner || $owner->canAddStudent()) return null;
 
-        return $this->respondError($request, 'plan',
-            'Đã đạt giới hạn học sinh của gói ('.($owner->currentPlan()->limits['students'] ?? '?').'). Nâng cấp gói để thêm.',
-            route('billing.index')
-        );
+        return $this->planLimitResponse($request, $owner, 'students');
+    }
+
+    /**
+     * Response chặn khi chạm giới hạn gói.
+     *  - AJAX → JSON 422 giàu dữ liệu (code=plan_limit) để frontend bật popup nâng cấp.
+     *  - HTML → redirect /billing (fallback).
+     */
+    private function planLimitResponse(Request $request, User $owner, string $kind)
+    {
+        $plan  = $owner->currentPlan();
+        $usage = $owner->usage();
+        $used  = (int) ($usage[$kind] ?? 0);
+        $max   = (int) ($plan->limits[$kind] ?? 0);
+        $unit  = $kind === 'classes' ? 'lớp' : 'học sinh';
+
+        // Gói gợi ý nâng cấp: gói public, active, giá cao hơn gói hiện tại (tier kế tiếp).
+        $next = Plan::where('is_active', true)->where('is_public', true)
+            ->where('price', '>', (int) $plan->price)
+            ->orderBy('price')->first();
+
+        $message = "Bạn đã đạt giới hạn gói {$plan->name}.";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'code'        => 'plan_limit',
+                'kind'        => $kind,
+                'unit'        => $unit,
+                'message'     => $message,
+                'plan'        => $plan->name,
+                'used'        => $used,
+                'max'         => $max,
+                'upgrade_url' => route('billing.index'),
+                'next'        => $next ? [
+                    'name'     => $next->name,
+                    'classes'  => $next->limits['classes'] ?? null,
+                    'students' => $next->limits['students'] ?? null,
+                ] : null,
+                'errors'      => ['plan' => [$message]], // tương thích cũ
+            ], 422);
+        }
+
+        return redirect()->route('billing.index')->withErrors(['plan' => $message]);
     }
 
     private function tid(): int

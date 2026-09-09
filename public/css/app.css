@@ -272,6 +272,25 @@ tr:last-child td{border-bottom:0}
 .modal .mh .x{cursor:pointer;border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted)}
 .modal .mb{padding:18px}
 .modal .mf{padding:14px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+/* Popup nâng cấp gói (chạm giới hạn) — chiếm ~60% màn hình, căn giữa */
+.up-backdrop{align-items:center}
+.modal.upgrade{position:relative;width:40vw;max-width:40vw;min-width:360px;text-align:center}
+.modal.upgrade .up-x{position:absolute;top:12px;right:14px;width:30px;height:30px;border:0;background:transparent;border-radius:8px;font-size:22px;line-height:1;color:var(--muted);cursor:pointer}
+.modal.upgrade .up-x:hover{background:var(--bg)}
+.modal.upgrade .up-body{padding:30px 34px}
+.up-icon{width:66px;height:66px;border-radius:50%;background:var(--brand-soft);display:grid;place-items:center;font-size:32px;margin:4px auto 16px}
+.up-title{margin:0 0 10px;font-size:19px;font-weight:700;color:var(--ink)}
+.up-msg{margin:0 auto 20px;max-width:420px;font-size:14px;line-height:1.6;color:var(--muted)}
+.up-msg b,.up-hint b{color:var(--ink);font-weight:600}
+.up-msg b.up,.up-hint b.up{color:var(--brand-ink)}
+.up-usage{background:#faf7f5;border:1px solid #f0e3dc;border-radius:12px;padding:14px 16px;margin:0 0 22px;text-align:left}
+.up-usage-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px}
+.up-bar{height:9px;border-radius:20px;background:#f0e3dc;overflow:hidden}
+.up-bar-fill{height:100%;width:100%;background:var(--red);border-radius:20px}
+.up-hint{font-size:12px;color:var(--muted);margin-top:11px}
+.up-actions{display:flex;gap:10px;justify-content:center}
+.up-actions .btn{padding:11px 20px}
+@media(max-width:640px){.modal.upgrade{width:92vw;max-width:92vw}.modal.upgrade .up-body{padding:24px 18px}}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mm-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:640px){.mm-cols{grid-template-columns:1fr}}
