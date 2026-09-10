@@ -505,6 +505,162 @@ window.addEventListener('popstate', function(e){
   refetchInto(el);
 });
 
+/* ===== Bộ lọc Báo cáo: SELECT BOX đa chọn (dropdown checkbox) nhiều lớp + nhiều tháng =====
+   Tick checkbox → cập nhật hidden input (CSV) + nhãn tóm tắt → refetch #reports-body (debounce).
+   Luôn giữ ≥1 lựa chọn mỗi nhóm. "Tất cả lớp" = chọn hết. Delegation ở document (sống qua refetch). */
+var _rptTimer;
+function rptRefetch(form){
+  clearTimeout(_rptTimer);
+  _rptTimer = setTimeout(function(){
+    if (window.ajaxFilterGet) ajaxFilterGet(form); else form.requestSubmit();
+  }, 250);
+}
+function rptMsGroup(el){ return el ? el.closest('[data-rpt-ms]') : null; }
+function rptMsSync(ms){
+  var form  = ms.closest('form.rpt-filter');
+  var kind  = ms.dataset.rptMs; // 'class' | 'month'
+  var items = ms.querySelectorAll('.rpt-ms-item');
+  var checked = Array.prototype.filter.call(items, function(i){ return i.checked; });
+  var vals = checked.map(function(i){ return i.value; });
+
+  // Hidden input CSV
+  var hidden = form.querySelector(kind === 'class' ? 'input[name="class_ids"]' : 'input[name="months"]');
+  if (hidden) hidden.value = vals.join(',');
+
+  // Trạng thái "Tất cả lớp"
+  var all = ms.querySelector('[data-rpt-all]');
+  if (all) {
+    all.checked = checked.length === items.length && items.length > 0;
+    all.indeterminate = checked.length > 0 && checked.length < items.length;
+  }
+
+  // Nhãn tóm tắt
+  var summary = ms.querySelector('.rpt-ms-summary');
+  if (summary) {
+    if (kind === 'class') {
+      summary.textContent = (checked.length === items.length && items.length)
+        ? 'Tất cả lớp'
+        : (checked.length === 1 ? checked[0].parentNode.querySelector('span').textContent : checked.length + ' lớp');
+    } else {
+      summary.textContent = checked.length === 1
+        ? 'Tháng ' + checked[0].value.split('-').reverse().join('/')   // YYYY-MM -> MM/YYYY
+        : checked.length + ' tháng';
+    }
+  }
+  return form;
+}
+
+// "Xem thêm tháng cũ" — nối thêm 12 tháng cũ hơn (VÔ HẠN; không đóng dropdown, không refetch)
+function rptPrevMonth(ym){ // "2025-01" -> "2024-12"
+  var p = ym.split('-'), y = +p[0], m = +p[1] - 1;
+  if (m < 1) { m = 12; y--; }
+  return y + '-' + (m < 10 ? '0' + m : '' + m);
+}
+function rptMonthLabelEl(ym){
+  var p = ym.split('-');
+  var lbl = document.createElement('label');
+  lbl.className = 'rpt-ms-opt';
+  lbl.innerHTML = '<input type="checkbox" class="rpt-ms-item" value="' + ym + '"> <span>T' + p[1] + '/' + p[0] + '</span>';
+  return lbl;
+}
+function rptOldestMonth(ms){
+  var o = null;
+  ms.querySelectorAll('.rpt-ms-item').forEach(function(i){ if (o === null || i.value < o) o = i.value; });
+  return o;
+}
+document.addEventListener('click', function(e){
+  var mb = e.target.closest('.rpt-ms-morebtn');
+  if (!mb) return;
+  e.preventDefault();
+  var ms  = mb.closest('[data-rpt-ms]');
+  var list = ms.querySelector('.rpt-ms-months');
+  var cur = rptOldestMonth(ms);
+  if (!cur) return;
+  var frag = document.createDocumentFragment();
+  for (var k = 0; k < 12; k++) { cur = rptPrevMonth(cur); frag.appendChild(rptMonthLabelEl(cur)); }
+  list.appendChild(frag);
+});
+
+// Preset chọn nhanh (Tháng này / 3-6 tháng gần nhất / cả năm nay / năm ngoái)
+function rptLastN(current, n){ var out = [current], c = current; for (var i = 1; i < n; i++) { c = rptPrevMonth(c); out.push(c); } return out; }
+function rptYearMonths(year, from, to){ var out = []; for (var m = from; m <= to; m++) out.push(year + '-' + (m < 10 ? '0' + m : '' + m)); return out; }
+// Sinh đủ checkbox cho các tháng trong `list` (kể cả tháng tương lai của năm nay), sắp xếp mới→cũ, rồi tick đúng bộ.
+function rptEnsureAndSelect(ms, list){
+  var container = ms.querySelector('.rpt-ms-months');
+  var have = {};
+  ms.querySelectorAll('.rpt-ms-item').forEach(function(i){ have[i.value] = true; });
+  list.forEach(function(m){ if (!have[m]) { container.appendChild(rptMonthLabelEl(m)); have[m] = true; } });
+  var labels = Array.prototype.slice.call(container.querySelectorAll('.rpt-ms-opt'));
+  labels.sort(function(a, b){ var av = a.querySelector('input').value, bv = b.querySelector('input').value; return av < bv ? 1 : (av > bv ? -1 : 0); });
+  labels.forEach(function(l){ container.appendChild(l); });
+  var set = {}; list.forEach(function(m){ set[m] = true; });
+  ms.querySelectorAll('.rpt-ms-item').forEach(function(i){ i.checked = !!set[i.value]; });
+}
+document.addEventListener('click', function(e){
+  var pb = e.target.closest('.rpt-ms-preset');
+  if (!pb) return;
+  e.preventDefault();
+  var ms = pb.closest('[data-rpt-ms]');
+  var current = ms.dataset.now || rptOldestMonth(ms); // tháng hiện tại theo server
+  if (!current) return;
+  var cy = +current.split('-')[0], list;
+  switch (pb.dataset.preset) {
+    case 'this-month': list = [current]; break;
+    case 'last-3':     list = rptLastN(current, 3); break;
+    case 'last-6':     list = rptLastN(current, 6); break;
+    case 'this-year':  list = rptYearMonths(cy, 1, 12); break;      // cả năm nay (Jan–Dec)
+    case 'last-year':  list = rptYearMonths(cy - 1, 1, 12); break;  // cả năm ngoái (Jan–Dec)
+    default: return;
+  }
+  rptEnsureAndSelect(ms, list);
+  var form = rptMsSync(ms);
+  rptRefetch(form);
+});
+
+// Mở/đóng dropdown
+document.addEventListener('click', function(e){
+  var toggle = e.target.closest('.rpt-filter [data-rpt-toggle]');
+  // Đóng mọi panel khác
+  document.querySelectorAll('.rpt-ms-panel:not([hidden])').forEach(function(p){
+    if (!toggle || p !== toggle.parentNode.querySelector('.rpt-ms-panel')) {
+      if (!e.target.closest('.rpt-ms-panel')) p.hidden = true;
+    }
+  });
+  if (!toggle) return;
+  var panel = toggle.parentNode.querySelector('.rpt-ms-panel');
+  if (panel) panel.hidden = !panel.hidden;
+});
+
+// Tick checkbox trong dropdown
+document.addEventListener('change', function(e){
+  var cb = e.target;
+  if (!(cb instanceof HTMLInputElement) || cb.type !== 'checkbox') return;
+  var ms = rptMsGroup(cb);
+  if (!ms || !ms.closest('form.rpt-filter')) return;
+
+  if (cb.hasAttribute('data-rpt-all')) {
+    // "Tất cả lớp": bật = chọn hết; tắt = giữ lại lớp đầu (≥1)
+    var items = ms.querySelectorAll('.rpt-ms-item');
+    if (cb.checked) {
+      items.forEach(function(i){ i.checked = true; });
+    } else {
+      items.forEach(function(i, idx){ i.checked = idx === 0; });
+    }
+  } else if (cb.classList.contains('rpt-ms-item')) {
+    // Giữ ≥1: không cho bỏ tick cái cuối cùng
+    var stillOn = ms.querySelectorAll('.rpt-ms-item:checked').length;
+    if (!cb.checked && stillOn === 0) {
+      cb.checked = true;
+      if (window.toast) toast('Cần chọn ít nhất 1 ' + (ms.dataset.rptMs === 'class' ? 'lớp' : 'tháng'), 'error');
+      return;
+    }
+  } else {
+    return;
+  }
+  var form = rptMsSync(ms);
+  rptRefetch(form);
+});
+
 /* ===== Composer nhận xét ĐA LOẠI — mô hình "ô" (dùng chung: modal điểm danh + hồ sơ HS) =====
    Mỗi nhận xét = 1 ô; trong ô chọn loại (dropdown) + viết. Bấm "＋ Thêm nhận xét" để thêm ô.
    Lưu = đồng bộ theo (HS, ngày, loại). Delegation ở document nên sống sót qua refetch. */

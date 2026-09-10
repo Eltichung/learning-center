@@ -393,6 +393,28 @@ tr:last-child td{border-bottom:0}
 .filterbar .grow{flex:1;min-width:160px}
 .filterbar .search-box{width:250px;flex:0 0 auto}
 
+/* Bộ lọc báo cáo (select box đa chọn: nhiều lớp / nhiều tháng) */
+.rpt-filter{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.rpt-ms{display:flex;align-items:center;gap:8px}
+.rpt-flabel{font-size:12.5px;color:var(--muted);font-weight:600}
+.rpt-ms-box{position:relative}
+.rpt-ms-btn{display:inline-flex;align-items:center;justify-content:space-between;gap:12px;min-width:190px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:13px;color:var(--ink);cursor:pointer}
+.rpt-ms-btn:hover{border-color:var(--muted)}
+.rpt-ms-summary{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpt-ms-caret{color:var(--muted);font-size:10px}
+.rpt-ms-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:50;min-width:100%;max-height:300px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.14);padding:6px}
+.rpt-ms-opt{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;font-size:13px;color:var(--ink);cursor:pointer;user-select:none;white-space:nowrap}
+.rpt-ms-opt[hidden],.rpt-ms-morebtn[hidden]{display:none}
+.rpt-ms-opt:hover{background:#f4f6f8}
+.rpt-ms-opt input{width:15px;height:15px;accent-color:var(--brand);cursor:pointer}
+.rpt-ms-all{font-weight:600}
+.rpt-ms-sep{height:1px;background:var(--line);margin:5px 4px}
+.rpt-ms-morebtn{display:block;width:100%;margin-top:4px;padding:8px 9px;border:0;border-top:1px solid var(--line);background:none;color:var(--brand);font-size:12.5px;font-weight:600;text-align:left;cursor:pointer;border-radius:0 0 7px 7px}
+.rpt-ms-morebtn:hover{background:#f4f6f8}
+.rpt-ms-presets{display:flex;flex-wrap:wrap;gap:5px;padding:2px 4px 4px}
+.rpt-ms-preset{font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap}
+.rpt-ms-preset:hover{border-color:var(--brand);color:var(--brand)}
+
 /* Paid / unpaid icon */
 .paid-ico{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:12px;font-weight:800;color:#fff}
 .paid-ico.y{background:var(--green)}

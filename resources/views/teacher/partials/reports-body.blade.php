@@ -1,7 +1,7 @@
 @use('App\Support\Money')
 <div class="cards" style="grid-template-columns:repeat(3,1fr)">
-  <div class="card"><div class="lbl">Phát sinh tháng {{ $month->format('m') }}</div><div class="val">{{ Money::short($cardCharged) }}</div><div class="sub">Tiền học tính theo buổi</div></div>
-  <div class="card"><div class="lbl">Đã thu tháng {{ $month->format('m') }}</div><div class="val green">{{ Money::short($cardCollected) }}</div></div>
+  <div class="card"><div class="lbl">Phát sinh</div><div class="val">{{ Money::short($cardCharged) }}</div><div class="sub">{{ $monthLabel }}</div></div>
+  <div class="card"><div class="lbl">Đã thu</div><div class="val green">{{ Money::short($cardCollected) }}</div><div class="sub">{{ $monthLabel }}</div></div>
   <div class="card"><div class="lbl">Đang nợ (hiện tại)</div><div class="val red">{{ Money::short($cardOwed) }}</div></div>
 </div>
 
@@ -17,7 +17,7 @@
     <div class="pb">
       <div class="tablewrap">
       <table>
-        <thead><tr><th>Học sinh</th><th>Đơn giá/buổi</th><th>Số buổi T{{ $month->format('m') }}</th><th>Phát sinh T{{ $month->format('m') }}</th><th>Đã thu (tổng)</th><th>Đang nợ</th></tr></thead>
+        <thead><tr><th>Học sinh</th><th>Đơn giá/buổi</th><th>Số buổi</th><th>Phát sinh</th><th>Đã thu (tổng)</th><th>Đang nợ</th></tr></thead>
         <tbody>
           @forelse ($r->rows as $row)
             <tr>

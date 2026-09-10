@@ -2178,21 +2178,40 @@ class TeacherController extends Controller
     private function buildReportsData(Request $request): array
     {
         $tid = $this->tid();
-
-        // Filter tháng (YYYY-MM) + lớp
-        $monthStr = $request->get('month') ?: now()->format('Y-m');
-        try {
-            $month = Carbon::createFromFormat('Y-m', $monthStr)->startOfMonth();
-        } catch (\Throwable $e) {
-            $month = now()->startOfMonth();
-            $monthStr = $month->format('Y-m');
-        }
         $classList = Classroom::where('teacher_id', $tid)->orderBy('id')->get();
-        $classId = (int) $request->get('class_id');
-        // Mặc định lọc lớp đầu tiên (tối ưu load) khi mới vào — chưa chọn gì.
-        // Người dùng chủ động chọn "Tất cả lớp" (class_id rỗng) thì vẫn tôn trọng.
-        if (! $request->has('class_id') && $classList->isNotEmpty()) {
-            $classId = (int) $classList->first()->id;
+
+        // ---- Tháng: chọn NHIỀU tháng rời (CSV "YYYY-MM,YYYY-MM"), gộp số liệu ----
+        $months = collect(explode(',', (string) $request->get('months')))
+            ->map(fn ($s) => trim($s))->filter()->unique()
+            ->map(function ($s) {
+                try { return Carbon::createFromFormat('Y-m', $s)->startOfMonth(); }
+                catch (\Throwable $e) { return null; }
+            })->filter()->values();
+        if ($months->isEmpty()) {
+            $months = collect([now()->startOfMonth()]);         // mặc định tháng hiện tại
+        }
+        $months = $months->sortBy(fn ($m) => $m->format('Y-m'))->values();
+        $monthStrs = $months->map(fn ($m) => $m->format('Y-m'))->values();
+        $monthLabel = $months->count() === 1
+            ? 'Tháng ' . $months->first()->format('m/Y')
+            : $months->count() . ' tháng: ' . $months->map(fn ($m) => $m->format('m/Y'))->implode(', ');
+
+        // Dải tháng ban đầu: 12 tháng gần nhất, mở rộng xuống nếu đang chọn tháng cũ hơn (reload vẫn thấy tick).
+        // Nút "Xem thêm" tải thêm tháng cũ VÔ HẠN ở client (mỗi lần bấm +12 tháng).
+        $oldest = $months->concat([now()->startOfMonth()->subMonths(11)])
+            ->sortBy(fn ($m) => $m->format('Y-m'))->first();
+        $monthChips = collect();
+        for ($cur = now()->startOfMonth(); $cur->gte($oldest); $cur->subMonth()) {
+            $monthChips->push($cur->copy());
+        }
+
+        // ---- Lớp: multi-select (CSV ids); mặc định lớp đầu tiên khi mới vào ----
+        $validIds = $classList->pluck('id');
+        $classIds = collect(explode(',', (string) $request->get('class_ids')))
+            ->map(fn ($s) => (int) trim($s))->filter()->unique()
+            ->filter(fn ($id) => $validIds->contains($id))->values();
+        if ($classIds->isEmpty() && $classList->isNotEmpty()) {
+            $classIds = collect([(int) $classList->first()->id]);
         }
 
         $balances = $this->balances($tid);
@@ -2201,17 +2220,23 @@ class TeacherController extends Controller
             ->selectRaw('student_id, SUM(amount) amt')->groupBy('student_id')->pluck('amt', 'student_id');
 
         // Các lớp đưa vào báo cáo
-        $classesQuery = Classroom::where('teacher_id', $tid)->with('students');
-        if ($classId) {
-            $classesQuery->where('id', $classId);
-        }
-        $classes = $classesQuery->orderBy('id')->get();
+        $classes = Classroom::where('teacher_id', $tid)->with('students')
+            ->whereIn('id', $classIds->all())->orderBy('id')->get();
 
-        // Mỗi lớp -> danh sách học sinh kèm tiền
-        $report = $classes->map(function ($class) use ($month, $balances, $paidAll) {
-            $aggMap = StudentSession::whereHas('classSession', function ($q) use ($class, $month) {
-                    $q->where('class_id', $class->id)
-                        ->whereYear('date', $month->year)->whereMonth('date', $month->month);
+        // Điều kiện lọc theo NHIỀU tháng (OR từng cặp năm/tháng)
+        $monthFilter = function ($q, string $col) use ($months) {
+            $q->where(function ($w) use ($months, $col) {
+                foreach ($months as $m) {
+                    $w->orWhere(fn ($x) => $x->whereYear($col, $m->year)->whereMonth($col, $m->month));
+                }
+            });
+        };
+
+        // Mỗi lớp -> danh sách học sinh kèm tiền (gộp mọi tháng đã chọn)
+        $report = $classes->map(function ($class) use ($monthFilter, $balances, $paidAll) {
+            $aggMap = StudentSession::whereHas('classSession', function ($q) use ($class, $monthFilter) {
+                    $q->where('class_id', $class->id);
+                    $monthFilter($q, 'date');
                 })
                 ->selectRaw('student_id, COALESCE(SUM(amount),0) amt, COALESCE(SUM(CASE WHEN amount>0 THEN 1 ELSE 0 END),0) cnt')
                 ->groupBy('student_id')->get()->keyBy('student_id');
@@ -2237,12 +2262,22 @@ class TeacherController extends Controller
         $scopeIds = $classes->flatMap(fn ($c) => $c->students->pluck('id'))->unique();
         $cardCharged = (int) $report->sum('chargedMonth');
         $cardCollected = (int) Payment::whereIn('student_id', $scopeIds)
-            ->whereYear('paid_at', $month->year)->whereMonth('paid_at', $month->month)->sum('amount');
+            ->where(fn ($q) => $monthFilter($q, 'paid_at'))->sum('amount');
         $cardOwed = (int) $scopeIds->sum(fn ($id) => max(0, (int) ($balances[$id] ?? 0)));
 
+        // Nhãn tóm tắt hiển thị trên nút select box
+        $classSummary = ($classList->count() && $classIds->count() === $classList->count())
+            ? 'Tất cả lớp'
+            : ($classIds->count() === 1
+                ? (optional($classList->firstWhere('id', $classIds->first()))->name ?: '1 lớp')
+                : $classIds->count() . ' lớp');
+        $monthSummary = $months->count() === 1
+            ? 'Tháng ' . $months->first()->format('m/Y')
+            : $months->count() . ' tháng';
+
         return compact(
-            'report', 'classList', 'classId', 'monthStr', 'month',
-            'cardCharged', 'cardCollected', 'cardOwed'
+            'report', 'classList', 'classIds', 'monthStrs', 'monthChips', 'monthLabel',
+            'classSummary', 'monthSummary', 'cardCharged', 'cardCollected', 'cardOwed'
         );
     }
 
