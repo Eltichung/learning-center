@@ -157,7 +157,7 @@
           <div class="panel"><div class="pb">
             <div class="tablewrap">
             <table class="attgrid" id="att-table">
-              <thead><tr><th style="width:50%">Học sinh · Điểm danh</th><th style="width:120px">Đơn giá</th><th>Thành tiền</th></tr></thead>
+              <thead><tr><th style="width:50%">Học sinh · Điểm danh</th><th style="width:120px">Đơn giá</th><th>Thành tiền</th><th style="width:132px">Nhận xét</th></tr></thead>
               <tbody>
                 @forelse ($rows as $row)
                   <tr data-price="{{ $row->price }}">
@@ -174,9 +174,21 @@
                     </td>
                     <td class="money">{{ Money::vnd($row->price) }}</td>
                     <td class="money thanhtien">{{ Money::vnd($row->price) }}</td>
+                    <td>
+                      @php($sd = \Illuminate\Support\Carbon::parse($session->date)->toDateString())
+                      <button type="button" class="cmt-open-btn"
+                              data-sid="{{ $row->student->id }}" data-name="{{ $row->student->full_name }}" data-date="{{ $sd }}"
+                              title="Nhận xét học sinh">
+                        @if ($row->comments->isNotEmpty())
+                          <span class="cmt-has">Xem nhận xét</span>
+                        @else
+                          <span class="cmt-add-plain">💬 Nhận xét</span>
+                        @endif
+                      </button>
+                    </td>
                   </tr>
                 @empty
-                  <tr><td colspan="3" class="r" style="padding:16px">Lớp chưa có học sinh.</td></tr>
+                  <tr><td colspan="4" class="r" style="padding:16px">Lớp chưa có học sinh.</td></tr>
                 @endforelse
               </tbody>
             </table>
@@ -208,6 +220,17 @@
             @endforelse
           </div>
         </div>
+      </div>
+    </div>
+
+    {{-- Modal: nhận xét nhanh cho học sinh (đặt NGOÀI #att-form, không refetch để giữ trạng thái điểm danh) --}}
+    <div class="modal-backdrop" id="m-comment">
+      <div class="modal" style="width:560px">
+        <div class="mh"><h3>Nhận xét — <span id="cmt-stud-name"></span></h3><button type="button" class="x" onclick="closeModal(this)">&times;</button></div>
+        <div class="mb">
+          @include('teacher.partials.comment-composer', ['sid' => '', 'date' => \Illuminate\Support\Carbon::parse($session->date)->toDateString()])
+        </div>
+        <div class="mf"><button type="button" class="btn ghost" onclick="closeModal(this)">Huỷ</button><button type="button" class="btn primary cmt-modal-save">💬 Lưu nhận xét</button></div>
       </div>
     </div>
 

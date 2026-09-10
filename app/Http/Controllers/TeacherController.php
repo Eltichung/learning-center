@@ -8,6 +8,8 @@ use App\Models\ClassSchedule;
 use App\Models\ClassSession;
 use App\Models\ClassStudent;
 use App\Models\ClassStudentPriceLog;
+use App\Models\CommentTemplate;
+use App\Models\CommentType;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\Student;
@@ -567,15 +569,19 @@ class TeacherController extends Controller
         ];
 
         // Nhận xét của giáo viên, mới nhất trước
-        $comments = $student->comments()
+        $comments = $student->comments()->with('type')
             ->orderByDesc('comment_date')->orderByDesc('id')->get();
+
+        // Loại + mẫu câu dùng được cho GV này (hệ thống + riêng của GV)
+        $commentTypes = CommentType::usableBy($tid)->orderBy('sort')->orderBy('id')->get();
+        $commentTemplates = CommentTemplate::usableBy($tid)->orderBy('sort')->orderBy('id')->get();
 
         // Nhật ký bật/tắt hoạt động, mới nhất trước
         $statusLogs = $student->statusLogs()->with('user')->latest('id')->get();
 
         return compact(
             'student', 'enrollments', 'balance', 'unpaidSessions', 'grade', 'primaryPrice', 'prefix',
-            'attendance', 'attSummary', 'comments', 'statusLogs'
+            'attendance', 'attSummary', 'comments', 'commentTypes', 'commentTemplates', 'statusLogs'
         );
     }
 
@@ -587,16 +593,89 @@ class TeacherController extends Controller
 
         $data = $request->validate([
             'comment_date' => ['required', 'date'],
+            'comment_type_id' => ['nullable', 'integer'],
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
-        $student->comments()->create([
+        $comment = $student->comments()->create([
             'teacher_id' => $tid,
+            'comment_type_id' => $this->usableTypeId($tid, $data['comment_type_id'] ?? null),
             'comment_date' => $data['comment_date'],
             'body' => $data['body'],
         ]);
 
-        return $this->respondOk($request, 'Đã lưu nhận xét.', route('teacher.student', $student->id));
+        return $this->respondOk($request, 'Đã lưu nhận xét.', route('teacher.student', $student->id), [
+            'comment' => $this->commentPayload($comment),
+        ]);
+    }
+
+    /** Nhận xét (theo loại) của học sinh cho 1 ngày — nạp vào composer đa loại. */
+    public function commentsForDate(Request $request, int $id)
+    {
+        $tid = $this->tid();
+        $student = Student::where('teacher_id', $tid)->findOrFail($id);
+        $date = $request->validate(['date' => ['required', 'date']])['date'];
+
+        $items = $student->comments()->with('type')
+            ->whereDate('comment_date', $date)
+            ->whereNotNull('comment_type_id')
+            ->orderByDesc('id')->get()
+            ->groupBy('comment_type_id')
+            ->map(fn ($g) => $g->first())
+            ->map(fn ($c) => ['type_id' => (int) $c->comment_type_id, 'body' => $c->body])
+            ->values();
+
+        return response()->json(['date' => $date, 'items' => $items]);
+    }
+
+    /** Đồng bộ nhận xét đa loại cho (học sinh, ngày): mỗi loại 1 nhận xét.
+     *  Loại có nội dung → tạo/cập nhật; loại bỏ chọn/để trống → xoá. */
+    public function syncComments(Request $request, int $id)
+    {
+        $tid = $this->tid();
+        $student = Student::where('teacher_id', $tid)->findOrFail($id);
+
+        $data = $request->validate([
+            'comment_date' => ['required', 'date'],
+            'items' => ['array'],
+            'items.*.type_id' => ['nullable', 'integer'],
+            'items.*.body' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $date = $data['comment_date'];
+
+        $keep = [];
+        foreach ($data['items'] ?? [] as $it) {
+            $typeId = $this->usableTypeId($tid, $it['type_id'] ?? null);
+            $body = trim((string) ($it['body'] ?? ''));
+            if (! $typeId || $body === '') {
+                continue;
+            }
+            $student->comments()->updateOrCreate(
+                ['teacher_id' => $tid, 'comment_date' => $date, 'comment_type_id' => $typeId],
+                ['body' => $body]
+            );
+            $keep[] = $typeId;
+        }
+
+        // Xoá các loại (đã gắn loại) của ngày này không còn trong danh sách giữ
+        $student->comments()->whereDate('comment_date', $date)
+            ->whereNotNull('comment_type_id')
+            ->whereNotIn('comment_type_id', $keep ?: [0])
+            ->delete();
+
+        $comments = $student->comments()->with('type')
+            ->whereDate('comment_date', $date)
+            ->whereNotNull('comment_type_id')
+            ->get()
+            ->sortBy(fn ($c) => $c->type?->sort ?? 999)
+            ->map(fn ($c) => $this->commentPayload($c))
+            ->values();
+
+        return $this->respondOk($request, 'Đã lưu nhận xét.', route('teacher.student', $student->id), [
+            'student_id' => $student->id,
+            'date' => $date,
+            'comments' => $comments,
+        ]);
     }
 
     /** Xoá một nhận xét. */
@@ -607,6 +686,101 @@ class TeacherController extends Controller
         $student->comments()->whereKey($commentId)->delete();
 
         return $this->respondOk($request, 'Đã xoá nhận xét.', route('teacher.student', $student->id));
+    }
+
+    /** Payload gọn của 1 nhận xét (cho JS cập nhật badge tại chỗ ở trang điểm danh). */
+    private function commentPayload(StudentComment $c): array
+    {
+        $c->loadMissing('type');
+
+        return [
+            'id' => $c->id,
+            'student_id' => $c->student_id,
+            'type_id' => $c->comment_type_id,
+            'icon' => $c->type?->icon,
+            'name' => $c->type?->name,
+            'color' => $c->type?->color,
+            'body' => $c->body,
+        ];
+    }
+
+    /** Xác thực loại nhận xét: chỉ chấp nhận loại hệ thống hoặc loại của chính GV. */
+    private function usableTypeId(int $tid, $typeId): ?int
+    {
+        if (! $typeId) {
+            return null;
+        }
+        $ok = CommentType::whereKey($typeId)
+            ->where(fn ($q) => $q->whereNull('teacher_id')->orWhere('teacher_id', $tid))
+            ->exists();
+
+        return $ok ? (int) $typeId : null;
+    }
+
+    /** Thêm loại nhận xét riêng của giáo viên. */
+    public function storeCommentType(Request $request)
+    {
+        $tid = $this->tid();
+        $data = $request->validate(['name' => ['required', 'string', 'max:60']]);
+
+        $type = CommentType::create([
+            'teacher_id' => $tid,
+            'name' => $data['name'],
+            'icon' => '📝',
+            'color' => 'n',
+            'sort' => 99,
+            'is_active' => true,
+        ]);
+
+        return $this->respondOk($request, 'Đã thêm loại nhận xét.', null, [
+            'type' => [
+                'id' => $type->id,
+                'name' => $type->name,
+                'icon' => $type->icon,
+                'color' => $type->color,
+                'style' => $type->paletteStyle(),
+            ],
+        ]);
+    }
+
+    /** Xoá loại nhận xét của giáo viên (chỉ loại do chính GV tạo). */
+    public function deleteCommentType(Request $request, int $id)
+    {
+        $tid = $this->tid();
+        CommentType::where('teacher_id', $tid)->whereKey($id)->delete();
+
+        return $this->respondOk($request, 'Đã xoá loại nhận xét.');
+    }
+
+    /** Lưu một mẫu câu riêng của giáo viên. */
+    public function storeCommentTemplate(Request $request)
+    {
+        $tid = $this->tid();
+        $data = $request->validate([
+            'comment_type_id' => ['nullable', 'integer'],
+            'body' => ['required', 'string', 'max:500'],
+        ]);
+
+        $tpl = CommentTemplate::create([
+            'teacher_id' => $tid,
+            'comment_type_id' => $this->usableTypeId($tid, $data['comment_type_id'] ?? null),
+            'body' => $data['body'],
+            'sort' => 99,
+            'is_active' => true,
+        ]);
+
+        return $this->respondOk($request, 'Đã lưu mẫu câu.', null, [
+            'template' => ['id' => $tpl->id, 'type_id' => $tpl->comment_type_id, 'body' => $tpl->body],
+        ]);
+    }
+
+    /** Xoá một mẫu câu của giáo viên (chỉ mẫu do chính GV tạo). */
+    public function deleteCommentTemplate(Request $request, int $id)
+    {
+        $tid = $this->tid();
+        CommentTemplate::where('teacher_id', $tid)->whereKey($id)->delete();
+
+        return $this->respondOk($request, 'Đã xoá mẫu câu.');
     }
 
     /* ===================== Điểm danh ===================== */
@@ -683,10 +857,23 @@ class TeacherController extends Controller
             if ($session) {
                 $existing = StudentSession::where('class_session_id', $session->id)->pluck('status', 'student_id');
                 // Chỉ hiển thị học sinh đang hoạt động (đã ngừng hoạt động thì không điểm danh)
-                $rows = $class->students()->where('students.status', 'active')->get()->map(fn ($s) => (object) [
+                $activeStudents = $class->students()->where('students.status', 'active')->get();
+
+                // Nhận xét đã có của từng HS cho ĐÚNG ngày của buổi này — mỗi loại 1 cái
+                $commentByStudent = StudentComment::with('type')
+                    ->where('teacher_id', $tid)
+                    ->whereIn('student_id', $activeStudents->pluck('id'))
+                    ->whereDate('comment_date', Carbon::parse($session->date)->toDateString())
+                    ->whereNotNull('comment_type_id')
+                    ->orderByDesc('id')->get()
+                    ->groupBy('student_id')
+                    ->map(fn ($g) => $g->unique('comment_type_id')->sortBy(fn ($c) => $c->type?->sort ?? 999)->values());
+
+                $rows = $activeStudents->map(fn ($s) => (object) [
                     'student' => $s,
                     'price' => (int) $s->pivot->price_per_session,
                     'status' => $existing[$s->id] ?? 'present',
+                    'comments' => $commentByStudent->get($s->id) ?? collect(),
                 ]);
                 $logs = $session->logs()->with('user')->latest('id')->get();
             }
@@ -704,9 +891,14 @@ class TeacherController extends Controller
                 ->get();
         }
 
+        // Loại + mẫu câu nhận xét (cho modal "Nhận xét nhanh" khi điểm danh)
+        $commentTypes = CommentType::usableBy($tid)->orderBy('sort')->orderBy('id')->get();
+        $commentTemplates = CommentTemplate::usableBy($tid)->orderBy('sort')->orderBy('id')->get();
+
         return compact(
             'classList', 'class', 'sessions', 'session', 'rows', 'total',
-            'weekStart', 'weekEnd', 'weekLabel', 'logs', 'pendingOffs'
+            'weekStart', 'weekEnd', 'weekLabel', 'logs', 'pendingOffs',
+            'commentTypes', 'commentTemplates'
         );
     }
 

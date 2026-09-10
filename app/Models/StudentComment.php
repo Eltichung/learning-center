@@ -7,11 +7,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StudentComment extends Model
 {
-    protected $fillable = ['student_id', 'teacher_id', 'comment_date', 'body'];
+    protected $fillable = ['student_id', 'teacher_id', 'comment_type_id', 'comment_date', 'body'];
 
     protected $casts = ['comment_date' => 'date'];
 
     public function student(): BelongsTo { return $this->belongsTo(Student::class); }
 
     public function teacher(): BelongsTo { return $this->belongsTo(User::class, 'teacher_id'); }
+
+    public function type(): BelongsTo { return $this->belongsTo(CommentType::class, 'comment_type_id'); }
 }

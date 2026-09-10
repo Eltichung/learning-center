@@ -115,7 +115,7 @@ class LookupController extends Controller
             ]);
 
         // 3 nhận xét mới nhất của giáo viên
-        $comments = $student->comments()
+        $comments = $student->comments()->with('type')
             ->orderByDesc('comment_date')->orderByDesc('id')->limit(3)->get();
 
         // Giáo án tuần này (T2 → CN) — chỉ hiển thị ngày có title hoặc content

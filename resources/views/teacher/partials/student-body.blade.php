@@ -70,24 +70,20 @@
   </div>
 </div>
 
-{{-- Nhận xét học sinh (lưu theo ngày) --}}
+{{-- Nhận xét học sinh (đa loại — mỗi loại 1 nhận xét theo ngày) --}}
 <div class="panel"><div class="ph"><h3>Nhận xét học sinh</h3></div><div class="pb" style="padding:16px">
-  <form method="POST" action="{{ route('teacher.student.comments.store', ['id' => $student->id], false) }}" style="margin-bottom:14px"
-        data-refetch="#student-body" data-reset-on-success>
-    @csrf
-    <div class="field" style="max-width:220px"><label>Ngày</label>
-      <input type="date" name="comment_date" value="{{ old('comment_date', now()->toDateString()) }}" required>
-    </div>
-    <div class="field"><label>Nội dung nhận xét <span style="color:var(--red)">*</span></label>
-      <textarea name="body" rows="3" required placeholder="VD: Em tiến bộ ở phần hình học, cần luyện thêm bài tập về nhà.">{{ old('body') }}</textarea>
-    </div>
-    <button class="btn primary" type="submit">💬 Lưu nhận xét</button>
-  </form>
+  <div style="margin-bottom:14px">
+    @include('teacher.partials.comment-composer', ['sid' => $student->id, 'date' => now()->toDateString(), 'autoload' => true])
+    <button type="button" class="btn primary cmt-save-inline" style="margin-top:12px">💬 Lưu nhận xét</button>
+  </div>
 
   @forelse ($comments as $c)
     <div class="prow" style="align-items:flex-start">
       <div style="padding-right:12px">
-        <div class="r" style="margin-bottom:2px">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</div>
+        <div style="margin-bottom:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="r">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</span>
+          @if ($c->type)<span class="chip {{ $c->type->color }}">{{ $c->type->icon }} {{ $c->type->name }}</span>@endif
+        </div>
         <div style="white-space:pre-line">{{ $c->body }}</div>
       </div>
       <form method="POST" action="{{ route('teacher.student.comments.delete', ['id' => $student->id, 'commentId' => $c->id], false) }}" data-confirm="Xoá nhận xét này?" style="flex:none"

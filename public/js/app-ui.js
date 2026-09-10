@@ -504,3 +504,308 @@ window.addEventListener('popstate', function(e){
   el.dataset.partialUrl = base + location.search;
   refetchInto(el);
 });
+
+/* ===== Composer nhận xét ĐA LOẠI — mô hình "ô" (dùng chung: modal điểm danh + hồ sơ HS) =====
+   Mỗi nhận xét = 1 ô; trong ô chọn loại (dropdown) + viết. Bấm "＋ Thêm nhận xét" để thêm ô.
+   Lưu = đồng bộ theo (HS, ngày, loại). Delegation ở document nên sống sót qua refetch. */
+function cmtBox(el){ return el ? el.closest('.cmt-multi') : null; }
+function cmtEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function cmtData(box){
+  if (!box._cmtTypes) { try { box._cmtTypes = JSON.parse(box.dataset.types || '[]'); } catch (e) { box._cmtTypes = []; } }
+  if (!box._cmtTpls) { try { box._cmtTpls = JSON.parse(box.dataset.templates || '{}'); } catch (e) { box._cmtTpls = {}; } }
+  return { types: box._cmtTypes, tpls: box._cmtTpls };
+}
+function cmtTypeById(box, id){ return cmtData(box).types.find(function(t){ return String(t.id) === String(id); }); }
+function cmtUsedTypeIds(box, exceptEl){
+  var used = [];
+  box.querySelectorAll('.cmt-box').forEach(function(bx){
+    if (bx === exceptEl) return;
+    if (bx.dataset.type) used.push(String(bx.dataset.type));
+  });
+  return used;
+}
+function cmtFirstUnusedType(box){
+  var used = cmtUsedTypeIds(box, null);
+  var t = cmtData(box).types.find(function(x){ return used.indexOf(String(x.id)) < 0; });
+  return t ? String(t.id) : null;
+}
+/* Dựng lại hàng chip loại cho mọi ô: mỗi ô chỉ thấy loại của chính nó + loại chưa dùng ở ô khác */
+function cmtRefreshChips(box){
+  box.querySelectorAll('.cmt-box').forEach(function(bx){
+    var wrap = bx.querySelector('.cmt-box-types'); if (!wrap) return;
+    var cur = bx.dataset.type || '';
+    var used = cmtUsedTypeIds(box, bx);
+    wrap.innerHTML = '';
+    cmtData(box).types.forEach(function(t){
+      if (used.indexOf(String(t.id)) >= 0 && String(t.id) !== String(cur)) return;
+      var chip = document.createElement('span');
+      chip.className = 'cmt-type-chip' + (String(t.id) === String(cur) ? ' on' : '');
+      chip.dataset.id = t.id; chip.setAttribute('role', 'button'); chip.tabIndex = 0;
+      chip.setAttribute('style', t.style || '');
+      chip.innerHTML = '<span class="ic">' + (t.icon || '') + '</span>' + cmtEsc(t.name);
+      wrap.appendChild(chip);
+    });
+    var ct = cmtTypeById(box, cur);
+    bx.setAttribute('style', ct ? ct.style : '');
+  });
+}
+function cmtRenderBoxTpls(box, bx){
+  var id = bx.dataset.type || '';
+  var wrap = bx.querySelector('.cmt-tpls'); if (!wrap) return;
+  wrap.innerHTML = '';
+  ((cmtData(box).tpls || {})[id] || []).forEach(function(b){
+    var chip = document.createElement('span');
+    chip.className = 'cmt-tpl-chip'; chip.dataset.body = b;
+    chip.innerHTML = '<span class="pl">+</span>' + cmtEsc(b);
+    wrap.appendChild(chip);
+  });
+}
+function cmtUpdateEmpty(box){
+  var has = box.querySelector('.cmt-box');
+  var empty = box.querySelector('.cmt-empty'); if (empty) empty.hidden = !!has;
+  var addBtn = box.querySelector('.cmt-add-box');
+  if (addBtn) { var full = cmtFirstUnusedType(box) == null; addBtn.disabled = full; addBtn.style.opacity = full ? '.5' : ''; }
+}
+function cmtAddBox(box, typeId, body){
+  if (typeId == null) typeId = cmtFirstUnusedType(box);
+  if (typeId == null) { if (window.toast) toast('Đã dùng hết các loại nhận xét', 'error'); return null; }
+  var bx = document.createElement('div');
+  bx.className = 'cmt-box';
+  bx.dataset.type = String(typeId);
+  bx.innerHTML =
+    '<div class="cmt-box-top"><div class="cmt-box-types"></div>' +
+    '<button type="button" class="cmt-box-remove" title="Bỏ ô này" aria-label="Bỏ ô này">✕</button></div>' +
+    '<div class="cmt-tpls"></div>' +
+    '<br>' +
+    '<textarea class="cmt-block-body" rows="4" placeholder="Nội dung nhận xét…"></textarea>' +
+    '<div class="cmt-box-foot">' +
+      '<button type="button" class="btn ghost sm cmt-block-savetpl">🔖 Lưu lại mẫu câu</button>' +
+      '<span class="cmt-savetpl-note">Lưu lại mẫu câu để tái sử dụng lần sau</span>' +
+    '</div>';
+  box.querySelector('.cmt-box-list').appendChild(bx);
+  if (body != null) bx.querySelector('.cmt-block-body').value = body;
+  cmtRefreshChips(box);
+  cmtRenderBoxTpls(box, bx);
+  cmtUpdateEmpty(box);
+  return bx;
+}
+function cmtClearBoxes(box){ var list = box.querySelector('.cmt-box-list'); if (list) list.innerHTML = ''; }
+
+/* Thu thập {type_id, body} từ các ô */
+function cmtCollect(box){
+  var items = [];
+  box.querySelectorAll('.cmt-box').forEach(function(bx){
+    var ta = bx.querySelector('.cmt-block-body');
+    if (bx.dataset.type) items.push({ type_id: bx.dataset.type, body: ta ? ta.value : '' });
+  });
+  return items;
+}
+
+/* Nạp nhận xét đã có (theo ngày) → dựng các ô */
+async function cmtLoadForDate(box){
+  var sid = box.dataset.sid; if (!sid) return;
+  var dInput = box.querySelector('.cmt-date');
+  var date = dInput ? dInput.value : '';
+  if (!date) return;
+  cmtClearBoxes(box);
+  var url = (box.dataset.urlFordate || '').replace('__SID__', sid) + '?date=' + encodeURIComponent(date);
+  try {
+    var res = await fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+    if (res.ok) { var data = await res.json(); (data.items || []).forEach(function(it){ cmtAddBox(box, it.type_id, it.body); }); }
+  } catch (e) {}
+  if (!box.querySelector('.cmt-box')) cmtAddBox(box, null, '');
+  cmtUpdateEmpty(box);
+}
+
+/* Đồng bộ (lưu) — trả về response body hoặc null */
+async function cmtSync(box, btn){
+  var sid = box.dataset.sid; if (!sid) return null;
+  var dInput = box.querySelector('.cmt-date');
+  var date = dInput ? dInput.value : '';
+  var items = cmtCollect(box);
+  var fd = new FormData();
+  fd.append('comment_date', date || '');
+  items.forEach(function(it, i){ fd.append('items[' + i + '][type_id]', it.type_id); fd.append('items[' + i + '][body]', it.body); });
+  var old = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.classList.add('is-loading'); }
+  showLoader();
+  try {
+    var res = await fetch((box.dataset.urlSync || '').replace('__SID__', sid), {
+      method: 'POST', body: fd, credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': getCsrfToken() },
+    });
+    var ctype = res.headers.get('content-type') || '';
+    var body = ctype.indexOf('application/json') !== -1 ? await res.json() : null;
+    if (res.status === 422) { if (window.toast) toast((body && body.message) || 'Dữ liệu chưa hợp lệ', 'error'); return null; }
+    if (!res.ok) { if (window.toast) toast((body && (body.message || body.error)) || ('Lỗi ' + res.status), 'error'); return null; }
+    if (window.toast && body && body.ok) toast(body.ok, 'success');
+    return body;
+  } catch (e) { if (window.toast) toast('Lỗi mạng — vui lòng thử lại', 'error'); return null; }
+  finally { if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); btn.innerHTML = old; } hideLoader(); }
+}
+
+/* POST đơn giản (thêm loại / lưu mẫu) → trả body */
+async function cmtPostJson(url, payload){
+  var fd = new FormData();
+  Object.keys(payload).forEach(function(k){ fd.append(k, payload[k]); });
+  var res = await fetch(url, { method: 'POST', body: fd, credentials: 'same-origin',
+    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': getCsrfToken() } });
+  var body = (res.headers.get('content-type') || '').indexOf('json') !== -1 ? await res.json() : null;
+  if (!res.ok) { if (window.toast) toast((body && (body.message || body.error)) || ('Lỗi ' + res.status), 'error'); return null; }
+  if (window.toast && body && body.ok) toast(body.ok, 'success');
+  return body;
+}
+
+/* Thêm loại mới → nạp vào data + tạo ngay 1 ô cho loại đó */
+async function cmtAddTypeAction(box){
+  var input = box.querySelector('.cmt-newtype-name');
+  var name = input ? input.value.trim() : '';
+  if (!name) { if (window.toast) toast('Nhập tên loại', 'error'); return; }
+  var resp = await cmtPostJson(box.dataset.urlTypes, { name: name });
+  if (resp && resp.type) {
+    var d = cmtData(box);
+    d.types.push({ id: resp.type.id, name: resp.type.name, icon: resp.type.icon, color: resp.type.color, style: resp.type.style });
+    box.dataset.types = JSON.stringify(d.types);
+    d.tpls[resp.type.id] = [];
+    cmtRefreshChips(box);
+    cmtAddBox(box, resp.type.id, '');
+  }
+  if (input) input.value = '';
+  var row = box.querySelector('.cmt-newtype'); if (row) row.hidden = true;
+}
+
+/* Lưu nội dung ô hiện tại thành mẫu của loại đó */
+async function cmtSaveTplAction(box, bx){
+  if (!bx) return;
+  var ta = bx.querySelector('.cmt-block-body');
+  var val = ta ? ta.value.trim() : '';
+  if (!val) { if (window.toast) toast('Nhập nội dung trước khi lưu mẫu', 'error'); return; }
+  var typeId = bx.dataset.type || '';
+  var resp = await cmtPostJson(box.dataset.urlTpls, { comment_type_id: typeId, body: val });
+  if (resp && resp.template) {
+    var d = cmtData(box); if (!d.tpls[typeId]) d.tpls[typeId] = []; d.tpls[typeId].push(resp.template.body);
+    var chip = document.createElement('span');
+    chip.className = 'cmt-tpl-chip'; chip.dataset.body = resp.template.body;
+    chip.innerHTML = '<span class="pl">+</span>' + cmtEsc(resp.template.body);
+    bx.querySelector('.cmt-tpls').appendChild(chip);
+  }
+}
+
+/* Mở modal nhận xét (trang điểm danh) — nạp nhận xét hiện có của HS cho ngày buổi */
+function openCommentModal(sid, name, date){
+  var m = document.getElementById('m-comment'); if (!m) return;
+  var box = m.querySelector('.cmt-multi'); if (!box) return;
+  box.dataset.sid = sid;
+  var nm = m.querySelector('#cmt-stud-name'); if (nm) nm.textContent = name || '';
+  var d = box.querySelector('.cmt-date'); if (d && date) d.value = date;
+  cmtLoadForDate(box);
+  openModal('m-comment');
+}
+window.openCommentModal = openCommentModal;
+
+/* Vẽ lại ô "Nhận xét" trên bảng điểm danh (nhiều badge, không refetch) */
+function cmtRenderCell(resp){
+  var table = document.getElementById('att-table'); if (!table || !resp) return;
+  var btn = table.querySelector('.cmt-open-btn[data-sid="' + resp.student_id + '"]');
+  if (!btn) return;
+  var td = btn.closest('td'); var name = btn.dataset.name || ''; var date = btn.dataset.date || '';
+  var inner = (resp.comments && resp.comments.length)
+    ? '<span class="cmt-has">Xem nhận xét</span>'
+    : '<span class="cmt-add-plain">💬 Nhận xét</span>';
+  td.innerHTML = '<button type="button" class="cmt-open-btn" data-sid="' + resp.student_id + '" data-name="' + cmtEsc(name) + '" data-date="' + cmtEsc(date) + '" title="Nhận xét học sinh">' + inner + '</button>';
+}
+
+/* Tự nạp các composer inline (trang hồ sơ HS) khi trang/mảnh render */
+function cmtInitAutoload(root){
+  (root || document).querySelectorAll('.cmt-multi[data-autoload]').forEach(function(box){
+    if (box.dataset.sid) cmtLoadForDate(box);
+  });
+}
+document.addEventListener('DOMContentLoaded', function(){ cmtInitAutoload(document); });
+document.addEventListener('lt:refetched', function(e){ cmtInitAutoload(e && e.detail ? e.detail.container : document); });
+
+/* Click delegation: nút mở modal / lưu / các thao tác trong composer */
+document.addEventListener('click', function(e){
+  var open = e.target.closest('.cmt-open-btn');
+  if (open) { openCommentModal(open.dataset.sid, open.dataset.name, open.dataset.date); return; }
+
+  var msave = e.target.closest('.cmt-modal-save');
+  if (msave) {
+    (async function(){
+      var back = msave.closest('.modal-backdrop'); if (!back) return;
+      var box = back.querySelector('.cmt-multi'); if (!box) return;
+      var resp = await cmtSync(box, msave);
+      if (resp) { cmtRenderCell(resp); back.classList.remove('show'); document.body.style.overflow = ''; }
+    })();
+    return;
+  }
+
+  var isave = e.target.closest('.cmt-save-inline');
+  if (isave) {
+    (async function(){
+      var box = (isave.parentElement && isave.parentElement.querySelector('.cmt-multi')) || document.querySelector('.cmt-multi');
+      if (!box) return;
+      var resp = await cmtSync(box, isave);
+      if (resp) await refetchInto('#student-body');
+    })();
+    return;
+  }
+
+  var box = e.target.closest('.cmt-multi');
+  if (!box) return;
+
+  if (e.target.closest('.cmt-add-box')) { var nb = cmtAddBox(box, null, ''); if (nb) { var t = nb.querySelector('.cmt-block-body'); if (t) t.focus(); } return; }
+
+  if (e.target.closest('.cmt-add-newtype')) {
+    var row = box.querySelector('.cmt-newtype');
+    if (row) { row.hidden = false; var inp = row.querySelector('.cmt-newtype-name'); if (inp) inp.focus(); }
+    return;
+  }
+  if (e.target.closest('.cmt-newtype-cancel')) {
+    var r = box.querySelector('.cmt-newtype');
+    if (r) { r.hidden = true; var i = r.querySelector('.cmt-newtype-name'); if (i) i.value = ''; }
+    return;
+  }
+  if (e.target.closest('.cmt-newtype-save')) { cmtAddTypeAction(box); return; }
+
+  var rm = e.target.closest('.cmt-box-remove');
+  if (rm) { var bx = rm.closest('.cmt-box'); if (bx) bx.remove(); cmtRefreshChips(box); cmtUpdateEmpty(box); return; }
+
+  var savetpl = e.target.closest('.cmt-block-savetpl');
+  if (savetpl) { cmtSaveTplAction(box, savetpl.closest('.cmt-box')); return; }
+
+  var tplChip = e.target.closest('.cmt-tpl-chip');
+  if (tplChip) {
+    var bx2 = tplChip.closest('.cmt-box');
+    var ta = bx2 ? bx2.querySelector('.cmt-block-body') : null;
+    if (ta) { var cur = ta.value.trim(); ta.value = (cur ? cur + ' ' : '') + (tplChip.dataset.body || ''); ta.focus(); }
+    return;
+  }
+
+  // Chọn loại cho 1 ô bằng chip (tab)
+  var typeChip = e.target.closest('.cmt-type-chip');
+  if (typeChip) {
+    var bx3 = typeChip.closest('.cmt-box');
+    if (bx3) { bx3.dataset.type = typeChip.dataset.id; cmtRefreshChips(box); cmtRenderBoxTpls(box, bx3); }
+    return;
+  }
+});
+
+/* Đổi ngày → nạp lại nhận xét của ngày đó */
+document.addEventListener('change', function(e){
+  var d = e.target.closest && e.target.closest('.cmt-date');
+  if (!d) return;
+  var box = cmtBox(d);
+  if (box && box.dataset.sid) cmtLoadForDate(box);
+});
+
+/* Enter trong ô "Loại mới" = thêm luôn */
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Enter') return;
+  var inp = e.target.closest && e.target.closest('.cmt-newtype-name');
+  if (!inp) return;
+  e.preventDefault();
+  var box = cmtBox(inp);
+  if (box) cmtAddTypeAction(box);
+});

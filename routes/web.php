@@ -78,7 +78,15 @@ Route::middleware(['auth', 'active.sub'])->group(function () {
     Route::get('/students/{id}', [TeacherController::class, 'studentShow'])->name('teacher.student');
     Route::get('/students/{id}/partial', [TeacherController::class, 'studentShowPartial'])->name('teacher.student.partial');
     Route::post('/students/{id}/comments', [TeacherController::class, 'storeComment'])->name('teacher.student.comments.store');
+    Route::get('/students/{id}/comments/for-date', [TeacherController::class, 'commentsForDate'])->name('teacher.student.comments.forDate');
+    Route::post('/students/{id}/comments/sync', [TeacherController::class, 'syncComments'])->name('teacher.student.comments.sync');
     Route::delete('/students/{id}/comments/{commentId}', [TeacherController::class, 'deleteComment'])->name('teacher.student.comments.delete');
+
+    // Loại + mẫu câu nhận xét (bộ hệ thống + tuỳ chỉnh của giáo viên)
+    Route::post('/comment-types', [TeacherController::class, 'storeCommentType'])->name('teacher.commentTypes.store');
+    Route::delete('/comment-types/{id}', [TeacherController::class, 'deleteCommentType'])->name('teacher.commentTypes.delete');
+    Route::post('/comment-templates', [TeacherController::class, 'storeCommentTemplate'])->name('teacher.commentTemplates.store');
+    Route::delete('/comment-templates/{id}', [TeacherController::class, 'deleteCommentTemplate'])->name('teacher.commentTemplates.delete');
 
     Route::get('/attendance', [TeacherController::class, 'attendance'])->name('teacher.attendance');
     Route::get('/attendance/partial', [TeacherController::class, 'attendancePartial'])->name('teacher.attendance.partial');

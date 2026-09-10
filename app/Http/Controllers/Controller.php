@@ -10,13 +10,13 @@ abstract class Controller
      * Trả về JSON cho request AJAX, hoặc redirect HTML như trước.
      *  - $redirect: URL điều hướng sau khi thành công (truyền null = back).
      */
-    protected function respondOk(Request $request, string $message, ?string $redirect = null): mixed
+    protected function respondOk(Request $request, string $message, ?string $redirect = null, array $extra = []): mixed
     {
         if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
+            return response()->json(array_merge([
                 'ok' => $message,
                 'redirect' => $redirect,
-            ]);
+            ], $extra));
         }
         if ($redirect) {
             return redirect()->to($redirect)->with('ok', $message);
