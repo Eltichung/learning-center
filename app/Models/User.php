@@ -45,10 +45,9 @@ class User extends Authenticatable
     /** Plan hiện tại (theo subscription còn hạn); fallback Trial. */
     public function currentPlan(): Plan
     {
-        // TẠM TEST popup giới hạn: ép ninhtrang về gói free (trial 1 lớp/10 HS).
-        // TODO: khôi phục lại 'yeu-anh' (không giới hạn) sau khi test xong.
+        // Chủ hệ thống (ninhtrang) dùng gói "Yêu Anh" — không giới hạn.
         if ($this->email === 'ninhtrang@gmail.com') {
-            return Plan::where('slug', 'trial')->firstOrFail();
+            return Plan::where('slug', 'yeu-anh')->firstOrFail();
         }
 
         $sub = $this->subscription;
