@@ -19,9 +19,9 @@
     @if ($feeTotalOwed > 0)
       @if ($feeCurrentOwed > 0)
         {{-- Nợ ngay tháng hiện tại --}}
-        <div class="fee-cur-lbl">⚠️ Nợ tháng này · {{ $feeCurrentShort }}</div>
+        <div class="fee-cur-lbl">⚠️ Học phí đang chờ thanh toán · {{ $feeCurrentShort }}</div>
         <div class="amt">{{ Money::vnd($feeCurrentOwed) }}</div>
-        <div class="meta">Phát sinh {{ Money::vnd($feeCurrentCharged) }} · đã đóng {{ Money::vnd($feeCurrentPaid) }}</div>
+        <div class="meta">Tổng học phí tháng {{ (int) $feeCurrentShort }}: {{ Money::vnd($feeCurrentCharged) }} · đã đóng {{ Money::vnd($feeCurrentPaid) }}</div>
       @else
         {{-- Tháng này đã đủ, chỉ còn nợ các tháng trước (không hiện số lớn, để note bên dưới lo) --}}
         <div class="fee-cur-ok">✅ Tháng {{ $feeCurrentShort }} đã đóng đủ</div>
