@@ -83,6 +83,7 @@
         <div style="margin-bottom:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span class="r">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</span>
           @if ($c->type)<span class="chip {{ $c->type->color }}">{{ $c->type->icon }} {{ $c->type->name }}</span>@endif
+          @if ($c->ratingLabel())<span class="chip {{ $c->ratingChip() }}">{{ $c->ratingLabel() }}</span>@endif
         </div>
         <div style="white-space:pre-line">{{ $c->body }}</div>
       </div>

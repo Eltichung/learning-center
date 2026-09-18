@@ -13,21 +13,51 @@
   @php($qrUrl = optional($student->teacher)->qr_image_path ? asset('storage/'.$student->teacher->qr_image_path) : null)
 
   @if ($showFees ?? true)
-  {{-- Học phí — đưa lên đầu tiên theo yêu cầu --}}
-  <div class="due-card {{ $balance > 0 ? 'has-due' : 'no-due' }}">
-    <div class="due-info">
-      <div class="due-total">Học phí</div>
-      @if ($balance > 0)
-        <div class="amt">{{ Money::vnd($balance) }}</div>
-        <div class="meta">{{ $unpaidSessions }} buổi chưa đóng × {{ Money::vnd($price) }}</div>
+  {{-- Học phí — nợ tháng hiện tại + chi tiết từng tháng --}}
+  <div class="due-card {{ $feeTotalOwed > 0 ? 'has-due' : 'no-due' }}">
+    <div class="due-total">Học phí</div>
+    @if ($feeTotalOwed > 0)
+      @if ($feeCurrentOwed > 0)
+        {{-- Nợ ngay tháng hiện tại --}}
+        <div class="fee-cur-lbl">⚠️ Nợ tháng này · {{ $feeCurrentShort }}</div>
+        <div class="amt">{{ Money::vnd($feeCurrentOwed) }}</div>
+        <div class="meta">Phát sinh {{ Money::vnd($feeCurrentCharged) }} · đã đóng {{ Money::vnd($feeCurrentPaid) }}</div>
       @else
-        <div class="amt no-debt">Đã đóng đủ ✓</div>
-        <div class="meta">Cảm ơn quý phụ huynh!</div>
+        {{-- Tháng này đã đủ, chỉ còn nợ các tháng trước (không hiện số lớn, để note bên dưới lo) --}}
+        <div class="fee-cur-ok">✅ Tháng {{ $feeCurrentShort }} đã đóng đủ</div>
+      @endif
+
+      <div class="fee-unpaid">
+        <div class="fee-unpaid-h">Các tháng chưa đóng</div>
+        @foreach ($feeUnpaidMonths as $um)
+          <div class="fee-unpaid-row"><span>{{ $um->label }}@if ($um->isCurrent) <span class="r">(tháng này)</span>@endif</span><b>{{ Money::vnd($um->owed) }}</b></div>
+        @endforeach
+        @if ($feeUnpaidMonths->count() > 1)
+          <div class="fee-unpaid-row total"><span>Tổng còn nợ</span><b>{{ Money::vnd($feeTotalOwed) }}</b></div>
+        @endif
+      </div>
+
+    @else
+      <div class="amt no-debt">Đã đóng đủ ✓</div>
+      <div class="meta">Cảm ơn quý phụ huynh!</div>
+    @endif
+
+    <div class="fee-actions">
+      @if ($qrUrl && $feeTotalOwed > 0)
+        <button type="button" class="due-qr-btn" onclick="openTeacherQr()">💳 Chuyển khoản</button>
+      @endif
+      <button type="button" class="fee-detail-toggle" onclick="toggleFeeDetail(this)" aria-expanded="false">
+        <span>📄 Chi tiết tháng</span><span class="caret">▾</span>
+      </button>
+    </div>
+    <div class="fee-detail" id="fee-detail" hidden>
+      <div id="fee-months" data-url="{{ route('parent.fees.months', $slug) }}">
+        @include('parent.partials.fee-months', ['months' => $feeMonths])
+      </div>
+      @if ($feeHasMore)
+        <button type="button" class="fee-more-btn" id="fee-more-btn" data-page="1">Xem thêm tháng cũ</button>
       @endif
     </div>
-    @if ($qrUrl && $balance > 0)
-      <button type="button" class="due-qr-btn" onclick="openTeacherQr()">Chuyển khoản qua QR</button>
-    @endif
   </div>
   @endif
 
@@ -40,6 +70,7 @@
         <div style="margin-bottom:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span class="r">{{ \Illuminate\Support\Carbon::parse($c->comment_date)->format('d/m/Y') }}</span>
           @if ($c->type)<span class="chip {{ $c->type->color }}">{{ $c->type->icon }} {{ $c->type->name }}</span>@endif
+          @if ($c->ratingLabel())<span class="chip {{ $c->ratingChip() }}">{{ $c->ratingLabel() }}</span>@endif
         </div>
         <div style="white-space:pre-line">{{ $c->body }}</div>
       </div>
@@ -163,8 +194,54 @@
 
 @push('scripts')
 <style>
-  .due-qr-btn{margin-top:12px;width:100%;padding:11px;background:var(--brand);border:0;color:#fff;font-size:13.5px;font-weight:600;border-radius:10px;cursor:pointer}
+  .fee-actions{display:flex;gap:8px;margin-top:12px}
+  .due-qr-btn{flex:1;padding:11px 10px;background:var(--brand);border:0;color:#fff;font-size:13px;font-weight:600;border-radius:10px;cursor:pointer;white-space:nowrap}
   .due-qr-btn:hover{background:var(--brand-ink)}
+  .fee-actions .fee-detail-toggle{flex:1;margin-top:0;justify-content:center;gap:6px;padding:11px 8px;font-size:13px;white-space:nowrap}
+
+  /* Học phí: nợ tháng hiện tại + chi tiết từng tháng */
+  .fee-cur-lbl{font-size:12px;font-weight:600;color:var(--red);margin-top:4px}
+  .fee-cur-ok{font-size:12.5px;font-weight:600;color:var(--green);margin-top:4px}
+  .due-card .amt{color:var(--red)}
+  .fee-unpaid{margin-top:12px;border-top:1px dashed #e7d3cc;padding-top:10px}
+  .fee-unpaid-h{font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:5px}
+  .fee-unpaid-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:3px 0}
+  .fee-unpaid-row b{color:var(--red)}
+  .fee-unpaid-row .r{font-size:11px;color:var(--muted)}
+  .fee-unpaid-row.total{border-top:1px solid #f0e6e2;margin-top:5px;padding-top:7px;font-weight:600}
+  .fee-unpaid-row.total b{font-size:15px}
+  .fee-detail-toggle{margin-top:12px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+  .fee-detail-toggle:hover{border-color:var(--brand)}
+  .fee-detail-toggle .caret{color:var(--muted);transition:transform .15s}
+  .fee-detail{margin-top:10px}
+  .fm-card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px}
+  .fm-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+  .fm-title{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .fm-cur{font-size:10.5px;font-weight:600;color:var(--brand-ink);background:var(--brand-soft);padding:1px 7px;border-radius:20px;margin-left:6px}
+  .fm-right{display:flex;align-items:center;gap:8px}
+  .fm-badge{font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
+  .fm-badge.due{background:var(--red-soft);color:var(--red)}
+  .fm-badge.ok{background:var(--green-soft);color:var(--green)}
+  .fm-chev{color:var(--muted);transition:transform .15s}
+  .fm-head[aria-expanded="true"] .fm-chev{transform:rotate(180deg)}
+  .fm-sum{font-size:11.5px;color:var(--muted);margin-top:6px}
+  .fm-sum b{color:var(--ink);font-weight:600}
+  .fm-sum b.g{color:var(--green)}
+  .fm-sum b.rd{color:var(--red)}
+  .fm-body{margin-top:8px;border-top:1px solid #f0f1f4;padding-top:8px}
+  .fm-sec-h{font-size:12px;font-weight:600;margin:6px 0 3px}
+  .fm-sec-h.g{color:var(--green)}
+  .fm-sec-h.rd{color:var(--red)}
+  .fm-sess{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);padding:4px 0}
+  .fm-sess.r{color:var(--muted)}
+  .fm-dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .fm-dot.g{background:var(--green)}
+  .fm-dot.rd{background:var(--red)}
+  .fm-dot.am{background:var(--amber)}
+  .fm-tag{font-size:10px;font-weight:600;color:var(--blue);background:var(--blue-soft);padding:1px 6px;border-radius:20px}
+  .fm-more-btn,.fee-more-btn{width:100%;padding:10px;background:#fff;border:1px solid var(--line);border-radius:10px;color:var(--brand);font-size:12.5px;font-weight:600;cursor:pointer}
+  .fee-more-btn:hover{border-color:var(--brand)}
+  .fm-empty{font-size:12.5px;color:var(--muted);text-align:center;padding:14px}
   .qr-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;align-items:center;justify-content:center;padding:20px}
   .qr-modal.show{display:flex}
   .qr-modal-inner{background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 20px;text-align:center;position:relative}
@@ -200,6 +277,38 @@
   }
   function closeLesson(){ document.getElementById('lesson-modal')?.classList.remove('show'); document.body.style.overflow=''; }
   document.addEventListener('keydown', e => { if(e.key==='Escape'){ closeTeacherQr(); closeLesson(); } });
+
+  /* Học phí: mở/đóng chi tiết + accordion từng tháng + load thêm (gọi server) */
+  function toggleFeeDetail(btn){
+    var d = document.getElementById('fee-detail');
+    var open = d.hasAttribute('hidden');
+    if(open) d.removeAttribute('hidden'); else d.setAttribute('hidden','');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var c = btn.querySelector('.caret'); if(c) c.style.transform = open ? 'rotate(180deg)' : '';
+  }
+  function toggleFeeMonth(btn){
+    var body = btn.parentNode.querySelector('.fm-body');
+    if(!body) return;
+    var open = body.hasAttribute('hidden');
+    if(open) body.removeAttribute('hidden'); else body.setAttribute('hidden','');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  (function(){
+    var btn = document.getElementById('fee-more-btn');
+    if(!btn) return;
+    btn.addEventListener('click', async function(){
+      var wrap = document.getElementById('fee-months');
+      var page = btn.dataset.page, old = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Đang tải…';
+      try{
+        var r = await fetch(wrap.dataset.url + '?page=' + page, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+        var j = await r.json();
+        wrap.insertAdjacentHTML('beforeend', j.html);
+        if(j.hasMore){ btn.dataset.page = String(parseInt(page,10)+1); btn.disabled = false; btn.textContent = old; }
+        else { btn.remove(); }
+      }catch(e){ btn.disabled = false; btn.textContent = old; }
+    });
+  })();
 </script>
 <script>
   window.LT_WEEKS = @json($weeks);

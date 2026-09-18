@@ -47,13 +47,32 @@ class LookupController extends Controller
         $info = $this->studentInfo($student);
         $weeks = $this->buildWeeks($student, 1, 1);
 
-        return view('parent.info', array_merge($info, [
+        return view('parent.info', array_merge($info, $this->feeOverview($student), [
             'slug' => $slug,
             'navActive' => 'p-info',
             'stageTitle' => 'Thông tin học sinh',
             'weeks' => $weeks,
             'weekIndex' => 1,
         ]));
+    }
+
+    /** Fragment: danh sách chi tiết học phí theo tháng (load thêm khi cuộn). */
+    public function feeMonths(Request $request, string $slug)
+    {
+        $student = $this->resolve($slug);
+        $perPage = 5;
+        $page = max(0, (int) $request->get('page', 0));
+
+        $alloc = $this->allocateByMonth($this->chargedByMonth($student), $this->paidByMonth($student));
+        $monthsDesc = collect($alloc)->keys()->sortDesc()->values();
+
+        $slice = $monthsDesc->slice($page * $perPage, $perPage)->values()->all();
+        $months = $this->feeMonthDetail($student, $slice, $alloc);
+
+        return response()->json([
+            'html' => view('parent.partials.fee-months', compact('months'))->render(),
+            'hasMore' => ($page + 1) * $perPage < $monthsDesc->count(),
+        ]);
     }
 
     /* Lịch sử học (theo tuần) */
@@ -148,6 +167,126 @@ class LookupController extends Controller
             'lessons' => $lessons,
             'showFees' => (bool) ($student->show_fees ?? true),
         ];
+    }
+
+    /* ===================== Học phí theo tháng ===================== */
+
+    /** [Y-m => tiền phát sinh] từ buổi điểm danh (bỏ buổi xoá mềm). */
+    private function chargedByMonth(Student $student)
+    {
+        return $student->studentSessions()
+            ->join('class_sessions', 'student_sessions.class_session_id', '=', 'class_sessions.id')
+            ->whereNull('class_sessions.deleted_at')
+            ->selectRaw("DATE_FORMAT(class_sessions.date, '%Y-%m') ym, COALESCE(SUM(student_sessions.amount),0) amt")
+            ->groupBy('ym')->pluck('amt', 'ym');
+    }
+
+    /** [Y-m => tiền đã đóng] theo paid_at. */
+    private function paidByMonth(Student $student)
+    {
+        return $student->payments()
+            ->selectRaw("DATE_FORMAT(paid_at, '%Y-%m') ym, COALESCE(SUM(amount),0) amt")
+            ->groupBy('ym')->pluck('amt', 'ym');
+    }
+
+    /**
+     * Phân bổ tiền đã đóng theo FIFO (trừ tháng cũ trước) lên các tháng CÓ phát sinh.
+     * Trả [Y-m => (charged, paid = phần được trừ, owed)] — tổng owed = công nợ thực lũy kế.
+     */
+    private function allocateByMonth($charged, $paid): array
+    {
+        $months = $charged->keys()->sort()->values(); // tháng có phát sinh, cũ → mới
+        $pool = (int) $paid->sum();                    // tổng đã đóng, phân bổ dần
+        $alloc = [];
+        foreach ($months as $ym) {
+            $ch = (int) $charged[$ym];
+            $covered = (int) min($pool, $ch);
+            $alloc[$ym] = (object) ['charged' => $ch, 'paid' => $covered, 'owed' => $ch - $covered];
+            $pool -= $covered;
+        }
+
+        return $alloc;
+    }
+
+    private function ymLabel(string $ym): string
+    {
+        [$y, $m] = explode('-', $ym);
+
+        return 'Tháng ' . (int) $m . '/' . $y;
+    }
+
+    /** Tổng quan học phí (phân bổ FIFO) cho card + trang chi tiết. */
+    private function feeOverview(Student $student, int $perPage = 5): array
+    {
+        $alloc = $this->allocateByMonth($this->chargedByMonth($student), $this->paidByMonth($student));
+        $monthsDesc = collect($alloc)->keys()->sortDesc()->values(); // tháng có phát sinh, mới → cũ
+
+        $curYm = now()->format('Y-m');
+        $cur = $alloc[$curYm] ?? (object) ['charged' => 0, 'paid' => 0, 'owed' => 0];
+
+        $unpaidMonths = $monthsDesc->filter(fn ($ym) => $alloc[$ym]->owed > 0)
+            ->map(fn ($ym) => (object) [
+                'ym' => $ym, 'label' => $this->ymLabel($ym),
+                'owed' => (int) $alloc[$ym]->owed, 'isCurrent' => $ym === $curYm,
+            ])->values();
+
+        return [
+            'feeCurrentLabel' => $this->ymLabel($curYm),
+            'feeCurrentShort' => (int) explode('-', $curYm)[1] . '/' . explode('-', $curYm)[0],
+            'feeCurrentCharged' => (int) $cur->charged,
+            'feeCurrentPaid' => (int) $cur->paid,
+            'feeCurrentOwed' => (int) $cur->owed,
+            'feeUnpaidMonths' => $unpaidMonths,
+            'feeTotalOwed' => (int) $unpaidMonths->sum('owed'),
+            'feeMonths' => $this->feeMonthDetail($student, $monthsDesc->slice(0, $perPage)->all(), $alloc),
+            'feeHasMore' => $monthsDesc->count() > $perPage,
+        ];
+    }
+
+    /** Chi tiết từng tháng: buổi đi học (ngày/giờ) + buổi nghỉ + tiền (đã phân bổ FIFO). */
+    private function feeMonthDetail(Student $student, array $monthKeys, array $alloc): array
+    {
+        if (empty($monthKeys)) {
+            return [];
+        }
+
+        $rows = $student->studentSessions()
+            ->join('class_sessions', 'student_sessions.class_session_id', '=', 'class_sessions.id')
+            ->whereNull('class_sessions.deleted_at')
+            ->whereIn(\DB::raw("DATE_FORMAT(class_sessions.date, '%Y-%m')"), $monthKeys)
+            ->orderBy('class_sessions.date')->orderBy('class_sessions.start_time')
+            ->get([
+                'student_sessions.status', 'class_sessions.date',
+                'class_sessions.start_time', 'class_sessions.end_time',
+            ]);
+        $byMonth = $rows->groupBy(fn ($r) => Carbon::parse($r->date)->format('Y-m'));
+
+        $curYm = now()->format('Y-m');
+        $out = [];
+        foreach ($monthKeys as $ym) {
+            $sess = $byMonth->get($ym, collect());
+            $attended = $sess->whereIn('status', ['present', 'makeup'])
+                ->map(fn ($r) => (object) [
+                    'date' => Carbon::parse($r->date),
+                    'start' => $r->start_time ? Carbon::parse($r->start_time)->format('H:i') : '',
+                    'end' => $r->end_time ? Carbon::parse($r->end_time)->format('H:i') : '',
+                    'makeup' => $r->status === 'makeup',
+                ])->values();
+            $absent = $sess->whereIn('status', ['absent', 'excused'])
+                ->map(fn ($r) => (object) [
+                    'date' => Carbon::parse($r->date),
+                    'start' => $r->start_time ? Carbon::parse($r->start_time)->format('H:i') : '',
+                    'excused' => $r->status === 'excused',
+                ])->values();
+            $a = $alloc[$ym] ?? (object) ['charged' => 0, 'paid' => 0, 'owed' => 0];
+            $out[] = (object) [
+                'ym' => $ym, 'label' => $this->ymLabel($ym), 'isCurrent' => $ym === $curYm,
+                'charged' => (int) $a->charged, 'paid' => (int) $a->paid, 'owed' => (int) $a->owed,
+                'attended' => $attended, 'absent' => $absent,
+            ];
+        }
+
+        return $out;
     }
 
     /** Sinh dữ liệu lưới tuần (khớp shape parent-week.js). */

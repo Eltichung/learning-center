@@ -622,7 +622,7 @@ class TeacherController extends Controller
             ->orderByDesc('id')->get()
             ->groupBy('comment_type_id')
             ->map(fn ($g) => $g->first())
-            ->map(fn ($c) => ['type_id' => (int) $c->comment_type_id, 'body' => $c->body])
+            ->map(fn ($c) => ['type_id' => (int) $c->comment_type_id, 'body' => $c->body, 'rating' => $c->rating])
             ->values();
 
         return response()->json(['date' => $date, 'items' => $items]);
@@ -640,6 +640,7 @@ class TeacherController extends Controller
             'items' => ['array'],
             'items.*.type_id' => ['nullable', 'integer'],
             'items.*.body' => ['nullable', 'string', 'max:2000'],
+            'items.*.rating' => ['nullable', 'string', 'in:tot,kha,tb'],
         ]);
         $date = $data['comment_date'];
 
@@ -650,9 +651,10 @@ class TeacherController extends Controller
             if (! $typeId || $body === '') {
                 continue;
             }
+            $rating = in_array($it['rating'] ?? null, ['tot', 'kha', 'tb'], true) ? $it['rating'] : null;
             $student->comments()->updateOrCreate(
                 ['teacher_id' => $tid, 'comment_date' => $date, 'comment_type_id' => $typeId],
-                ['body' => $body]
+                ['body' => $body, 'rating' => $rating]
             );
             $keep[] = $typeId;
         }
@@ -701,6 +703,9 @@ class TeacherController extends Controller
             'name' => $c->type?->name,
             'color' => $c->type?->color,
             'body' => $c->body,
+            'rating' => $c->rating,
+            'rating_label' => $c->ratingLabel(),
+            'rating_chip' => $c->ratingChip(),
         ];
     }
 

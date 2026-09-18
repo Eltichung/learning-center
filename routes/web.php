@@ -163,3 +163,4 @@ Route::get('/search', [LookupController::class, 'search'])->name('parent.search'
 Route::post('/search', [LookupController::class, 'find']);
 Route::get('/search/{slug}', [LookupController::class, 'show'])->name('parent.info');
 Route::get('/search/{slug}/lich-su', [LookupController::class, 'history'])->name('parent.history');
+Route::get('/search/{slug}/hoc-phi', [LookupController::class, 'feeMonths'])->name('parent.fees.months');

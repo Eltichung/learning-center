@@ -702,8 +702,7 @@ function cmtRefreshChips(box){
       chip.innerHTML = '<span class="ic">' + (t.icon || '') + '</span>' + cmtEsc(t.name);
       wrap.appendChild(chip);
     });
-    var ct = cmtTypeById(box, cur);
-    bx.setAttribute('style', ct ? ct.style : '');
+    cmtApplyBoxColor(bx); // ô tô màu theo mức đánh giá, không theo loại
   });
 }
 function cmtRenderBoxTpls(box, bx){
@@ -723,15 +722,45 @@ function cmtUpdateEmpty(box){
   var addBtn = box.querySelector('.cmt-add-box');
   if (addBtn) { var full = cmtFirstUnusedType(box) == null; addBtn.disabled = full; addBtn.style.opacity = full ? '.5' : ''; }
 }
-function cmtAddBox(box, typeId, body){
+/* Mức đánh giá cho mỗi ô: Tốt / Khá / Trung bình (màu xanh lá / xanh dương / vàng) */
+var CMT_RATINGS = [
+  { key: 'tot', name: 'Tốt', style: '--cb:#e3f4ec;--cf:#1f9d72' },
+  { key: 'kha', name: 'Khá', style: '--cb:#e8f0fc;--cf:#2f6fd6' },
+  { key: 'tb', name: 'Trung bình', style: '--cb:#fdf2db;--cf:#c8860a' },
+];
+function cmtRatingByKey(k){ return CMT_RATINGS.find(function(r){ return r.key === k; }); }
+/* Ô tô màu theo MỨC ĐÁNH GIÁ đã chọn (không theo loại) */
+function cmtApplyBoxColor(bx){
+  var r = cmtRatingByKey(bx.dataset.rating || '');
+  if (r) { bx.setAttribute('style', r.style); bx.classList.add('rated'); }
+  else { bx.removeAttribute('style'); bx.classList.remove('rated'); }
+}
+function cmtRenderRating(bx){
+  var wrap = bx.querySelector('.cmt-box-rating'); if (!wrap) return;
+  var cur = bx.dataset.rating || '';
+  wrap.innerHTML = '<span class="cmt-rating-lbl">Đánh giá:</span>';
+  CMT_RATINGS.forEach(function(r){
+    var chip = document.createElement('span');
+    chip.className = 'cmt-rating-chip' + (r.key === cur ? ' on' : '');
+    chip.dataset.rating = r.key; chip.setAttribute('role', 'button'); chip.tabIndex = 0;
+    chip.setAttribute('style', r.style);
+    chip.textContent = r.name;
+    wrap.appendChild(chip);
+  });
+  cmtApplyBoxColor(bx);
+}
+
+function cmtAddBox(box, typeId, body, rating){
   if (typeId == null) typeId = cmtFirstUnusedType(box);
   if (typeId == null) { if (window.toast) toast('Đã dùng hết các loại nhận xét', 'error'); return null; }
   var bx = document.createElement('div');
   bx.className = 'cmt-box';
   bx.dataset.type = String(typeId);
+  bx.dataset.rating = rating || '';
   bx.innerHTML =
     '<div class="cmt-box-top"><div class="cmt-box-types"></div>' +
     '<button type="button" class="cmt-box-remove" title="Bỏ ô này" aria-label="Bỏ ô này">✕</button></div>' +
+    '<div class="cmt-box-rating"></div>' +
     '<div class="cmt-tpls"></div>' +
     '<br>' +
     '<textarea class="cmt-block-body" rows="4" placeholder="Nội dung nhận xét…"></textarea>' +
@@ -743,6 +772,7 @@ function cmtAddBox(box, typeId, body){
   if (body != null) bx.querySelector('.cmt-block-body').value = body;
   cmtRefreshChips(box);
   cmtRenderBoxTpls(box, bx);
+  cmtRenderRating(bx);
   cmtUpdateEmpty(box);
   return bx;
 }
@@ -753,7 +783,7 @@ function cmtCollect(box){
   var items = [];
   box.querySelectorAll('.cmt-box').forEach(function(bx){
     var ta = bx.querySelector('.cmt-block-body');
-    if (bx.dataset.type) items.push({ type_id: bx.dataset.type, body: ta ? ta.value : '' });
+    if (bx.dataset.type) items.push({ type_id: bx.dataset.type, body: ta ? ta.value : '', rating: bx.dataset.rating || '' });
   });
   return items;
 }
@@ -768,7 +798,7 @@ async function cmtLoadForDate(box){
   var url = (box.dataset.urlFordate || '').replace('__SID__', sid) + '?date=' + encodeURIComponent(date);
   try {
     var res = await fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
-    if (res.ok) { var data = await res.json(); (data.items || []).forEach(function(it){ cmtAddBox(box, it.type_id, it.body); }); }
+    if (res.ok) { var data = await res.json(); (data.items || []).forEach(function(it){ cmtAddBox(box, it.type_id, it.body, it.rating); }); }
   } catch (e) {}
   if (!box.querySelector('.cmt-box')) cmtAddBox(box, null, '');
   cmtUpdateEmpty(box);
@@ -782,7 +812,7 @@ async function cmtSync(box, btn){
   var items = cmtCollect(box);
   var fd = new FormData();
   fd.append('comment_date', date || '');
-  items.forEach(function(it, i){ fd.append('items[' + i + '][type_id]', it.type_id); fd.append('items[' + i + '][body]', it.body); });
+  items.forEach(function(it, i){ fd.append('items[' + i + '][type_id]', it.type_id); fd.append('items[' + i + '][body]', it.body); fd.append('items[' + i + '][rating]', it.rating || ''); });
   var old = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.classList.add('is-loading'); }
   showLoader();
@@ -936,6 +966,14 @@ document.addEventListener('click', function(e){
     var bx2 = tplChip.closest('.cmt-box');
     var ta = bx2 ? bx2.querySelector('.cmt-block-body') : null;
     if (ta) { var cur = ta.value.trim(); ta.value = (cur ? cur + ' ' : '') + (tplChip.dataset.body || ''); ta.focus(); }
+    return;
+  }
+
+  // Chọn mức đánh giá cho 1 ô (bấm lại để bỏ chọn) → ô đổi màu theo mức
+  var ratingChip = e.target.closest('.cmt-rating-chip');
+  if (ratingChip) {
+    var bxr = ratingChip.closest('.cmt-box');
+    if (bxr) { var k = ratingChip.dataset.rating; bxr.dataset.rating = (bxr.dataset.rating === k) ? '' : k; cmtRenderRating(bxr); }
     return;
   }
 

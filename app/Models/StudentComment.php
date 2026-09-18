@@ -7,9 +7,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StudentComment extends Model
 {
-    protected $fillable = ['student_id', 'teacher_id', 'comment_type_id', 'comment_date', 'body'];
+    protected $fillable = ['student_id', 'teacher_id', 'comment_type_id', 'rating', 'comment_date', 'body'];
 
     protected $casts = ['comment_date' => 'date'];
+
+    /** Mức đánh giá: key => [nhãn, class chip màu (g/b/a)]. */
+    public const RATINGS = [
+        'tot' => ['label' => 'Tốt', 'chip' => 'g'],
+        'kha' => ['label' => 'Khá', 'chip' => 'b'],
+        'tb' => ['label' => 'Trung bình', 'chip' => 'a'],
+    ];
+
+    public function ratingLabel(): ?string { return self::RATINGS[$this->rating]['label'] ?? null; }
+
+    public function ratingChip(): ?string { return self::RATINGS[$this->rating]['chip'] ?? null; }
 
     public function student(): BelongsTo { return $this->belongsTo(Student::class); }
 
