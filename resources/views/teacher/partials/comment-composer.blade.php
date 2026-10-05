@@ -4,6 +4,7 @@
 @php
   $cmtTypesJson = $commentTypes->map(fn ($t) => [
       'id' => (int) $t->id, 'name' => $t->name, 'icon' => $t->icon, 'color' => $t->color, 'style' => $t->paletteStyle(),
+      'own' => $t->teacher_id !== null, // loại do chính GV tạo → cho xoá
   ])->values();
   $cmtTplsJson = [];
   foreach ($commentTypes as $t) {
@@ -18,6 +19,7 @@
      data-url-fordate="{{ route('teacher.student.comments.forDate', ['id' => '__SID__'], false) }}"
      data-url-sync="{{ route('teacher.student.comments.sync', ['id' => '__SID__'], false) }}"
      data-url-types="{{ route('teacher.commentTypes.store', [], false) }}"
+     data-url-type-del="{{ route('teacher.commentTypes.delete', ['id' => '__TID__'], false) }}"
      data-url-tpls="{{ route('teacher.commentTemplates.store', [], false) }}"
      data-url-tpl-del="{{ route('teacher.commentTemplates.delete', ['id' => '__TID__'], false) }}"
      data-types="{{ json_encode($cmtTypesJson) }}"

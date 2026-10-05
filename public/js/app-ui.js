@@ -699,7 +699,8 @@ function cmtRefreshChips(box){
       chip.className = 'cmt-type-chip' + (String(t.id) === String(cur) ? ' on' : '');
       chip.dataset.id = t.id; chip.setAttribute('role', 'button'); chip.tabIndex = 0;
       chip.setAttribute('style', t.style || '');
-      chip.innerHTML = '<span class="ic">' + (t.icon || '') + '</span>' + cmtEsc(t.name);
+      chip.innerHTML = '<span class="ic">' + (t.icon || '') + '</span>' + cmtEsc(t.name) +
+        (t.own ? '<button type="button" class="cmt-type-del" title="Xoá loại nhận xét" aria-label="Xoá loại nhận xét">✕</button>' : '');
       wrap.appendChild(chip);
     });
     cmtApplyBoxColor(bx); // ô tô màu theo mức đánh giá, không theo loại
@@ -860,7 +861,7 @@ async function cmtAddTypeAction(box){
   var resp = await cmtPostJson(box.dataset.urlTypes, { name: name });
   if (resp && resp.type) {
     var d = cmtData(box);
-    d.types.push({ id: resp.type.id, name: resp.type.name, icon: resp.type.icon, color: resp.type.color, style: resp.type.style });
+    d.types.push({ id: resp.type.id, name: resp.type.name, icon: resp.type.icon, color: resp.type.color, style: resp.type.style, own: true });
     box.dataset.types = JSON.stringify(d.types);
     d.tpls[resp.type.id] = [];
     cmtRefreshChips(box);
@@ -900,6 +901,31 @@ function cmtDeleteTplAction(box, chip){
       return String((x && x.id != null) ? x.id : x) !== String(id);
     });
     chip.remove();
+  });
+}
+
+/* Xoá 1 loại nhận xét của GV (popup xác nhận → gọi server + dọn ô/mẫu liên quan) */
+function cmtDeleteTypeAction(box, delBtn){
+  var chip = delBtn.closest('.cmt-type-chip'); if (!chip) return;
+  var id = chip.dataset.id; if (!id) return;
+  var t = cmtTypeById(box, id);
+  var nm = t ? t.name : 'này';
+  confirmAction('Xoá loại nhận xét “' + nm + '”? Các nhận xét đã lưu theo loại này sẽ thành không phân loại.', async function(){
+    var url = (box.dataset.urlTypeDel || '').replace('__TID__', id);
+    var resp = await cmtPostJson(url, { _method: 'DELETE' });
+    if (!resp) return;
+    var d = cmtData(box);
+    // Phải gán thẳng box._cmtTypes (cmtData trả object tạm — gán d.types không lưu lại)
+    box._cmtTypes = d.types.filter(function(x){ return String(x.id) !== String(id); });
+    box.dataset.types = JSON.stringify(box._cmtTypes);
+    if (box._cmtTpls) delete box._cmtTpls[id];
+    // Gỡ các ô đang gắn loại vừa xoá
+    box.querySelectorAll('.cmt-box').forEach(function(bx){
+      if (String(bx.dataset.type) === String(id)) bx.remove();
+    });
+    cmtRefreshChips(box);
+    box.querySelectorAll('.cmt-box').forEach(function(bx){ cmtRenderBoxTpls(box, bx); });
+    cmtUpdateEmpty(box);
   });
 }
 
@@ -1004,6 +1030,10 @@ document.addEventListener('click', function(e){
     if (bxr) { var k = ratingChip.dataset.rating; bxr.dataset.rating = (bxr.dataset.rating === k) ? '' : k; cmtRenderRating(bxr); }
     return;
   }
+
+  // Xoá loại nhận xét (chỉ loại của GV, có nút ✕)
+  var typeDel = e.target.closest('.cmt-type-del');
+  if (typeDel) { cmtDeleteTypeAction(box, typeDel); return; }
 
   // Chọn loại cho 1 ô bằng chip (tab)
   var typeChip = e.target.closest('.cmt-type-chip');
