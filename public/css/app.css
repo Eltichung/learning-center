@@ -159,6 +159,8 @@ tr:last-child td{border-bottom:0}
 .cmt-tpl-chip{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);border-radius:20px;background:#fff;color:var(--ink);cursor:pointer;line-height:1.35;max-width:100%;text-align:left}
 .cmt-tpl-chip:hover{background:var(--bg)}
 .cmt-tpl-chip .pl{color:var(--muted);font-weight:700}
+.cmt-tpl-chip .cmt-tpl-del{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin:-2px -4px -2px 1px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:11px;line-height:1;cursor:pointer;flex:none}
+.cmt-tpl-chip .cmt-tpl-del:hover{background:var(--red);color:#fff}
 .cmt-tpl-empty{font-size:12.5px;padding:4px 0}
 .cmt-x{margin-left:2px;color:var(--muted);font-weight:700;font-size:14px;line-height:1;padding:0 2px;border-radius:4px;cursor:pointer}
 .cmt-x:hover{color:var(--red);background:var(--red-soft)}

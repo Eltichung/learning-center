@@ -7,7 +7,9 @@
   ])->values();
   $cmtTplsJson = [];
   foreach ($commentTypes as $t) {
-      $cmtTplsJson[(int) $t->id] = $commentTemplates->where('comment_type_id', $t->id)->pluck('body')->values();
+      $cmtTplsJson[(int) $t->id] = $commentTemplates->where('comment_type_id', $t->id)
+          ->map(fn ($tpl) => ['id' => (int) $tpl->id, 'body' => $tpl->body])
+          ->values();
   }
 @endphp
 <div class="cmt-multi"
@@ -17,6 +19,7 @@
      data-url-sync="{{ route('teacher.student.comments.sync', ['id' => '__SID__'], false) }}"
      data-url-types="{{ route('teacher.commentTypes.store', [], false) }}"
      data-url-tpls="{{ route('teacher.commentTemplates.store', [], false) }}"
+     data-url-tpl-del="{{ route('teacher.commentTemplates.delete', ['id' => '__TID__'], false) }}"
      data-types="{{ json_encode($cmtTypesJson) }}"
      data-templates="{{ json_encode((object) $cmtTplsJson) }}">
   <div class="field" style="max-width:200px"><label>Ngày</label>

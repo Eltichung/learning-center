@@ -705,15 +705,24 @@ function cmtRefreshChips(box){
     cmtApplyBoxColor(bx); // ô tô màu theo mức đánh giá, không theo loại
   });
 }
+/* Dựng 1 chip mẫu câu (có nút ✕ xoá nếu mẫu đã lưu ở server → có id) */
+function cmtBuildTplChip(tplId, body){
+  var chip = document.createElement('span');
+  chip.className = 'cmt-tpl-chip'; chip.dataset.body = body;
+  var hasId = tplId != null && tplId !== '';
+  if (hasId) chip.dataset.id = tplId;
+  chip.innerHTML = '<span class="pl">+</span><span class="tx">' + cmtEsc(body) + '</span>' +
+    (hasId ? '<button type="button" class="cmt-tpl-del" title="Xoá mẫu câu" aria-label="Xoá mẫu câu">✕</button>' : '');
+  return chip;
+}
 function cmtRenderBoxTpls(box, bx){
   var id = bx.dataset.type || '';
   var wrap = bx.querySelector('.cmt-tpls'); if (!wrap) return;
   wrap.innerHTML = '';
   ((cmtData(box).tpls || {})[id] || []).forEach(function(b){
-    var chip = document.createElement('span');
-    chip.className = 'cmt-tpl-chip'; chip.dataset.body = b;
-    chip.innerHTML = '<span class="pl">+</span>' + cmtEsc(b);
-    wrap.appendChild(chip);
+    var body = (typeof b === 'string') ? b : ((b && b.body) || '');
+    var tplId = (typeof b === 'string') ? '' : (b && b.id);
+    wrap.appendChild(cmtBuildTplChip(tplId, body));
   });
 }
 function cmtUpdateEmpty(box){
@@ -870,12 +879,28 @@ async function cmtSaveTplAction(box, bx){
   var typeId = bx.dataset.type || '';
   var resp = await cmtPostJson(box.dataset.urlTpls, { comment_type_id: typeId, body: val });
   if (resp && resp.template) {
-    var d = cmtData(box); if (!d.tpls[typeId]) d.tpls[typeId] = []; d.tpls[typeId].push(resp.template.body);
-    var chip = document.createElement('span');
-    chip.className = 'cmt-tpl-chip'; chip.dataset.body = resp.template.body;
-    chip.innerHTML = '<span class="pl">+</span>' + cmtEsc(resp.template.body);
-    bx.querySelector('.cmt-tpls').appendChild(chip);
+    var d = cmtData(box); if (!d.tpls[typeId]) d.tpls[typeId] = [];
+    d.tpls[typeId].push({ id: resp.template.id, body: resp.template.body });
+    bx.querySelector('.cmt-tpls').appendChild(cmtBuildTplChip(resp.template.id, resp.template.body));
   }
+}
+
+/* Xoá 1 mẫu câu đã lưu (popup xác nhận → gọi server + gỡ khỏi data + DOM) */
+function cmtDeleteTplAction(box, chip){
+  if (!chip) return;
+  var id = chip.dataset.id; if (!id) { chip.remove(); return; }
+  confirmAction('Xoá mẫu câu này?', async function(){
+    var url = (box.dataset.urlTplDel || '').replace('__TID__', id);
+    var resp = await cmtPostJson(url, { _method: 'DELETE' });
+    if (!resp) return;
+    var bx = chip.closest('.cmt-box');
+    var typeId = bx ? (bx.dataset.type || '') : '';
+    var arr = cmtData(box).tpls[typeId];
+    if (arr) cmtData(box).tpls[typeId] = arr.filter(function(x){
+      return String((x && x.id != null) ? x.id : x) !== String(id);
+    });
+    chip.remove();
+  });
 }
 
 /* Mở modal nhận xét (trang điểm danh) — nạp nhận xét hiện có của HS cho ngày buổi */
@@ -960,6 +985,9 @@ document.addEventListener('click', function(e){
 
   var savetpl = e.target.closest('.cmt-block-savetpl');
   if (savetpl) { cmtSaveTplAction(box, savetpl.closest('.cmt-box')); return; }
+
+  var tplDel = e.target.closest('.cmt-tpl-del');
+  if (tplDel) { cmtDeleteTplAction(box, tplDel.closest('.cmt-tpl-chip')); return; }
 
   var tplChip = e.target.closest('.cmt-tpl-chip');
   if (tplChip) {
