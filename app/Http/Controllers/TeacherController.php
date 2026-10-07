@@ -1269,8 +1269,8 @@ class TeacherController extends Controller
             ];
         });
         if ($status === 'paid') {
-            // HS miễn học phí KHÔNG lọt vào filter "Đã đóng".
-            $rows = $rows->where('paid', true)->where('free', false);
+            // "Đã đóng" = đã tất toán HOẶC tháng này có đóng (dù còn nợ). HS miễn học phí không tính.
+            $rows = $rows->filter(fn ($r) => ! $r->free && ($r->paid || $r->paidMonth > 0));
         } elseif ($status === 'unpaid') {
             $rows = $rows->where('paid', false);
         }
