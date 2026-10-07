@@ -1268,6 +1268,8 @@ class TeacherController extends Controller
                 'lastPaid' => $lastPay[$s->id] ?? null,
             ];
         });
+        // Ẩn HS đã nghỉ học (inactive) mà không còn nợ — khỏi làm rối danh sách; em đã nghỉ còn nợ vẫn giữ để đòi.
+        $rows = $rows->reject(fn ($r) => $r->student->status !== 'active' && $r->paid);
         if ($status === 'paid') {
             // "Đã đóng" = đã tất toán HOẶC tháng này có đóng (dù còn nợ). HS miễn học phí không tính.
             $rows = $rows->filter(fn ($r) => ! $r->free && ($r->paid || $r->paidMonth > 0));
