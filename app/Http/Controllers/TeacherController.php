@@ -1220,14 +1220,21 @@ class TeacherController extends Controller
     {
         $tid = $this->tid();
 
-        $collectedMonth = (int) Payment::where('teacher_id', $tid)
-            ->whereYear('paid_at', now()->year)->whereMonth('paid_at', now()->month)->sum('amount');
+        // Tiền đã đóng trong tháng hiện tại — theo TỪNG học sinh (chỉ HS của giáo viên này).
+        // Tổng "đã thu tháng này" = tổng của map này, đảm bảo khớp với cột hiển thị từng HS.
+        $paidMonth = Payment::whereHas('student', fn ($q) => $q->where('teacher_id', $tid))
+            ->whereYear('paid_at', now()->year)->whereMonth('paid_at', now()->month)
+            ->selectRaw('student_id, SUM(amount) amt')->groupBy('student_id')->pluck('amt', 'student_id');
+        $collectedMonth = (int) $paidMonth->sum();
 
         $balances = $this->balances($tid);
         $outstanding = (int) $balances->filter(fn ($b) => $b > 0)->sum();
         $debtorCount = $balances->filter(fn ($b) => $b > 0)->count();
 
         $priceMap = $this->primaryPriceMap($tid);
+        // HS miễn học phí = có ghi danh lớp và TẤT CẢ lớp đều đơn giá 0 (MAX = 0).
+        $maxPriceMap = \App\Models\ClassStudent::whereHas('student', fn ($q) => $q->where('teacher_id', $tid))
+            ->selectRaw('student_id, MAX(price_per_session) mx')->groupBy('student_id')->pluck('mx', 'student_id');
         $lastPay = Payment::where('teacher_id', $tid)
             ->selectRaw('student_id, MAX(paid_at) last_paid')->groupBy('student_id')->pluck('last_paid', 'student_id');
 
@@ -1245,20 +1252,25 @@ class TeacherController extends Controller
             $query->where(fn ($x) => $x->where('full_name', 'like', "%{$q}%")->orWhere('student_code', 'like', "%{$q}%"));
         }
 
-        $rows = $query->orderBy('full_name')->get()->map(function ($s) use ($balances, $priceMap, $lastPay) {
+        $rows = $query->orderBy('full_name')->get()->map(function ($s) use ($balances, $priceMap, $maxPriceMap, $paidMonth, $lastPay) {
             $bal = (int) ($balances[$s->id] ?? 0);
             $price = (int) ($priceMap[$s->id] ?? 0);
+            // Miễn học phí: có ghi danh, mọi lớp đơn giá 0, VÀ không còn nợ (tránh che nợ cũ khi đổi giá về 0).
+            $free = array_key_exists($s->id, $maxPriceMap->all()) && (int) $maxPriceMap[$s->id] === 0 && $bal <= 0;
 
             return (object) [
                 'student' => $s,
                 'balance' => $bal,
                 'paid' => $bal <= 0,
+                'free' => $free,
+                'paidMonth' => (int) ($paidMonth[$s->id] ?? 0),
                 'sessions' => $price > 0 ? (int) round(max($bal, 0) / $price) : 0,
                 'lastPaid' => $lastPay[$s->id] ?? null,
             ];
         });
         if ($status === 'paid') {
-            $rows = $rows->where('paid', true);
+            // HS miễn học phí KHÔNG lọt vào filter "Đã đóng".
+            $rows = $rows->where('paid', true)->where('free', false);
         } elseif ($status === 'unpaid') {
             $rows = $rows->where('paid', false);
         }
@@ -1277,24 +1289,40 @@ class TeacherController extends Controller
         $tid = $this->tid();
         $student = Student::where('teacher_id', $tid)->findOrFail($id);
 
-        $months = [];
-        $totalCharged = 0;
-        $activeMonths = 0;
+        $totalPaidAll = (int) $student->payments()->sum('amount');
+        // Công nợ của riêng HS này (giống cách balances() tính, nhưng không quét cả lớp).
+        $balance = (int) $student->studentSessions()->sum('amount') - $totalPaidAll;
+
+        // Học phí phát sinh theo từng tháng — 1 query duy nhất cho mọi tháng.
+        $chargedByMonth = StudentSession::where('student_sessions.student_id', $student->id)
+            ->join('class_sessions', 'student_sessions.class_session_id', '=', 'class_sessions.id')
+            ->whereNull('class_sessions.deleted_at')
+            ->selectRaw("DATE_FORMAT(class_sessions.date, '%Y-%m') ym, SUM(student_sessions.amount) amt")
+            ->groupBy('ym')->pluck('amt', 'ym');
+
+        // Phân bổ tiền đã đóng theo tháng CŨ TRƯỚC (oldest-first), không khớp cứng theo tháng đóng.
+        // Nhờ vậy đóng 1 cục sẽ bù dần cho các tháng nợ cũ, tháng cũ không còn hiển thị âm.
+        $windowMonths = [];
         for ($i = 5; $i >= 0; $i--) {
-            $m = now()->copy()->subMonths($i);
-            $charged = (int) StudentSession::where('student_id', $student->id)
-                ->whereHas('classSession', fn ($q) => $q->whereYear('date', $m->year)->whereMonth('date', $m->month))
-                ->sum('amount');
-            $paid = (int) Payment::where('student_id', $student->id)
-                ->whereYear('paid_at', $m->year)->whereMonth('paid_at', $m->month)->sum('amount');
-            $months[] = ['label' => 'Tháng ' . $m->format('m/Y'), 'charged' => $charged, 'paid' => $paid, 'owed' => max(0, $charged - $paid)];
-            $totalCharged += $charged;
+            $windowMonths[] = now()->copy()->subMonths($i);
+        }
+        $chargedWindow = array_sum(array_map(fn ($wm) => (int) ($chargedByMonth[$wm->format('Y-m')] ?? 0), $windowMonths));
+        // Học phí phát sinh TRƯỚC cửa sổ 6 tháng — được tiền đóng bù trước tiên.
+        $chargedBefore = (int) $chargedByMonth->sum() - $chargedWindow;
+        $remaining = max(0, $totalPaidAll - $chargedBefore);
+
+        $months = [];
+        $activeMonths = 0;
+        foreach ($windowMonths as $wm) {
+            $charged = (int) ($chargedByMonth[$wm->format('Y-m')] ?? 0);
+            $covered = (int) min($remaining, $charged);   // phần học phí tháng này đã được bù
+            $remaining -= $covered;
+            $months[] = ['label' => 'Tháng ' . $wm->format('m/Y'), 'charged' => $charged, 'paid' => $covered, 'owed' => $charged - $covered];
             if ($charged > 0) {
                 $activeMonths++;
             }
         }
-        $balance = (int) ($this->balances($tid)[$student->id] ?? 0);
-        $avg = $activeMonths > 0 ? $totalCharged / $activeMonths : 0;
+        $avg = $activeMonths > 0 ? $chargedWindow / $activeMonths : 0;
         $monthsBehind = ($avg > 0 && $balance > 0) ? (int) ceil($balance / $avg) : 0;
 
         // Thống kê theo lớp (sắp theo thứ tự ghi danh = lớp đầu tiên trước)
@@ -1317,8 +1345,6 @@ class TeacherController extends Controller
             ];
         })->all();
 
-        $totalPaid = (int) $student->payments()->sum('amount');
-
         return response()->json([
             'name' => $student->full_name,
             'code' => $student->student_code,
@@ -1326,7 +1352,7 @@ class TeacherController extends Controller
             'monthsBehind' => $monthsBehind,
             'month' => (int) now()->month,
             'totalCharged' => (int) array_sum(array_column($classRows, 'charged')),
-            'totalPaid' => $totalPaid,
+            'totalPaid' => $totalPaidAll,
             'classes' => array_values($classRows),
             'months' => $months,
         ]);

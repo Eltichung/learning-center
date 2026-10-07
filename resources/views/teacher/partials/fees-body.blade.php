@@ -1,6 +1,6 @@
 @use('App\Support\Money')
 <div class="cards" style="grid-template-columns:repeat(3,1fr)">
-  <div class="card"><div class="lbl">Đã thu tháng này</div><div class="val green">{{ Money::short($collectedMonth) }}</div></div>
+  <div class="card"><div class="lbl">Đã thu tháng {{ now()->format('m/Y') }}</div><div class="val green">{{ Money::short($collectedMonth) }}</div></div>
   <div class="card"><div class="lbl">Còn phải thu</div><div class="val red">{{ Money::short($outstanding) }}</div></div>
   <div class="card"><div class="lbl">Học sinh còn nợ</div><div class="val">{{ $debtorCount }}</div></div>
 </div>
@@ -8,7 +8,7 @@
 <div class="panel"><div class="ph"><h3>Danh sách học phí ({{ $rows->count() }})</h3></div><div class="pb">
   <div class="tablewrap">
   <table>
-    <thead><tr><th>Học sinh</th><th>Số buổi chưa đóng</th><th>Công nợ</th><th>Lần đóng gần nhất</th><th></th></tr></thead>
+    <thead><tr><th>Học sinh</th><th>Số buổi chưa đóng</th><th>Công nợ</th><th>Đã đóng tháng {{ now()->format('m/Y') }}</th><th>Lần đóng gần nhất</th><th></th></tr></thead>
     <tbody>
       @forelse ($rows as $row)
         <tr>
@@ -26,7 +26,8 @@
               </a>
             </span></div></td>
           <td>{{ $row->paid ? '—' : $row->sessions . ' buổi' }}</td>
-          <td>@if ($row->paid)<span class="chip g">Đã đóng</span>@else<span class="chip r">−{{ Money::vnd($row->balance) }}</span>@endif</td>
+          <td>@if ($row->free)<span class="chip n">Miễn học phí</span>@elseif ($row->paid)<span class="chip g">Đã đóng</span>@else<span class="chip r">−{{ Money::vnd($row->balance) }}</span>@endif</td>
+          <td>@if ($row->paidMonth > 0)<span style="color:var(--green);font-weight:700">{{ Money::vnd($row->paidMonth) }}</span>@else<span class="r">—</span>@endif</td>
           <td class="r">{{ $row->lastPaid ? \Illuminate\Support\Carbon::parse($row->lastPaid)->format('d/m/Y') : '—' }}</td>
           <td style="text-align:right;white-space:nowrap">
             <button class="btn ghost sm" type="button" onclick="openMonthly({{ $row->student->id }})">Chi tiết</button>
@@ -34,7 +35,7 @@
           </td>
         </tr>
       @empty
-        <tr><td colspan="5" class="r" style="padding:16px">Không có học sinh phù hợp bộ lọc.</td></tr>
+        <tr><td colspan="6" class="r" style="padding:16px">Không có học sinh phù hợp bộ lọc.</td></tr>
       @endforelse
     </tbody>
   </table>
