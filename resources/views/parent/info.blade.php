@@ -199,10 +199,10 @@
 
 @push('scripts')
 <style>
-  .fee-actions{display:flex;gap:8px;margin-top:12px}
-  .due-qr-btn{flex:1;padding:11px 10px;background:var(--brand);border:0;color:#fff;font-size:13px;font-weight:600;border-radius:10px;cursor:pointer;white-space:nowrap}
+  .fee-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .due-qr-btn{padding:11px 10px;background:var(--brand);border:0;color:#fff;font-size:13px;font-weight:600;border-radius:10px;cursor:pointer}
   .due-qr-btn:hover{background:var(--brand-ink)}
-  .fee-actions .fee-detail-toggle{flex:1;margin-top:0;justify-content:center;gap:6px;padding:11px 8px;font-size:13px;white-space:nowrap}
+  .fee-actions .fee-detail-toggle{margin-top:0}
 
   /* Học phí: nợ tháng hiện tại + chi tiết từng tháng */
   .fee-cur-lbl{font-size:12px;font-weight:600;color:var(--red);margin-top:4px}
