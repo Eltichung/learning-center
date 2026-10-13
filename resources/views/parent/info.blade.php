@@ -27,30 +27,35 @@
         <div class="fee-cur-ok">✅ Tháng {{ $feeCurrentShort }} đã đóng đủ</div>
       @endif
 
-      <div class="fee-unpaid">
-        <div class="fee-unpaid-h">Các tháng chưa đóng</div>
-        @foreach ($feeUnpaidMonths as $um)
-          <div class="fee-unpaid-row"><span>{{ $um->label }}@if ($um->isCurrent) <span class="r">(tháng này)</span>@endif</span><b>{{ Money::vnd($um->owed) }}</b></div>
-        @endforeach
-        @if ($feeUnpaidMonths->count() > 1)
-          <div class="fee-unpaid-row total"><span>Tổng còn nợ</span><b>{{ Money::vnd($feeTotalOwed) }}</b></div>
-        @endif
-      </div>
+      {{-- Dòng phụ: số buổi đã học + log phát sinh mới nhất (để PH hiểu vì sao số tiền tăng) --}}
+      @if ($feeCurrentAttended > 0)
+        <div class="fee-subline">📚 Đã học: <b>{{ $feeCurrentAttended }} buổi</b>@if ($feeCurrentPrice) ({{ Money::vnd($feeCurrentPrice) }}/buổi)@endif</div>
+      @endif
+      @if ($feeLatest)
+        <div class="fee-subline">🆕 Cập nhật mới nhất: <b class="pos">+{{ Money::vnd($feeLatest->amount) }}</b> (Buổi {{ $feeLatest->num }} — {{ $wdFull[$feeLatest->date->dayOfWeekIso] }}, {{ $feeLatest->date->format('d/m/Y') }})@if ($feeLatest->isNew)<span class="fee-new">Mới hôm nay</span>@endif</div>
+      @endif
+
+      @if ($feeUnpaidMonths->count() > 1)
+        <div class="fee-total-line">Tổng còn nợ (gồm tháng trước): <b>{{ Money::vnd($feeTotalOwed) }}</b></div>
+      @endif
 
     @else
       <div class="amt no-debt">Đã đóng đủ ✓</div>
       <div class="meta">Cảm ơn quý phụ huynh!</div>
+      @if ($feeCurrentAttended > 0)
+        <div class="fee-subline">📚 Tháng {{ $feeCurrentShort }} đã học: <b>{{ $feeCurrentAttended }} buổi</b>@if ($feeCurrentPrice) ({{ Money::vnd($feeCurrentPrice) }}/buổi)@endif</div>
+      @endif
     @endif
 
     <div class="fee-actions">
       @if ($qrUrl && $feeTotalOwed > 0)
         <button type="button" class="due-qr-btn" onclick="openTeacherQr()">💳 Chuyển khoản</button>
       @endif
-      <button type="button" class="fee-detail-toggle" onclick="toggleFeeDetail(this)" aria-expanded="false">
-        <span>📄 Chi tiết tháng</span><span class="caret">▾</span>
+      <button type="button" class="fee-detail-toggle" onclick="toggleFeeDetail(this)" aria-expanded="{{ $feeTotalOwed > 0 ? 'true' : 'false' }}">
+        <span>📄 Lịch sử học phí theo tháng</span><span class="caret">▾</span>
       </button>
     </div>
-    <div class="fee-detail" id="fee-detail" hidden>
+    <div class="fee-detail" id="fee-detail" @if ($feeTotalOwed <= 0) hidden @endif>
       <div id="fee-months" data-url="{{ route('parent.fees.months', $slug) }}">
         @include('parent.partials.fee-months', ['months' => $feeMonths])
       </div>
@@ -203,6 +208,22 @@
   .fee-cur-lbl{font-size:12px;font-weight:600;color:var(--red);margin-top:4px}
   .fee-cur-ok{font-size:12.5px;font-weight:600;color:var(--green);margin-top:4px}
   .due-card .amt{color:var(--red)}
+  /* Dòng phụ: số buổi đã học + log phát sinh mới nhất */
+  .fee-subline{font-size:12px;color:var(--ink);margin-top:6px;line-height:1.5}
+  .fee-subline b{font-weight:700}
+  .fee-subline b.pos{color:var(--green)}
+  .fee-new{display:inline-block;font-size:10px;font-weight:700;color:#fff;background:var(--brand);padding:1px 7px;border-radius:20px;margin-left:6px}
+  .fee-total-line{margin-top:10px;padding-top:9px;border-top:1px dashed #e7d3cc;font-size:13px}
+  .fee-total-line b{color:var(--red);font-size:15px}
+  .fee-detail-toggle[aria-expanded="true"] .caret{transform:rotate(180deg)}
+  /* fee-months: tóm tắt + từng buổi + tiền */
+  .fm-learned{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .fm-learned b{color:var(--ink);font-weight:600}
+  .fm-sess-main{flex:1;min-width:0}
+  .fm-sess-date{font-weight:600;color:var(--ink)}
+  .fm-amt{white-space:nowrap;font-weight:700;color:var(--ink)}
+  .fm-amt.mut{color:var(--muted);font-weight:500}
+  .fm-new{display:inline-block;font-size:9.5px;font-weight:700;color:#fff;background:var(--brand);padding:1px 6px;border-radius:20px;margin-left:6px}
   .fee-unpaid{margin-top:12px;border-top:1px dashed #e7d3cc;padding-top:10px}
   .fee-unpaid-h{font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:5px}
   .fee-unpaid-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:3px 0}

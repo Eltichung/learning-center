@@ -6,6 +6,7 @@ use App\Models\ClassSchedule;
 use App\Models\ClassSession;
 use App\Models\Classroom;
 use App\Models\Student;
+use App\Models\StudentSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -230,15 +231,33 @@ class LookupController extends Controller
                 'owed' => (int) $alloc[$ym]->owed, 'isCurrent' => $ym === $curYm,
             ])->values();
 
+        $feeMonths = $this->feeMonthDetail($student, $monthsDesc->slice(0, $perPage)->all(), $alloc);
+
+        // Tóm tắt tháng hiện tại: số buổi đã học, đơn giá, và buổi phát sinh mới nhất (log).
+        $curDetail = collect($feeMonths)->firstWhere('ym', $curYm);
+        $feeLatest = null;
+        if ($curDetail) {
+            $latest = $curDetail->sessions->where('billable', true)->last(); // sessions cũ→mới ⇒ last = mới nhất
+            if ($latest) {
+                $feeLatest = (object) [
+                    'num' => $latest->num, 'date' => $latest->date,
+                    'amount' => $latest->amount, 'isNew' => $latest->isNew,
+                ];
+            }
+        }
+
         return [
             'feeCurrentLabel' => $this->ymLabel($curYm),
             'feeCurrentShort' => (int) explode('-', $curYm)[1] . '/' . explode('-', $curYm)[0],
             'feeCurrentCharged' => (int) $cur->charged,
             'feeCurrentPaid' => (int) $cur->paid,
             'feeCurrentOwed' => (int) $cur->owed,
+            'feeCurrentAttended' => $curDetail ? (int) $curDetail->attendedCount : 0,
+            'feeCurrentPrice' => $curDetail ? $curDetail->pricePerSession : null,
+            'feeLatest' => $feeLatest,
             'feeUnpaidMonths' => $unpaidMonths,
             'feeTotalOwed' => (int) $unpaidMonths->sum('owed'),
-            'feeMonths' => $this->feeMonthDetail($student, $monthsDesc->slice(0, $perPage)->all(), $alloc),
+            'feeMonths' => $feeMonths,
             'feeHasMore' => $monthsDesc->count() > $perPage,
         ];
     }
@@ -256,7 +275,8 @@ class LookupController extends Controller
             ->whereIn(\DB::raw("DATE_FORMAT(class_sessions.date, '%Y-%m')"), $monthKeys)
             ->orderBy('class_sessions.date')->orderBy('class_sessions.start_time')
             ->get([
-                'student_sessions.status', 'class_sessions.date',
+                'student_sessions.status', 'student_sessions.amount',
+                'student_sessions.created_at', 'class_sessions.date',
                 'class_sessions.start_time', 'class_sessions.end_time',
             ]);
         $byMonth = $rows->groupBy(fn ($r) => Carbon::parse($r->date)->format('Y-m'));
@@ -265,24 +285,43 @@ class LookupController extends Controller
         $out = [];
         foreach ($monthKeys as $ym) {
             $sess = $byMonth->get($ym, collect());
-            $attended = $sess->whereIn('status', ['present', 'makeup'])
-                ->map(fn ($r) => (object) [
+
+            // Danh sách buổi theo thời gian (cũ→mới), đánh số "Buổi N" cho buổi TÍNH TIỀN.
+            $num = 0;
+            $sessions = $sess->map(function ($r) use (&$num) {
+                $billable = in_array($r->status, StudentSession::BILLABLE, true); // present | makeup | absent
+                $n = $billable ? ++$num : null;
+
+                return (object) [
+                    'num' => $n,
                     'date' => Carbon::parse($r->date),
                     'start' => $r->start_time ? Carbon::parse($r->start_time)->format('H:i') : '',
                     'end' => $r->end_time ? Carbon::parse($r->end_time)->format('H:i') : '',
-                    'makeup' => $r->status === 'makeup',
-                ])->values();
-            $absent = $sess->whereIn('status', ['absent', 'excused'])
-                ->map(fn ($r) => (object) [
-                    'date' => Carbon::parse($r->date),
-                    'start' => $r->start_time ? Carbon::parse($r->start_time)->format('H:i') : '',
-                    'excused' => $r->status === 'excused',
-                ])->values();
+                    'status' => $r->status,
+                    'statusLabel' => match ($r->status) {
+                        'makeup' => 'Học bù',
+                        'absent' => 'Vắng (không phép)',
+                        'excused' => 'Vắng có phép — miễn',
+                        default => 'Có mặt',
+                    },
+                    'amount' => (int) $r->amount,
+                    'billable' => $billable,
+                    'isNew' => $r->created_at ? Carbon::parse($r->created_at)->isToday() : false,
+                ];
+            })->values();
+
+            $attendedCount = $sess->whereIn('status', ['present', 'makeup'])->count();
+            // Đơn giá/buổi: nếu các buổi tính tiền (amount>0) cùng một mức giá thì trả giá đó; lệch → null.
+            $prices = $sessions->where('billable', true)->where('amount', '>', 0)->pluck('amount')->unique();
+            $pricePerSession = $prices->count() === 1 ? (int) $prices->first() : null;
+
             $a = $alloc[$ym] ?? (object) ['charged' => 0, 'paid' => 0, 'owed' => 0];
             $out[] = (object) [
                 'ym' => $ym, 'label' => $this->ymLabel($ym), 'isCurrent' => $ym === $curYm,
                 'charged' => (int) $a->charged, 'paid' => (int) $a->paid, 'owed' => (int) $a->owed,
-                'attended' => $attended, 'absent' => $absent,
+                'sessions' => $sessions,
+                'attendedCount' => $attendedCount,
+                'pricePerSession' => $pricePerSession,
             ];
         }
 

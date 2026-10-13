@@ -11,19 +11,18 @@
       </span>
     </button>
     <div class="fm-sum">Phát sinh <b>{{ Money::vnd($m->charged) }}</b> · Đã đóng <b class="g">{{ Money::vnd($m->paid) }}</b> · Còn nợ <b class="{{ $m->owed > 0 ? 'rd' : '' }}">{{ Money::vnd(max($m->owed, 0)) }}</b></div>
+    <div class="fm-learned">Đã học: <b>{{ $m->attendedCount }} buổi</b>@if ($m->pricePerSession) ({{ Money::vnd($m->pricePerSession) }}/buổi)@endif</div>
     <div class="fm-body" hidden>
-      <div class="fm-sec-h g">✓ Đi học · {{ $m->attended->count() }} buổi</div>
-      @forelse ($m->attended as $a)
-        <div class="fm-sess"><span class="fm-dot g"></span>{{ $wd[$a->date->dayOfWeekIso] }}, {{ $a->date->format('d/m') }} · {{ $a->start }}@if ($a->end)–{{ $a->end }}@endif @if ($a->makeup)<span class="fm-tag">học bù</span>@endif</div>
+      @forelse ($m->sessions->reverse() as $s)
+        @php($dot = $s->status === 'absent' ? 'rd' : ($s->status === 'excused' ? 'am' : 'g'))
+        <div class="fm-sess">
+          <span class="fm-dot {{ $dot }}"></span>
+          <span class="fm-sess-main">@if ($s->num)<b>Buổi {{ $s->num }}</b> @endif<span class="fm-sess-date">{{ $wd[$s->date->dayOfWeekIso] }}, {{ $s->date->format('d/m') }}</span> · {{ $s->statusLabel }}@if ($s->isNew)<span class="fm-new">Mới</span>@endif</span>
+          @if ($s->billable)<b class="fm-amt">+{{ Money::vnd($s->amount) }}</b>@else<span class="fm-amt mut">miễn</span>@endif
+        </div>
       @empty
-        <div class="fm-sess r">— Không có buổi đi học —</div>
+        <div class="fm-sess r">— Chưa có buổi học nào —</div>
       @endforelse
-      @if ($m->absent->isNotEmpty())
-        <div class="fm-sec-h rd">✕ Nghỉ · {{ $m->absent->count() }} buổi</div>
-        @foreach ($m->absent as $ab)
-          <div class="fm-sess"><span class="fm-dot {{ $ab->excused ? 'am' : 'rd' }}"></span>{{ $wd[$ab->date->dayOfWeekIso] }}, {{ $ab->date->format('d/m') }} · {{ $ab->start }} — {{ $ab->excused ? 'có phép (miễn)' : 'vắng không phép (tính tiền)' }}</div>
-        @endforeach
-      @endif
     </div>
   </div>
 @empty
