@@ -13,49 +13,37 @@
   @php($qrUrl = optional($student->teacher)->qr_image_path ? asset('storage/'.$student->teacher->qr_image_path) : null)
 
   @if ($showFees ?? true)
-  {{-- Học phí — nợ tháng hiện tại + chi tiết từng tháng --}}
-  <div class="due-card {{ $feeTotalOwed > 0 ? 'has-due' : 'no-due' }}">
+  {{-- Học phí — mặc định chỉ hiện NỢ CÁC THÁNG TRƯỚC; tháng hiện tại (đang diễn ra) nằm trong "Xem chi tiết". --}}
+  <div class="due-card {{ $feePrevOwed > 0 ? 'has-due' : 'no-due' }}">
     <div class="due-total">Học phí</div>
-    @if ($feeTotalOwed > 0)
-      @if ($feeCurrentOwed > 0)
-        {{-- Nợ ngay tháng hiện tại --}}
-        <div class="fee-cur-lbl">⚠️ Học phí đang chờ thanh toán · {{ $feeCurrentShort }}</div>
-        <div class="amt">{{ Money::vnd($feeCurrentOwed) }}</div>
-        <div class="meta">Tổng học phí tháng {{ (int) $feeCurrentShort }}: {{ Money::vnd($feeCurrentCharged) }} · đã đóng {{ Money::vnd($feeCurrentPaid) }}</div>
-      @else
-        {{-- Tháng này đã đủ, chỉ còn nợ các tháng trước (không hiện số lớn, để note bên dưới lo) --}}
-        <div class="fee-cur-ok">✅ Tháng {{ $feeCurrentShort }} đã đóng đủ</div>
-      @endif
-
-      {{-- Dòng phụ: số buổi đã học + log phát sinh mới nhất (để PH hiểu vì sao số tiền tăng) --}}
-      @if ($feeCurrentAttended > 0)
-        <div class="fee-subline">📚 Đã học: <b>{{ $feeCurrentAttended }} buổi</b>@if ($feeCurrentPrice) ({{ Money::vnd($feeCurrentPrice) }}/buổi)@endif</div>
-      @endif
-      @if ($feeLatest)
-        <div class="fee-subline">🆕 Cập nhật mới nhất: <b class="pos">+{{ Money::vnd($feeLatest->amount) }}</b> (Buổi {{ $feeLatest->num }} — {{ $wdFull[$feeLatest->date->dayOfWeekIso] }}, {{ $feeLatest->date->format('d/m/Y') }})@if ($feeLatest->isNew)<span class="fee-new">Mới hôm nay</span>@endif</div>
-      @endif
-
-      @if ($feeUnpaidMonths->count() > 1)
-        <div class="fee-total-line">Tổng còn nợ (gồm tháng trước): <b>{{ Money::vnd($feeTotalOwed) }}</b></div>
-      @endif
-
+    @if ($feePrevOwed > 0)
+      {{-- Các tháng trước chưa đóng (khoản đã chốt cần thanh toán) --}}
+      <div class="fee-prev-h">Học phí các tháng trước chưa đóng</div>
+      <div class="fee-prev">
+        @foreach ($feePrevUnpaidMonths as $um)
+          <div class="fee-prev-row"><span>{{ $um->label }}</span><b>{{ Money::vnd($um->owed) }}</b></div>
+        @endforeach
+        <div class="fee-prev-row total"><span>Tổng cần đóng</span><b>{{ Money::vnd($feePrevOwed) }}</b></div>
+      </div>
     @else
-      <div class="amt no-debt">Đã đóng đủ ✓</div>
+      <div class="fee-prev-ok">✅ Đã đóng đủ các tháng trước</div>
       <div class="meta">Cảm ơn quý phụ huynh!</div>
-      @if ($feeCurrentAttended > 0)
-        <div class="fee-subline">📚 Tháng {{ $feeCurrentShort }} đã học: <b>{{ $feeCurrentAttended }} buổi</b>@if ($feeCurrentPrice) ({{ Money::vnd($feeCurrentPrice) }}/buổi)@endif</div>
-      @endif
+    @endif
+
+    {{-- Gợi ý tháng hiện tại (đang diễn ra) — chi tiết xem khi mở --}}
+    @if ($feeCurrentCharged > 0)
+      <div class="fee-cur-hint"><span>📅 {{ $feeCurrentLabel }} đang diễn ra</span><span>xem chi tiết ↓</span></div>
     @endif
 
     <div class="fee-actions">
-      @if ($qrUrl && $feeTotalOwed > 0)
+      @if ($qrUrl && $feePrevOwed > 0)
         <button type="button" class="due-qr-btn" onclick="openTeacherQr()">💳 Chuyển khoản</button>
       @endif
-      <button type="button" class="fee-detail-toggle" onclick="toggleFeeDetail(this)" aria-expanded="{{ $feeTotalOwed > 0 ? 'true' : 'false' }}">
+      <button type="button" class="fee-detail-toggle" onclick="toggleFeeDetail(this)" aria-expanded="false">
         <span>📄 Lịch sử học phí theo tháng</span><span class="caret">▾</span>
       </button>
     </div>
-    <div class="fee-detail" id="fee-detail" @if ($feeTotalOwed <= 0) hidden @endif>
+    <div class="fee-detail" id="fee-detail" hidden>
       <div id="fee-months" data-url="{{ route('parent.fees.months', $slug) }}">
         @include('parent.partials.fee-months', ['months' => $feeMonths])
       </div>
@@ -208,6 +196,15 @@
   .fee-cur-lbl{font-size:12px;font-weight:600;color:var(--red);margin-top:4px}
   .fee-cur-ok{font-size:12.5px;font-weight:600;color:var(--green);margin-top:4px}
   .due-card .amt{color:var(--red)}
+  /* Nợ các tháng trước (màn thu gọn) */
+  .fee-prev-h{font-size:12px;color:var(--muted);margin:4px 0 2px}
+  .fee-prev-row{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:6px 0}
+  .fee-prev-row b{font-weight:700;color:var(--red)}
+  .fee-prev-row.total{border-top:1px solid #e7d3cc;margin-top:2px;padding-top:9px}
+  .fee-prev-row.total span{font-weight:700;color:var(--ink)}
+  .fee-prev-row.total b{font-size:17px}
+  .fee-prev-ok{font-size:14.5px;font-weight:700;color:var(--green);margin-top:4px}
+  .fee-cur-hint{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);border-top:1px dashed #e7d3cc;margin-top:10px;padding-top:9px}
   /* Dòng phụ: số buổi đã học + log phát sinh mới nhất */
   .fee-subline{font-size:12px;color:var(--ink);margin-top:6px;line-height:1.5}
   .fee-subline b{font-weight:700}
@@ -243,6 +240,9 @@
   .fm-badge{font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
   .fm-badge.due{background:var(--red-soft);color:var(--red)}
   .fm-badge.ok{background:var(--green-soft);color:var(--green)}
+  .fm-badge.cur{background:var(--blue-soft);color:var(--blue)}
+  .fm-card.fm-current{border-color:var(--blue);border-width:1.5px}
+  .fm-cur.live{color:var(--blue);background:var(--blue-soft)}
   .fm-chev{color:var(--muted);transition:transform .15s}
   .fm-head[aria-expanded="true"] .fm-chev{transform:rotate(180deg)}
   .fm-sum{font-size:11.5px;color:var(--muted);margin-top:6px}

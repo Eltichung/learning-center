@@ -231,6 +231,9 @@ class LookupController extends Controller
                 'owed' => (int) $alloc[$ym]->owed, 'isCurrent' => $ym === $curYm,
             ])->values();
 
+        // Nợ CÁC THÁNG TRƯỚC (đã chốt) — tách khỏi tháng hiện tại (còn đang diễn ra).
+        $prevUnpaidMonths = $unpaidMonths->where('isCurrent', false)->values();
+
         $feeMonths = $this->feeMonthDetail($student, $monthsDesc->slice(0, $perPage)->all(), $alloc);
 
         // Tóm tắt tháng hiện tại: số buổi đã học, đơn giá, và buổi phát sinh mới nhất (log).
@@ -257,6 +260,8 @@ class LookupController extends Controller
             'feeLatest' => $feeLatest,
             'feeUnpaidMonths' => $unpaidMonths,
             'feeTotalOwed' => (int) $unpaidMonths->sum('owed'),
+            'feePrevUnpaidMonths' => $prevUnpaidMonths,
+            'feePrevOwed' => (int) $prevUnpaidMonths->sum('owed'),
             'feeMonths' => $feeMonths,
             'feeHasMore' => $monthsDesc->count() > $perPage,
         ];
