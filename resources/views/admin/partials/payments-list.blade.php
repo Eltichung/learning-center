@@ -1,6 +1,6 @@
 <div class="panel"><div class="pb">
   <div class="tablewrap">
-    <table>
+    <table class="cardify">
       <thead><tr>
         <th>Ngày tạo</th>
         <th>GV</th>
@@ -15,19 +15,19 @@
       <tbody>
         @forelse ($orders as $o)
           <tr>
-            <td>{{ $o->created_at->format('d/m H:i') }}</td>
-            <td>
+            <td data-label="Ngày tạo">{{ $o->created_at->format('d/m H:i') }}</td>
+            <td data-label="GV">
               <a href="{{ route('admin.teacher', $o->user_id) }}"><b>{{ $o->user->name }}</b></a>
               <div class="r">{{ $o->user->email }}</div>
             </td>
-            <td>{{ $o->plan->name }}</td>
-            <td>{{ $o->months }}</td>
-            <td class="money">{{ number_format($o->amount,0,',','.') }}đ</td>
-            <td>
+            <td data-label="Gói">{{ $o->plan->name }}</td>
+            <td data-label="Tháng">{{ $o->months }}</td>
+            <td class="money" data-label="Số tiền">{{ number_format($o->amount,0,',','.') }}đ</td>
+            <td data-label="Nội dung CK">
               <code style="font-size:11px" id="code-{{ $o->id }}">{{ $o->code }}</code>
               <button type="button" class="btn ghost sm" style="padding:2px 6px;font-size:11px" onclick="navigator.clipboard.writeText(document.getElementById('code-{{ $o->id }}').textContent)">Copy</button>
             </td>
-            <td>
+            <td data-label="Trạng thái">
               @switch($o->status)
                 @case('pending')<span class="chip a">Chờ</span>@break
                 @case('approved')<span class="chip g">Đã duyệt</span>@break
@@ -35,8 +35,8 @@
                 @case('cancelled')<span class="chip n">Huỷ</span>@break
               @endswitch
             </td>
-            <td>{{ $o->notified_at ? $o->notified_at->format('d/m H:i') : '—' }}</td>
-            <td style="text-align:right">
+            <td data-label="PH đã CK?">{{ $o->notified_at ? $o->notified_at->format('d/m H:i') : '—' }}</td>
+            <td class="cardact" style="text-align:right">
               @if ($o->status === 'pending')
                 <form method="POST" action="{{ route('admin.payment.approve', $o->id) }}" style="display:inline" data-confirm="Duyệt đơn này? Sub của GV sẽ được kích hoạt / cộng thêm {{ $o->months }} tháng." data-refetch="#admin-payments">
                   @csrf

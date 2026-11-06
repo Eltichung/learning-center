@@ -82,16 +82,16 @@
     @if ($recentOrders->isNotEmpty())
     <div class="panel"><div class="ph"><h3>Đơn thanh toán gần đây</h3></div><div class="pb">
       <div class="scrolllist">
-        <table>
+        <table class="cardify">
           <thead><tr><th>Ngày</th><th>Mã</th><th>Gói</th><th>Số tiền</th><th>Trạng thái</th></tr></thead>
           <tbody>
             @foreach ($recentOrders as $o)
               <tr>
-                <td>{{ $o->created_at->format('d/m H:i') }}</td>
-                <td><code style="font-size:11px">{{ $o->code }}</code></td>
-                <td>{{ $o->plan->name }}</td>
-                <td class="money">{{ number_format($o->amount,0,',','.') }}đ</td>
-                <td>
+                <td data-label="Ngày">{{ $o->created_at->format('d/m H:i') }}</td>
+                <td data-label="Mã"><code style="font-size:11px">{{ $o->code }}</code></td>
+                <td data-label="Gói">{{ $o->plan->name }}</td>
+                <td class="money" data-label="Số tiền">{{ number_format($o->amount,0,',','.') }}đ</td>
+                <td data-label="Trạng thái">
                   @switch($o->status)
                     @case('pending')<span class="chip a">Chờ</span>@break
                     @case('approved')<span class="chip g">Đã kích hoạt</span>@break

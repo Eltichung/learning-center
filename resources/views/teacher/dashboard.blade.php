@@ -79,20 +79,20 @@
     <div class="ph"><h3>Buổi học hôm nay</h3><a class="btn ghost sm" href="{{ route('teacher.classes') }}">Xem tất cả lớp</a></div>
     <div class="pb">
         <div class="scrolllist">
-        <table>
+        <table class="cardify">
             <thead><tr><th>Giờ</th><th>Lớp</th><th>Sĩ số</th><th>Trạng thái</th><th></th></tr></thead>
             <tbody>
             @forelse ($todayClasses as $row)
                 <tr>
-                    <td><b>{{ \Illuminate\Support\Carbon::parse($row->start)->format('H:i') }}</b><div class="r">– {{ \Illuminate\Support\Carbon::parse($row->end)->format('H:i') }}</div></td>
-                    <td>{{ $row->class->name }}@if ($row->boost)<span class="chip p" style="margin-left:6px;font-size:11px">Tăng cường</span>@elseif ($row->makeup)<span class="chip b" style="margin-left:6px;font-size:11px">Bù</span>@endif</td>
-                    <td>{{ $row->count }} học sinh</td>
-                    <td>
+                    <td data-label="Giờ"><b>{{ \Illuminate\Support\Carbon::parse($row->start)->format('H:i') }}</b><div class="r">– {{ \Illuminate\Support\Carbon::parse($row->end)->format('H:i') }}</div></td>
+                    <td data-label="Lớp">{{ $row->class->name }}@if ($row->boost)<span class="chip p" style="margin-left:6px;font-size:11px">Tăng cường</span>@elseif ($row->makeup)<span class="chip b" style="margin-left:6px;font-size:11px">Bù</span>@endif</td>
+                    <td data-label="Sĩ số">{{ $row->count }} học sinh</td>
+                    <td data-label="Trạng thái">
                         @if ($row->off)<span class="chip r">{{ $row->holiday ? 'Nghỉ lễ' : 'Nghỉ' }}</span>
                         @elseif ($row->done)<span class="chip g">Đã điểm danh</span>
                         @else<span class="chip a">Chưa điểm danh</span>@endif
                     </td>
-                    <td style="text-align:right">
+                    <td class="cardact" style="text-align:right">
                         <a class="btn {{ $row->done || $row->off ? 'ghost' : 'primary' }} sm" href="{{ route('teacher.attendance', array_filter(['class_id' => $row->class->id, 'session_id' => $row->session_id])) }}">{{ $row->done || $row->off ? 'Xem' : 'Điểm danh' }}</a>
                     </td>
                 </tr>
@@ -117,16 +117,16 @@
   <div class="pb">
     <div class="note" style="margin:0 0 6px">Các buổi này <b>chưa tính tiền vào doanh thu/công nợ</b>. Vào điểm danh để chốt tiền.</div>
     <div class="scrolllist">
-    <table>
+    <table class="cardify">
       <thead><tr><th>Ngày học</th><th>Lớp</th><th>Loại</th><th></th></tr></thead>
       <tbody>
         @foreach ($missedAttendance as $ms)
           @php($wk = \Illuminate\Support\Carbon::parse($ms->date)->startOfWeek()->toDateString())
           <tr>
-            <td><b>{{ \Illuminate\Support\Carbon::parse($ms->date)->format('d/m/Y') }}</b></td>
-            <td>{{ $ms->classroom->name }}</td>
-            <td>{{ $ms->type === 'makeup' ? 'Học bù' : ($ms->type === 'boost' ? 'Tăng cường' : 'Buổi thường') }}</td>
-            <td style="text-align:right">
+            <td data-label="Ngày học"><b>{{ \Illuminate\Support\Carbon::parse($ms->date)->format('d/m/Y') }}</b></td>
+            <td data-label="Lớp">{{ $ms->classroom->name }}</td>
+            <td data-label="Loại">{{ $ms->type === 'makeup' ? 'Học bù' : ($ms->type === 'boost' ? 'Tăng cường' : 'Buổi thường') }}</td>
+            <td class="cardact" style="text-align:right">
               <a class="btn primary sm" href="{{ route('teacher.attendance', ['class_id' => $ms->class_id, 'week' => $wk, 'session_id' => $ms->id]) }}">Điểm danh ngay</a>
             </td>
           </tr>
@@ -146,16 +146,16 @@
   </div>
   <div class="pb">
     <div class="scrolllist">
-    <table>
+    <table class="cardify">
       <thead><tr><th>Ngày nghỉ</th><th>Lớp</th><th>Lý do</th><th></th></tr></thead>
       <tbody>
         @foreach ($pendingMakeups as $off)
           @php($wk = \Illuminate\Support\Carbon::parse($off->date)->startOfWeek()->toDateString())
           <tr>
-            <td><b>{{ \Illuminate\Support\Carbon::parse($off->date)->format('d/m/Y') }}</b></td>
-            <td>{{ $off->classroom->name }}</td>
-            <td class="r">{{ $off->note ?: '—' }}</td>
-            <td style="text-align:right">
+            <td data-label="Ngày nghỉ"><b>{{ \Illuminate\Support\Carbon::parse($off->date)->format('d/m/Y') }}</b></td>
+            <td data-label="Lớp">{{ $off->classroom->name }}</td>
+            <td class="r" data-label="Lý do">{{ $off->note ?: '—' }}</td>
+            <td class="cardact" style="text-align:right">
               <a class="btn primary sm" href="{{ route('teacher.attendance', ['class_id' => $off->class_id, 'week' => $wk, 'session_id' => $off->id]) }}">Xếp lịch bù</a>
             </td>
           </tr>

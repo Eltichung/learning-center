@@ -99,15 +99,15 @@
 </div></div>
 
 <div class="panel"><div class="ph"><h3>Lịch sử đóng tiền</h3></div><div class="pb">
-  <table>
+  <table class="cardify">
     <thead><tr><th>Ngày</th><th>Số tiền</th><th>Hình thức</th><th>Ghi chú</th></tr></thead>
     <tbody>
       @forelse ($student->payments as $p)
         <tr>
-          <td>{{ \Illuminate\Support\Carbon::parse($p->paid_at)->format('d/m/Y') }}</td>
-          <td class="money">{{ Money::vnd($p->amount) }}</td>
-          <td>@if ($p->method === 'transfer')<span class="chip b">Chuyển khoản</span>@else<span class="chip n">Tiền mặt</span>@endif</td>
-          <td class="r">{{ $p->note }}</td>
+          <td data-label="Ngày">{{ \Illuminate\Support\Carbon::parse($p->paid_at)->format('d/m/Y') }}</td>
+          <td class="money" data-label="Số tiền">{{ Money::vnd($p->amount) }}</td>
+          <td data-label="Hình thức">@if ($p->method === 'transfer')<span class="chip b">Chuyển khoản</span>@else<span class="chip n">Tiền mặt</span>@endif</td>
+          <td class="r" data-label="Ghi chú">{{ $p->note }}</td>
         </tr>
       @empty
         <tr><td colspan="4" class="r" style="padding:16px">Chưa có lần đóng tiền nào.</td></tr>
@@ -126,16 +126,16 @@
   </div>
 </div><div class="pb">
   <div class="tablewrap">
-  <table>
+  <table class="cardify">
     <thead><tr><th>Ngày</th><th>Lớp</th><th>Trạng thái</th><th>Thành tiền</th></tr></thead>
     <tbody>
       @forelse ($attendance as $a)
         @php($st = ['present'=>['Có mặt','g'],'makeup'=>['Học bù','b'],'excused'=>['Vắng có phép','a'],'absent'=>['Vắng không phép','r']][$a->status] ?? ['—','n'])
         <tr>
-          <td>{{ $a->date ? \Illuminate\Support\Carbon::parse($a->date)->format('d/m/Y') : '—' }}</td>
-          <td>{{ $a->class }}</td>
-          <td><span class="chip {{ $st[1] }}">{{ $st[0] }}</span></td>
-          <td class="money">{{ $a->amount > 0 ? Money::vnd($a->amount) : '0đ' }}</td>
+          <td data-label="Ngày">{{ $a->date ? \Illuminate\Support\Carbon::parse($a->date)->format('d/m/Y') : '—' }}</td>
+          <td data-label="Lớp">{{ $a->class }}</td>
+          <td data-label="Trạng thái"><span class="chip {{ $st[1] }}">{{ $st[0] }}</span></td>
+          <td class="money" data-label="Thành tiền">{{ $a->amount > 0 ? Money::vnd($a->amount) : '0đ' }}</td>
         </tr>
       @empty
         <tr><td colspan="4" class="r" style="padding:16px">Chưa có buổi học nào được điểm danh.</td></tr>
@@ -148,14 +148,14 @@
 {{-- Nhật ký bật/tắt hoạt động --}}
 @if ($statusLogs->isNotEmpty())
 <div class="panel"><div class="ph"><h3>Lịch sử bật/tắt hoạt động</h3></div><div class="pb">
-  <table>
+  <table class="cardify">
     <thead><tr><th>Thời gian</th><th>Hành động</th><th>Người thực hiện</th></tr></thead>
     <tbody>
       @foreach ($statusLogs as $log)
         <tr>
-          <td>{{ $log->created_at->format('d/m/Y H:i') }}</td>
-          <td>@if ($log->action === 'deactivate')<span class="chip n">Ngừng hoạt động</span>@else<span class="chip g">Kích hoạt lại</span>@endif</td>
-          <td>{{ optional($log->user)->name ?? '—' }}</td>
+          <td data-label="Thời gian">{{ $log->created_at->format('d/m/Y H:i') }}</td>
+          <td data-label="Hành động">@if ($log->action === 'deactivate')<span class="chip n">Ngừng hoạt động</span>@else<span class="chip g">Kích hoạt lại</span>@endif</td>
+          <td data-label="Người thực hiện">{{ optional($log->user)->name ?? '—' }}</td>
         </tr>
       @endforeach
     </tbody>

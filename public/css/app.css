@@ -102,7 +102,7 @@ a{color:inherit}
 .tnav-sub a{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;color:#cbd2e0;text-decoration:none}
 .tnav-sub a:hover{background:#1e212a;color:#fff}
 .tnav-sub a.on{background:var(--brand);color:#fff;font-weight:600}
-.tmain{padding:26px 30px}
+.tmain{padding:26px 30px;min-width:0}
 .pagehead{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px}
 .pagehead h1{font-size:20px;margin:0}
 .pagehead p{margin:3px 0 0;color:var(--muted);font-size:13px}
@@ -474,3 +474,56 @@ button.is-loading,[data-submit].is-loading{opacity:.6;pointer-events:none;cursor
 .tkb-slot .c{color:var(--ink);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tkb-slot .s{color:var(--muted);font-size:11px;margin-top:2px}
 .tkb-empty{color:var(--muted);font-size:11.5px;text-align:center;padding:8px 4px}
+
+/* ===================== Mobile phone (≤640px) ===================== */
+@media(max-width:640px){
+  /* --- Layout chung --- */
+  .tmain{padding:14px}
+  .pagehead{flex-direction:column;align-items:flex-start;gap:10px}
+  .pagehead h1{font-size:18px}
+  .pagehead > .btn,.pagehead > button{width:100%;text-align:center}
+  .panel .ph{flex-wrap:wrap;gap:8px}
+
+  /* Grid nội dung về 1 cột */
+  .twocol,.att-cols,.grid2,.mm-cols{grid-template-columns:1fr}
+
+  /* Filter bar xếp dọc, ô nhập full-width */
+  .filterbar{flex-direction:column;align-items:stretch}
+  .filterbar > *{width:100%}
+  .filterbar .search-box,.filterbar select,.filterbar .btn{width:100%;flex:1 1 auto}
+
+  /* Modal vừa màn hình */
+  .modal{width:94vw;max-width:94vw}
+
+  /* --- Bảng → thẻ xếp dọc (table.cardify) --- */
+  .tablewrap{max-height:none;overflow:visible}
+  table.cardify{display:block;width:100%}
+  table.cardify thead{display:none}
+  table.cardify tbody{display:block}
+  table.cardify tr{display:block;background:#fff;border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;margin-bottom:10px;box-shadow:var(--shadow)}
+  table.cardify td{display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:7px 0;border-bottom:1px solid #f1f2f5;text-align:right}
+  table.cardify tr td:last-child{border-bottom:0}
+  table.cardify td::before{content:attr(data-label);font-weight:600;color:var(--muted);
+    font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;text-align:left;flex:0 0 auto}
+  /* Ô không có data-label → không hiện nhãn */
+  table.cardify td:not([data-label])::before,
+  table.cardify td[data-label=""]::before{display:none}
+  /* Ô tiêu đề thẻ (tên HS/lớp) và ô hành động → full-width, canh trái */
+  table.cardify td.cardhead{display:block;text-align:left;padding-top:2px}
+  table.cardify td.cardhead::before{display:none}
+  table.cardify td.cardhead .stud{width:100%!important}
+  table.cardify td.cardhead .row-acts{margin-left:auto}
+  table.cardify td.cardact{display:block;text-align:left;padding-top:10px}
+  table.cardify td.cardact::before{display:none}
+  /* Dòng trống "không có dữ liệu" (colspan) giữ nguyên */
+  table.cardify td[colspan]{display:block;text-align:center}
+  table.cardify td[colspan]::before{display:none}
+
+  /* --- Điểm danh: mỗi dòng 1 thẻ, nút seg xếp dọc dễ bấm --- */
+  .att-cell{flex-direction:column!important;align-items:stretch!important;gap:10px!important}
+  .attgrid .seg{display:flex;flex-direction:column;width:100%}
+  .attgrid .seg span{border-right:0;border-bottom:1px solid var(--line);padding:11px;text-align:center;font-size:13px}
+  .attgrid .seg span:last-child{border-bottom:0}
+}

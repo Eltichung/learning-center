@@ -5,12 +5,12 @@
     <div class="ph"><h3>Học sinh trong lớp</h3><button class="btn ghost sm" type="button" onclick="openModal('m-addstudent')">+ Thêm</button></div>
     <div class="pb">
       <div class="tablewrap">
-      <table>
+      <table class="cardify">
         <thead><tr><th>Học sinh</th><th>Đơn giá/buổi</th><th>Công nợ lớp này</th></tr></thead>
         <tbody>
           @forelse ($students as $row)
             <tr onclick="location.href='{{ route('teacher.student', $row->student->id) }}'" style="cursor:pointer">
-              <td><div class="stud" style="width:100%"><div class="savatar">{{ $row->student->initials() }}</div>
+              <td class="cardhead"><div class="stud" style="width:100%"><div class="savatar">{{ $row->student->initials() }}</div>
                 <div>{{ $row->student->full_name }}</div>
                 <span class="row-acts">
                   <a class="icon-act" href="{{ route('teacher.student', $row->student->id) }}" data-tip="Chi tiết" onclick="event.stopPropagation()">
@@ -25,14 +25,14 @@
                   </a>
                 </span>
               </div></td>
-              <td class="money">
+              <td class="money" data-label="Đơn giá/buổi">
                 {{ Money::vnd($row->price) }}
                 <a class="icon-act" href="#" data-tip="Sửa đơn giá"
                    onclick='event.stopPropagation(); editPrice(@json($row->student->id), @json($row->student->full_name), @json((int) $row->price)); return false;'>
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 </a>
               </td>
-              <td>
+              <td data-label="Công nợ lớp này">
                 @if ($row->balanceClass > 0)<span class="chip r">−{{ Money::vnd($row->balanceClass) }}</span>
                 @else<span class="chip g">Đã đóng</span>@endif
               </td>
@@ -73,14 +73,14 @@
 {{-- Danh sách buổi trong kỳ --}}
 <div class="panel"><div class="ph"><h3>Các buổi trong {{ $periodLabel }}</h3></div><div class="pb">
   <div class="tablewrap">
-  <table>
+  <table class="cardify">
     <thead><tr><th>Ngày</th><th>Giờ</th><th>Loại</th><th>Điểm danh</th></tr></thead>
     <tbody>
       @forelse ($sessions as $s)
         <tr>
-          <td>{{ \Illuminate\Support\Carbon::parse($s->date)->format('d/m/Y') }}</td>
-          <td>{{ $s->start_time ? \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') : '—' }}</td>
-          <td>
+          <td data-label="Ngày">{{ \Illuminate\Support\Carbon::parse($s->date)->format('d/m/Y') }}</td>
+          <td data-label="Giờ">{{ $s->start_time ? \Illuminate\Support\Carbon::parse($s->start_time)->format('H:i') : '—' }}</td>
+          <td data-label="Loại">
             @switch($s->type)
               @case('off')<span class="chip r">Nghỉ</span>@break
               @case('makeup')<span class="chip b">Học bù</span>@break
@@ -88,7 +88,7 @@
               @default<span class="chip n">Buổi thường</span>
             @endswitch
           </td>
-          <td>
+          <td data-label="Điểm danh">
             @if ($s->type === 'off')<span class="r">—</span>
             @elseif ($s->attendance_submitted_at)<span class="chip g">✓ {{ \Illuminate\Support\Carbon::parse($s->attendance_submitted_at)->format('H:i d/m') }}</span>
             @else<span class="chip a">Chưa điểm danh</span>@endif

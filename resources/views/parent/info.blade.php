@@ -30,8 +30,8 @@
       <div class="meta">Cảm ơn quý phụ huynh!</div>
     @endif
 
-    {{-- Gợi ý tháng hiện tại (đang diễn ra) — chi tiết xem khi mở --}}
-    @if ($feeCurrentCharged > 0)
+    {{-- Gợi ý tháng hiện tại (chỉ khi còn đang diễn ra) — chi tiết xem khi mở --}}
+    @if ($feeOngoing && $feeCurrentCharged > 0)
       <div class="fee-cur-hint"><span>📅 {{ $feeCurrentLabel }} đang diễn ra</span><span>xem chi tiết ↓</span></div>
     @endif
 

@@ -216,6 +216,38 @@ class LookupController extends Controller
         return 'Tháng ' . (int) $m . '/' . $y;
     }
 
+    /**
+     * Tháng hiện tại CÒN ĐANG DIỄN RA? = vẫn còn buổi học (lịch cố định hoặc buổi bù)
+     * từ hôm nay đến hết tháng. Hết buổi rồi thì coi như đã chốt dù chưa sang tháng mới.
+     */
+    private function currentMonthOngoing(Student $student): bool
+    {
+        $today = now()->startOfDay();
+        $eom = now()->endOfMonth()->startOfDay();
+
+        // Các thứ trong tuần có lịch cố định (chỉ lớp còn đang học).
+        $weekdays = [];
+        foreach ($student->classStudents as $cs) {
+            if (($cs->status ?? 'active') !== 'active') {
+                continue;
+            }
+            foreach (optional($cs->classroom)->schedules ?? [] as $sch) {
+                $weekdays[(int) $sch->weekday] = true;
+            }
+        }
+        for ($d = $today->copy(); $d->lte($eom); $d->addDay()) {
+            if (isset($weekdays[$d->dayOfWeekIso])) {
+                return true;
+            }
+        }
+
+        // Hoặc còn buổi học bù (một lần) trong tháng kể từ hôm nay.
+        return ClassSession::whereIn('class_id', $student->classStudents->pluck('class_id'))
+            ->where('type', 'makeup')
+            ->whereBetween('date', [$today->toDateString(), $eom->toDateString()])
+            ->exists();
+    }
+
     /** Tổng quan học phí (phân bổ FIFO) cho card + trang chi tiết. */
     private function feeOverview(Student $student, int $perPage = 5): array
     {
@@ -224,17 +256,19 @@ class LookupController extends Controller
 
         $curYm = now()->format('Y-m');
         $cur = $alloc[$curYm] ?? (object) ['charged' => 0, 'paid' => 0, 'owed' => 0];
+        // Tháng được coi là "đang diễn ra" = tháng hiện tại VÀ còn buổi học sắp tới.
+        $ongoingYm = $this->currentMonthOngoing($student) ? $curYm : null;
 
         $unpaidMonths = $monthsDesc->filter(fn ($ym) => $alloc[$ym]->owed > 0)
             ->map(fn ($ym) => (object) [
                 'ym' => $ym, 'label' => $this->ymLabel($ym),
-                'owed' => (int) $alloc[$ym]->owed, 'isCurrent' => $ym === $curYm,
+                'owed' => (int) $alloc[$ym]->owed, 'isOngoing' => $ym === $ongoingYm,
             ])->values();
 
-        // Nợ CÁC THÁNG TRƯỚC (đã chốt) — tách khỏi tháng hiện tại (còn đang diễn ra).
-        $prevUnpaidMonths = $unpaidMonths->where('isCurrent', false)->values();
+        // Nợ các tháng ĐÃ CHỐT — loại tháng đang diễn ra (tháng đã học xong vẫn được tính vào đây).
+        $prevUnpaidMonths = $unpaidMonths->where('isOngoing', false)->values();
 
-        $feeMonths = $this->feeMonthDetail($student, $monthsDesc->slice(0, $perPage)->all(), $alloc);
+        $feeMonths = $this->feeMonthDetail($student, $monthsDesc->slice(0, $perPage)->all(), $alloc, $ongoingYm);
 
         // Tóm tắt tháng hiện tại: số buổi đã học, đơn giá, và buổi phát sinh mới nhất (log).
         $curDetail = collect($feeMonths)->firstWhere('ym', $curYm);
@@ -250,6 +284,7 @@ class LookupController extends Controller
         }
 
         return [
+            'feeOngoing' => $ongoingYm !== null,
             'feeCurrentLabel' => $this->ymLabel($curYm),
             'feeCurrentShort' => (int) explode('-', $curYm)[1] . '/' . explode('-', $curYm)[0],
             'feeCurrentCharged' => (int) $cur->charged,
@@ -268,7 +303,7 @@ class LookupController extends Controller
     }
 
     /** Chi tiết từng tháng: buổi đi học (ngày/giờ) + buổi nghỉ + tiền (đã phân bổ FIFO). */
-    private function feeMonthDetail(Student $student, array $monthKeys, array $alloc): array
+    private function feeMonthDetail(Student $student, array $monthKeys, array $alloc, ?string $ongoingYm = null): array
     {
         if (empty($monthKeys)) {
             return [];
@@ -286,7 +321,6 @@ class LookupController extends Controller
             ]);
         $byMonth = $rows->groupBy(fn ($r) => Carbon::parse($r->date)->format('Y-m'));
 
-        $curYm = now()->format('Y-m');
         $out = [];
         foreach ($monthKeys as $ym) {
             $sess = $byMonth->get($ym, collect());
@@ -322,7 +356,7 @@ class LookupController extends Controller
 
             $a = $alloc[$ym] ?? (object) ['charged' => 0, 'paid' => 0, 'owed' => 0];
             $out[] = (object) [
-                'ym' => $ym, 'label' => $this->ymLabel($ym), 'isCurrent' => $ym === $curYm,
+                'ym' => $ym, 'label' => $this->ymLabel($ym), 'isOngoing' => $ym === $ongoingYm,
                 'charged' => (int) $a->charged, 'paid' => (int) $a->paid, 'owed' => (int) $a->owed,
                 'sessions' => $sessions,
                 'attendedCount' => $attendedCount,

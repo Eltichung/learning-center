@@ -1,5 +1,5 @@
 <div class="tablewrap">
-<table>
+<table class="cardify">
   <thead><tr><th>Tên lớp</th><th>Loại</th><th>Khối</th><th>Lịch học</th><th>Khai giảng</th><th>Sĩ số</th><th>Trạng thái</th><th></th></tr></thead>
   <tbody>
     @forelse ($classes as $c)
@@ -15,17 +15,17 @@
         'locked' => (int) ($c->submitted_count ?? 0) > 0,
       ])
       <tr>
-        <td><b>{{ $c->name }}</b></td>
-        <td><span class="chip {{ $c->typeChip() }}">{{ $c->typeLabel() }}</span></td>
-        <td>{{ $c->gradeLabel() }}</td>
-        <td>{{ $c->scheduleLabel() }}</td>
-        <td>{{ $c->start_date ? $c->start_date->format('d/m/Y') : '—' }}</td>
-        <td>{{ $c->class_students_count }}</td>
-        <td>
+        <td class="cardhead"><b>{{ $c->name }}</b></td>
+        <td data-label="Loại"><span class="chip {{ $c->typeChip() }}">{{ $c->typeLabel() }}</span></td>
+        <td data-label="Khối">{{ $c->gradeLabel() }}</td>
+        <td data-label="Lịch học">{{ $c->scheduleLabel() }}</td>
+        <td data-label="Khai giảng">{{ $c->start_date ? $c->start_date->format('d/m/Y') : '—' }}</td>
+        <td data-label="Sĩ số">{{ $c->class_students_count }}</td>
+        <td data-label="Trạng thái">
           <span class="chip {{ $c->statusChip() }}">{{ $c->statusLabel() }}</span>
           @if ($c->status === 'paused' && $c->ended_at)<div class="r" style="font-size:11px">KT: {{ $c->ended_at->format('d/m/Y') }}</div>@endif
         </td>
-        <td style="text-align:right;white-space:nowrap">
+        <td class="cardact" style="text-align:right;white-space:nowrap">
           <div class="row-menu-wrap" style="position:relative;display:inline-flex;gap:6px;align-items:center;justify-content:flex-end">
             <a class="btn ghost sm" href="{{ route('teacher.attendance', ['class_id' => $c->id]) }}">Điểm danh</a>
             <a class="btn ghost sm" href="{{ route('teacher.class', $c->id) }}">Chi tiết</a>

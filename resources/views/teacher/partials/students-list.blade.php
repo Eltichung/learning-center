@@ -1,11 +1,11 @@
 @use('App\Support\Money')
 <div class="tablewrap">
-<table>
+<table class="cardify">
   <thead><tr><th>Học sinh</th><th>Lớp</th><th>SĐT phụ huynh</th><th>Mã tra cứu</th><th>Lượt xem</th><th>Công nợ</th><th>Hiện học phí PH</th><th></th></tr></thead>
   <tbody>
     @forelse ($students as $row)
       <tr>
-        <td>
+        <td class="cardhead">
           <div class="stud" style="width:100%"><div class="savatar">{{ $row->student->initials() }}</div>
             <div><b>{{ $row->student->full_name }}</b>@if ($row->student->status !== 'active')<span class="chip n" style="margin-left:6px;font-size:11px">Ngừng HĐ</span>@endif
               <div class="r">{{ $row->grade ? 'Lớp '.$row->grade : '—' }}{{ $row->student->school ? ' · '.$row->student->school : '' }}</div>
@@ -20,18 +20,18 @@
             </span>
           </div>
         </td>
-        <td>{{ $row->classes->pluck('name')->join(', ') ?: '—' }}</td>
-        <td>{{ $row->student->parent_phone ?: '—' }}</td>
-        <td><span class="chip n">{{ $row->student->student_code }}</span></td>
-        <td>
+        <td data-label="Lớp">{{ $row->classes->pluck('name')->join(', ') ?: '—' }}</td>
+        <td data-label="SĐT phụ huynh">{{ $row->student->parent_phone ?: '—' }}</td>
+        <td data-label="Mã tra cứu"><span class="chip n">{{ $row->student->student_code }}</span></td>
+        <td data-label="Lượt xem">
           <b>{{ $row->student->lookup_count }}</b> lượt
           @if ($row->student->last_viewed_at)<div class="r" style="font-size:11px;color:var(--muted)">gần nhất {{ $row->student->last_viewed_at->format('d/m/Y') }}</div>@endif
         </td>
-        <td>
+        <td data-label="Công nợ">
           @if ($row->balance > 0)<span class="chip r">−{{ Money::vnd($row->balance) }}</span>
           @else<span class="chip g">Đã đóng</span>@endif
         </td>
-        <td>
+        <td data-label="Hiện học phí PH">
           <form method="POST" action="{{ route('teacher.students.toggleShowFees', $row->student->id, false) }}"
                 data-optimistic-toggle data-no-reload data-no-toast style="margin:0">
             @csrf @method('PUT')
@@ -44,7 +44,7 @@
             </button>
           </form>
         </td>
-        <td style="text-align:right"><a class="btn ghost sm" href="{{ route('teacher.student', $row->student->id) }}">Chi tiết</a></td>
+        <td class="cardact" style="text-align:right"><a class="btn ghost sm" href="{{ route('teacher.student', $row->student->id) }}">Chi tiết</a></td>
       </tr>
     @empty
       <tr><td colspan="8" class="r" style="padding:18px 16px">Không có học sinh phù hợp bộ lọc.</td></tr>

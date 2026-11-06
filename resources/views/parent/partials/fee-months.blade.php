@@ -1,17 +1,17 @@
 @use('App\Support\Money')
 @php($wd = [1=>'Thứ 2',2=>'Thứ 3',3=>'Thứ 4',4=>'Thứ 5',5=>'Thứ 6',6=>'Thứ 7',7=>'CN'])
 @forelse ($months as $m)
-  <div class="fm-card @if ($m->isCurrent) fm-current @endif">
+  <div class="fm-card @if ($m->isOngoing) fm-current @endif">
     <button type="button" class="fm-head" onclick="toggleFeeMonth(this)" aria-expanded="false">
-      <span class="fm-title">{{ $m->label }}@if ($m->isCurrent)<span class="fm-cur live">đang diễn ra</span>@endif</span>
+      <span class="fm-title">{{ $m->label }}@if ($m->isOngoing)<span class="fm-cur live">đang diễn ra</span>@endif</span>
       <span class="fm-right">
-        @if ($m->isCurrent)<span class="fm-badge cur">Tạm tính {{ Money::short($m->charged) }}</span>
+        @if ($m->isOngoing)<span class="fm-badge cur">Tạm tính {{ Money::short($m->charged) }}</span>
         @elseif ($m->owed > 0)<span class="fm-badge due">Nợ {{ Money::short($m->owed) }}</span>
         @else<span class="fm-badge ok">Đã đủ</span>@endif
         <span class="fm-chev">▾</span>
       </span>
     </button>
-    <div class="fm-sum">Phát sinh <b>{{ Money::vnd($m->charged) }}</b> · Đã đóng <b class="g">{{ Money::vnd($m->paid) }}</b> · {{ $m->isCurrent ? 'Tạm còn nợ' : 'Còn nợ' }} <b class="{{ $m->owed > 0 ? 'rd' : '' }}">{{ Money::vnd(max($m->owed, 0)) }}</b></div>
+    <div class="fm-sum">Phát sinh <b>{{ Money::vnd($m->charged) }}</b> · Đã đóng <b class="g">{{ Money::vnd($m->paid) }}</b> · {{ $m->isOngoing ? 'Tạm còn nợ' : 'Còn nợ' }} <b class="{{ $m->owed > 0 ? 'rd' : '' }}">{{ Money::vnd(max($m->owed, 0)) }}</b></div>
     <div class="fm-learned">Đã học: <b>{{ $m->attendedCount }} buổi</b>@if ($m->pricePerSession) ({{ Money::vnd($m->pricePerSession) }}/buổi)@endif</div>
     <div class="fm-body" hidden>
       @forelse ($m->sessions->reverse() as $s)

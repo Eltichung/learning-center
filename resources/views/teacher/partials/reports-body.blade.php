@@ -16,21 +16,21 @@
     </div>
     <div class="pb">
       <div class="tablewrap">
-      <table>
+      <table class="cardify">
         <thead><tr><th>Học sinh</th><th>Đơn giá/buổi</th><th>Số buổi</th><th>Phát sinh</th><th>Đã thu (tổng)</th><th>Đang nợ</th></tr></thead>
         <tbody>
           @forelse ($r->rows as $row)
             <tr>
-              <td><div class="stud"><div class="savatar">{{ $row->student->initials() }}</div>
+              <td class="cardhead"><div class="stud"><div class="savatar">{{ $row->student->initials() }}</div>
                 <div>
                   <a href="{{ route('teacher.student', $row->student->id) }}" style="font-weight:600;color:var(--ink);text-decoration:none">{{ $row->student->full_name }}</a>
                   <div class="r"><a href="{{ route('teacher.student', $row->student->id) }}" style="color:var(--brand);text-decoration:none">Chi tiết →</a></div>
                 </div></div></td>
-              <td class="money">{{ Money::vnd($row->price) }}</td>
-              <td>{{ $row->sessionsMonth }} buổi</td>
-              <td class="money">{{ Money::vnd($row->chargedMonth) }}</td>
-              <td class="money" style="color:var(--green)">{{ Money::vnd($row->paid) }}</td>
-              <td>
+              <td class="money" data-label="Đơn giá/buổi">{{ Money::vnd($row->price) }}</td>
+              <td data-label="Số buổi">{{ $row->sessionsMonth }} buổi</td>
+              <td class="money" data-label="Phát sinh">{{ Money::vnd($row->chargedMonth) }}</td>
+              <td class="money" style="color:var(--green)" data-label="Đã thu (tổng)">{{ Money::vnd($row->paid) }}</td>
+              <td data-label="Đang nợ">
                 @if ($row->balance > 0)<span class="chip r">−{{ Money::vnd($row->balance) }}</span>
                 @else<span class="chip g">Đã đóng</span>@endif
               </td>

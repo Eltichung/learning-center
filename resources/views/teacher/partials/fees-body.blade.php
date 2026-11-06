@@ -7,12 +7,12 @@
 
 <div class="panel"><div class="ph"><h3>Danh sách học phí ({{ $rows->count() }})</h3></div><div class="pb">
   <div class="tablewrap">
-  <table>
+  <table class="cardify">
     <thead><tr><th>Học sinh</th><th>Số buổi chưa đóng</th><th>Công nợ</th><th>Đã đóng tháng {{ now()->format('m/Y') }}</th><th>Lần đóng gần nhất</th><th></th></tr></thead>
     <tbody>
       @forelse ($rows as $row)
         <tr>
-          <td><div class="stud" style="width:100%"><div class="savatar">{{ $row->student->initials() }}</div>
+          <td class="cardhead"><div class="stud" style="width:100%"><div class="savatar">{{ $row->student->initials() }}</div>
             <div>
               <a href="{{ route('teacher.student', $row->student->id) }}" style="font-weight:700;color:var(--ink);text-decoration:none">{{ $row->student->full_name }}</a>
               <div class="r">{{ $row->student->student_code }}</div>
@@ -25,11 +25,11 @@
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
               </a>
             </span></div></td>
-          <td>{{ $row->paid ? '—' : $row->sessions . ' buổi' }}</td>
-          <td>@if ($row->free)<span class="chip n">Miễn học phí</span>@elseif ($row->paid)<span class="chip g">Đã đóng</span>@else<span class="chip r">−{{ Money::vnd($row->balance) }}</span>@endif</td>
-          <td>@if ($row->paidMonth > 0)<span style="color:var(--green);font-weight:700">{{ Money::vnd($row->paidMonth) }}</span>@else<span class="r">—</span>@endif</td>
-          <td class="r">{{ $row->lastPaid ? \Illuminate\Support\Carbon::parse($row->lastPaid)->format('d/m/Y') : '—' }}</td>
-          <td style="text-align:right;white-space:nowrap">
+          <td data-label="Số buổi chưa đóng">{{ $row->paid ? '—' : $row->sessions . ' buổi' }}</td>
+          <td data-label="Công nợ">@if ($row->free)<span class="chip n">Miễn học phí</span>@elseif ($row->paid)<span class="chip g">Đã đóng</span>@else<span class="chip r">−{{ Money::vnd($row->balance) }}</span>@endif</td>
+          <td data-label="Đã đóng tháng {{ now()->format('m/Y') }}">@if ($row->paidMonth > 0)<span style="color:var(--green);font-weight:700">{{ Money::vnd($row->paidMonth) }}</span>@else<span class="r">—</span>@endif</td>
+          <td class="r" data-label="Lần đóng gần nhất">{{ $row->lastPaid ? \Illuminate\Support\Carbon::parse($row->lastPaid)->format('d/m/Y') : '—' }}</td>
+          <td class="cardact" style="text-align:right;white-space:nowrap">
             <button class="btn ghost sm" type="button" onclick="openMonthly({{ $row->student->id }})">Chi tiết</button>
             @unless ($row->paid)<button class="btn primary sm" type="button" onclick='payFor({{ $row->student->id }}, @json($row->student->full_name), {{ $row->balance }})'>Thu tiền</button>@endunless
           </td>

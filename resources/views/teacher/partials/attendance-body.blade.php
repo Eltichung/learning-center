@@ -156,13 +156,13 @@
           @csrf
           <div class="panel"><div class="pb">
             <div class="tablewrap">
-            <table class="attgrid" id="att-table">
+            <table class="attgrid cardify" id="att-table">
               <thead><tr><th style="width:50%">Học sinh · Điểm danh</th><th style="width:120px">Đơn giá</th><th>Thành tiền</th><th style="width:132px">Nhận xét</th></tr></thead>
               <tbody>
                 @forelse ($rows as $row)
                   <tr data-price="{{ $row->price }}">
-                    <td>
-                      <div style="display:flex;align-items:center;gap:14px">
+                    <td class="cardhead">
+                      <div class="att-cell" style="display:flex;align-items:center;gap:14px">
                         <div class="stud" style="flex:1;min-width:0"><div class="savatar">{{ $row->student->initials() }}</div>{{ $row->student->full_name }}</div>
                         <input type="hidden" name="status[{{ $row->student->id }}]" value="{{ $row->status }}">
                         <div class="seg" style="flex:0 0 auto">
@@ -172,9 +172,9 @@
                         </div>
                       </div>
                     </td>
-                    <td class="money">{{ Money::vnd($row->price) }}</td>
-                    <td class="money thanhtien">{{ Money::vnd($row->price) }}</td>
-                    <td>
+                    <td class="money" data-label="Đơn giá">{{ Money::vnd($row->price) }}</td>
+                    <td class="money thanhtien" data-label="Thành tiền">{{ Money::vnd($row->price) }}</td>
+                    <td class="cardact">
                       @php($sd = \Illuminate\Support\Carbon::parse($session->date)->toDateString())
                       <button type="button" class="cmt-open-btn"
                               data-sid="{{ $row->student->id }}" data-name="{{ $row->student->full_name }}" data-date="{{ $sd }}"
